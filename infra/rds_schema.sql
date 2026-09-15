@@ -41,6 +41,7 @@ CREATE TABLE Point_Transactions (
     FOREIGN KEY (sponsor_id) REFERENCES Sponsors(sponsor_id)
 );
 
+-- Audit Logs
 CREATE TABLE Audit_Logs (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
@@ -49,6 +50,7 @@ CREATE TABLE Audit_Logs (
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE SET NULL
 );
 
+-- Password 
 CREATE TABLE Password (
     password_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL UNIQUE,
