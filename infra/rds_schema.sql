@@ -42,12 +42,12 @@ CREATE TABLE Drivers (
     ) NOT NULL DEFAULT 'Applicant',
     FOREIGN KEY (driver_id)
         REFERENCES Users(user_id) 
-        ON DELETE CASCADE,, 
+        ON DELETE CASCADE,
     CHECK (points_balance >= 0)
 );
 
 -- Sponsors 
-CREATE TABLE Sponsors (s
+CREATE TABLE Sponsors (
     sponsor_id INT PRIMARY KEY,
     company_name VARCHAR(255) NOT NULL,
     email VARCHAR(255), 
