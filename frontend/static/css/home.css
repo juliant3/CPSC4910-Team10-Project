@@ -1,0 +1,89 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f7f3fb;
+    min-height: 100vh;
+}
+
+.navbar {
+    background: linear-gradient(90deg, #6a3093, #a044ff, #ff8c42);
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(80, 20, 120, 0.25);
+}
+
+.navbar .logo {
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.navbar .nav-links {
+    display: flex;
+    gap: 8px;
+}
+
+.navbar .nav-links a {
+    color: white;
+    text-decoration: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    transition: background 0.2s;
+}
+
+.navbar .nav-links a:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.navbar .logout-btn {
+    background: white;
+    color: #6a3093;
+    padding: 9px 18px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: opacity 0.2s;
+}
+
+.navbar .logout-btn:hover {
+    opacity: 0.85;
+}
+
+.hero {
+    max-width: 700px;
+    margin: 70px auto;
+    background: white;
+    padding: 45px 40px;
+    border-radius: 16px;
+    box-shadow: 0 15px 40px rgba(80, 20, 120, 0.15);
+    text-align: center;
+}
+
+.hero h1 {
+    color: #5a2a8a;
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.hero .role-badge {
+    display: inline-block;
+    background: linear-gradient(90deg, #a044ff, #ff8c42);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+.hero p {
+    color: #666;
+    margin-top: 20px;
+    font-size: 15px;
+}
