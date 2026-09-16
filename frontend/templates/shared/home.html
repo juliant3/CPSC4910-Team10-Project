@@ -1,0 +1,13 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+
+<h1>Welcome, {{ username }}</h1>
+
+<p>You are logged in.</p>
+
+<a href="{{ url_for('logout') }}">Logout</a>
+
+{% endblock %}
