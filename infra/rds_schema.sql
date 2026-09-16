@@ -2,10 +2,6 @@
 -- Team 10 
 -- 4910 Fall 2026
 
--- Create Database 
-CREATE DATABASE IF NOT EXISTS GoodDriverDB; 
-USE GoodDriverDB; 
-
 -- Drop tables if they already exist to start fresh
 DROP TABLE IF EXISTS Notifications; 
 DROP TABLE IF EXISTS Order_Items; 
@@ -42,16 +38,16 @@ CREATE TABLE Drivers (
         'Active', 
         'Rejected', 
         'Dropped', 
-        'Inactive', 
+        'Inactive'
     ) NOT NULL DEFAULT 'Applicant',
     FOREIGN KEY (driver_id)
         REFERENCES Users(user_id) 
-        ON DELETE SET NULL, 
+        ON DELETE CASCADE,, 
     CHECK (points_balance >= 0)
 );
 
 -- Sponsors 
-CREATE TABLE Sponsors (
+CREATE TABLE Sponsors (s
     sponsor_id INT PRIMARY KEY,
     company_name VARCHAR(255) NOT NULL,
     email VARCHAR(255), 
@@ -70,7 +66,7 @@ CREATE TABLE Sponsor_Users (
     user_id INT NOT NULL UNIQUE, 
     sponsor_id INT NOT NULL, 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-    FOREIGN KEY 9user_id)
+    FOREIGN KEY (user_id)
         REFERENCES Users(user_id)
         ON DELETE CASCADE, 
     FOREIGN KEY (sponsor_id)
@@ -137,7 +133,7 @@ CREATE TABLE Products (
         ON DELETE CASCADE, 
     CHECK (price_dollars >= 0), 
     CHECK (price_points >= 0), 
-    UNIQUE (sponsor_id, external_product_is)
+    UNIQUE (sponsor_id, external_product_id)
 );
 
 -- Orders
@@ -218,7 +214,7 @@ CREATE TABLE Audit_Logs (
         'Point Change', 
         'Password Change', 
         'Login Attempt'
-    )NOT NULL
+    )NOT NULL,
     action VARCHAR(255) NOT NULL,
     status VARCHAR(100),
     reason VARCHAR(1000),
