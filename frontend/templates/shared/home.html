@@ -4,9 +4,9 @@
 
 {% block content %}
 
-<h1>Welcome, {{ username }}</h1>
+<h1>Welcome, {{ first_name }}!</h1>
 
-<p>You are logged in.</p>
+<p>You are logged in as a {{ role }}.</p>
 
 <a href="{{ url_for('logout') }}">Logout</a>
 
