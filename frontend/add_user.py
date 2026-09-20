@@ -19,7 +19,7 @@ def add_user(email, first_name, last_name, role, password):
             )
             user_id = cursor.lastrowid
 
-            password_hash = generate_password_hash(password)
+            password_hash = generate_password_hash(password, method='pbkdf2:sha256')
             cursor.execute(
                 "INSERT INTO Password (user_id, password_hash) VALUES (%s, %s)",
                 (user_id, password_hash)
