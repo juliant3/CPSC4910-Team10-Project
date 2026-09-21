@@ -1,0 +1,112 @@
+.about-hero {
+    max-width: 700px;
+    margin: 60px auto 20px;
+    background: white;
+    padding: 50px 40px;
+    border-radius: 16px;
+    box-shadow: 0 15px 40px rgba(80, 20, 120, 0.15);
+    text-align: center;
+}
+
+.version-badge {
+    display: inline-block;
+    background: linear-gradient(90deg, #a044ff, #ff8c42);
+    color: white;
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+}
+
+.about-hero h1 {
+    color: #5a2a8a;
+    font-size: 34px;
+    margin: 10px 0;
+}
+
+.tagline {
+    color: #555;
+    font-size: 16px;
+    max-width: 480px;
+    margin: 12px auto 30px;
+    line-height: 1.5;
+}
+
+.meta-row {
+    display: flex;
+    justify-content: center;
+    gap: 50px;
+    border-top: 1px solid #eee;
+    padding-top: 25px;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.meta-label {
+    font-size: 12px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.meta-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #6a3093;
+}
+
+.team-section {
+    max-width: 800px;
+    margin: 20px auto 70px;
+    text-align: center;
+}
+
+.team-section h2 {
+    color: #5a2a8a;
+    font-size: 22px;
+    margin-bottom: 25px;
+}
+
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 20px;
+}
+
+.team-card {
+    background: white;
+    padding: 28px 15px;
+    border-radius: 14px;
+    box-shadow: 0 8px 25px rgba(80, 20, 120, 0.1);
+    transition: transform 0.2s;
+}
+
+.team-card:hover {
+    transform: translateY(-4px);
+}
+
+.avatar {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6a3093, #ff8c42);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.team-card h3 {
+    color: #333;
+    font-size: 15px;
+    margin: 0;
+}

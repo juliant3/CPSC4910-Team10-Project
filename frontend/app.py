@@ -343,7 +343,18 @@ def reset_password():
 def logout():
     session.clear()
     return redirect(url_for("login"))
-
+@app.route("/about")
+def about():
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM Project_Metadata ORDER BY metadata_id DESC LIMIT 1"
+            )
+            metadata = cursor.fetchone()
+    finally:
+        conn.close()
+    return render_template("shared/about.html", metadata=metadata)
 
 if __name__ == "__main__":
     app.run(debug=True)
