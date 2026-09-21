@@ -70,3 +70,11 @@ body {
     font-size: 14px;
     text-align: center;
 }
+.motto { 
+    text-align: center;
+    font-size: 16px;
+    color: #666; 
+    margin-top: -10px; 
+    margin-bottom: 25px;
+    font-style: italic;
+}
