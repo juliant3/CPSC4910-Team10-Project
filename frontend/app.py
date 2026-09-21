@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import pymysql
 import os
 import smtplib
-
+from datetime import timedelta
 from email.message import EmailMessage
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -12,7 +12,7 @@ app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY",
     "change_this_to_a_secure_random_value"
 )
-
+app.permanent_session_lifetime = timedelta(days=14) 
 
 DB_CONFIG = {
     "host": "cpsc4910-f26.cobd8enwsupz.us-east-1.rds.amazonaws.com",
@@ -100,6 +100,7 @@ def login():
 
         email = request.form.get("username", "").strip()
         password = request.form.get("password", "")
+        remember = request.form.get("remember")
 
         conn = get_db()
 
