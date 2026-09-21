@@ -14,7 +14,7 @@
         <a href="#">Catalog</a>
         <a href="#">About</a>
     </div>
-    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    <a href="{{ url_for('logout') }}" onclick="return confirm('Are you sure you want to log out?');">Logout</a>
 </nav>
 
 <div class="hero">
