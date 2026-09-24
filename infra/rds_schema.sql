@@ -28,6 +28,21 @@ CREATE TABLE Users (
         ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Sponsors 
+CREATE TABLE Sponsors (
+    sponsor_id INT PRIMARY KEY,
+    company_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255), 
+    phone VARCHAR(25),
+    point_value DECIMAL(10,4) NOT NULL DEFAULT 0.0100,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    FOREIGN KEY(sponsor_id)
+        REFERENCES Users(user_id)
+        ON DELETE CASCADE, 
+    CHECK (point_value > 0) 
+);
+
+
 -- Drivers 
 CREATE TABLE Drivers (
     driver_id INT PRIMARY KEY,
@@ -43,22 +58,12 @@ CREATE TABLE Drivers (
     FOREIGN KEY (driver_id)
         REFERENCES Users(user_id) 
         ON DELETE CASCADE,
+    FOREIGN KEY (sponsor_id)
+        REFERENCES Sponsors(sponsor_id) 
+        ON DELETE SET NULL
     CHECK (points_balance >= 0)
 );
 
--- Sponsors 
-CREATE TABLE Sponsors (
-    sponsor_id INT PRIMARY KEY,
-    company_name VARCHAR(255) NOT NULL,
-    email VARCHAR(255), 
-    phone VARCHAR(25),
-    point_value DECIMAL(10,4) NOT NULL DEFAULT 0.0100,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    FOREIGN KEY(sponsor_id)
-        REFERENCES Users(user_id)
-        ON DELETE CASCADE, 
-    CHECK (point_value > 0) 
-);
 
 -- Sponsor Users
 CREATE TABLE Sponsor_Users (
