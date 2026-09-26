@@ -74,9 +74,14 @@
             <input
                 type="password"
                 name="new_password"
+                id = "new_password"
                 placeholder="New Password"
                 required
             >
+            <div class = "password-strength">
+                <div id = "strength-bar"></div>
+            </div>
+            <p id = "strength-text"></p>
 
             <input
                 type="password"
@@ -127,5 +132,47 @@
     {% endif %}
 
 </div>
+
+<script>
+    const passwordInput = document.getElementById("new_password");
+    const strengthBar = document.getElementById("strength-bar");
+    const strengthText = document.getElementById("strength-text");
+
+    if (passwordInput) {
+        passwordInput.addEventListener("input", function () {
+            const password = passwordInput.value;
+            let strength = 0;
+
+            if (password.length >= 8) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[a-z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+            if (password.length === 0) {
+                strengthBar.style.width = "0%";
+                strengthText.textContent = "";
+            }
+            else if (strength <= 2) {
+                strengthBar.style.width = "33%";
+                strengthBar.style.backgroundColor = "#dc3545";
+                strengthText.textContent = "Weak password";
+                strengthText.style.color = "#dc3545";
+            }
+            else if (strength <= 4) {
+                strengthBar.style.width = "66%";
+                strengthBar.style.backgroundColor = "#ffc107";
+                strengthText.textContent = "Medium password";
+                strengthText.style.color = "#b38600";
+            }
+            else {
+                strengthBar.style.width = "100%";
+                strengthBar.style.backgroundColor = "#28a745";
+                strengthText.textContent = "Strong password";
+                strengthText.style.color = "#28a745";
+            }
+        });
+    }
+</script>
 
 {% endblock %}
