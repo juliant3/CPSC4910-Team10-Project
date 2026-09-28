@@ -83,14 +83,28 @@ def send_reset_code(email):
 
 @app.route("/")
 def home():
+
     if "user_id" not in session:
         return redirect(url_for("login"))
+
+    role = session["role"].lower()
+
+    if role == "sponsor":
+        return render_template(
+            "sponsor/dashboard.html",
+            first_name=session["first_name"],
+            role=session["role"]
+        )
+
+    if role == "driver":
+        return redirect(url_for("driver_applications"))
 
     return render_template(
         "shared/home.html",
         first_name=session["first_name"],
         role=session["role"]
     )
+
 
 
 @app.route("/login", methods=["GET", "POST"])
