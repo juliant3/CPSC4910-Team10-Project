@@ -1,0 +1,116 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Sponsor Dashboard{% endblock %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+
+<nav class="navbar">
+    <div class="logo">Good Driver Program</div>
+
+    <div class="nav-links">
+        <a href="{{ url_for('home') }}">Home</a>
+        <a href="{{ url_for('sponsor_applications') }}">Applications</a>
+        <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
+        <a href="{{ url_for('about') }}">About</a>
+    </div>
+
+    <a href="{{ url_for('logout') }}"
+       class="logout-btn"
+       onclick="return confirm('Are you sure you want to log out?');">
+        Logout
+    </a>
+</nav>
+
+<div class="dashboard-container">
+
+    <div class="dashboard-header">
+        <span class="role-badge">{{ role }}</span>
+
+        <h1>Welcome, {{ first_name }}!</h1>
+
+        <p>
+            Manage your drivers and send new applications.
+        </p>
+    </div>
+
+    {% if success %}
+        <div class="message success-message">
+            {{ success }}
+        </div>
+    {% endif %}
+
+    {% if error %}
+        <div class="message error-message">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <div class="application-card">
+
+        <div class="card-header">
+            <h2>Send an Application</h2>
+
+            <p>
+                Enter the email address of the driver you want to invite.
+            </p>
+        </div>
+
+        <form method="POST"
+              action="{{ url_for('send_application') }}">
+
+            <div class="form-group">
+
+                <label for="driver_email">
+                    Driver Email
+                </label>
+
+                <input
+                    type="email"
+                    id="driver_email"
+                    name="driver_email"
+                    placeholder="driver@example.com"
+                    required
+                >
+
+            </div>
+
+            <button type="submit" class="primary-button">
+                Send Application
+            </button>
+
+        </form>
+
+    </div>
+
+    <div class="dashboard-links">
+
+        <a href="{{ url_for('sponsor_applications') }}"
+           class="dashboard-link-card">
+
+            <h3>Applications</h3>
+
+            <p>
+                View applications you've sent and their current status.
+            </p>
+
+        </a>
+
+        <a href="{{ url_for('sponsor_drivers') }}"
+           class="dashboard-link-card">
+
+            <h3>My Drivers</h3>
+
+            <p>
+                View and keep track of your current drivers.
+            </p>
+
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}
