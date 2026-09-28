@@ -87,3 +87,276 @@ body {
     margin-top: 20px;
     font-size: 15px;
 }
+
+/* =========================
+   Sponsor / Driver Dashboard
+   ========================= */
+
+.dashboard-wrapper {
+    max-width: 1050px;
+    margin: 60px auto;
+    padding: 0 25px 50px;
+}
+
+.dashboard-header {
+    background: white;
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 15px 40px rgba(80, 20, 120, 0.15);
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.dashboard-header h1 {
+    color: #5a2a8a;
+    font-size: 32px;
+    margin: 12px 0 10px;
+}
+
+.dashboard-header p {
+    color: #666;
+    margin: 0;
+    font-size: 15px;
+}
+
+.dashboard-header .role-badge {
+    display: inline-block;
+    background: linear-gradient(90deg, #a044ff, #ff8c42);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+
+/* Dashboard Cards */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+.dashboard-card {
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 15px 40px rgba(80, 20, 120, 0.12);
+
+    display: flex;
+    flex-direction: column;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 45px rgba(80, 20, 120, 0.18);
+}
+
+.dashboard-card .card-icon {
+    width: 48px;
+    height: 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+
+    background: linear-gradient(
+        135deg,
+        #a044ff,
+        #ff8c42
+    );
+
+    color: white;
+
+    font-size: 22px;
+    font-weight: 700;
+
+    margin-bottom: 20px;
+}
+
+.dashboard-card h2 {
+    color: #5a2a8a;
+    font-size: 21px;
+    margin: 0 0 12px;
+}
+
+.dashboard-card p {
+    color: #666;
+    font-size: 14px;
+    line-height: 1.6;
+
+    margin: 0 0 25px;
+
+    flex-grow: 1;
+}
+
+
+/* Dashboard Buttons */
+
+.dashboard-button {
+    display: inline-block;
+
+    background: linear-gradient(
+        90deg,
+        #a044ff,
+        #ff8c42
+    );
+
+    color: white;
+
+    text-decoration: none;
+
+    text-align: center;
+
+    padding: 11px 18px;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    transition:
+        opacity 0.2s,
+        transform 0.2s;
+}
+
+.dashboard-button:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+
+/* Mobile */
+
+@media (max-width: 850px) {
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-wrapper {
+        margin-top: 35px;
+    }
+
+}
+
+.application-form {
+    margin-top: 30px;
+    text-align: left;
+}
+
+.form-group {
+    margin-bottom: 22px;
+}
+
+.form-group label {
+    display: block;
+    color: #5a2a8a;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.form-group input {
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 13px 14px;
+
+    border: 1px solid #ddd;
+    border-radius: 8px;
+
+    font-family: inherit;
+    font-size: 15px;
+
+    outline: none;
+
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
+}
+
+.form-group input:focus {
+    border-color: #a044ff;
+    box-shadow: 0 0 0 3px rgba(160, 68, 255, 0.12);
+}
+
+.form-error {
+    margin-top: 20px;
+    padding: 12px 15px;
+
+    background: #fff0f0;
+    color: #a33;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+}
+
+.application-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.application-card {
+    background: white;
+    padding: 25px 30px;
+    border-radius: 16px;
+
+    box-shadow: 0 10px 30px rgba(80, 20, 120, 0.10);
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.application-card h2 {
+    color: #5a2a8a;
+    margin: 0 0 6px;
+    font-size: 20px;
+}
+
+.application-card p {
+    color: #666;
+    margin: 0 0 6px;
+}
+
+.application-card small {
+    color: #999;
+}
+
+.application-status {
+    padding: 7px 14px;
+    border-radius: 20px;
+
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status-pending {
+    background: #fff4d9;
+    color: #9a6b00;
+}
+
+.status-accepted {
+    background: #e3f7eb;
+    color: #287a48;
+}
+
+.status-rejected {
+    background: #ffe5e5;
+    color: #a33;
+}
+
+.empty-card {
+    text-align: center;
+}

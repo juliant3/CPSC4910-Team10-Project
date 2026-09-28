@@ -1,0 +1,245 @@
+/* =========================
+   Dashboard
+   ========================= */
+
+.dashboard-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e9f0f6 100%);
+    padding-bottom: 50px;
+}
+
+.dashboard-container {
+    width: min(1100px, 90%);
+    margin: 0 auto;
+}
+
+/* Dashboard navigation */
+
+.dashboard-nav {
+    width: min(1100px, 90%);
+    margin: 0 auto;
+    padding: 22px 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.dashboard-nav .logo {
+    color: #243447;
+    font-size: 20px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.dashboard-nav .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.dashboard-nav a {
+    color: #526273;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.dashboard-nav a:hover {
+    color: #2f6f9f;
+}
+
+.dashboard-nav .logout {
+    color: #a34b4b;
+}
+
+.dashboard-nav .logout:hover {
+    color: #843737;
+}
+
+/* Header */
+
+.dashboard-header {
+    background: white;
+    border-radius: 18px;
+    padding: 35px;
+    margin-top: 15px;
+    margin-bottom: 24px;
+
+    box-shadow: 0 8px 25px rgba(30, 50, 70, 0.08);
+}
+
+.dashboard-header h1 {
+    margin: 12px 0 8px;
+    color: #243447;
+    font-size: 32px;
+}
+
+.dashboard-header p {
+    margin: 0;
+    color: #718096;
+    font-size: 16px;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 6px 13px;
+
+    background: #e8f1f8;
+    color: #326b9d;
+
+    border-radius: 999px;
+
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Main feature */
+
+.feature-card {
+    background: linear-gradient(135deg, #326b9d, #28577f);
+    color: white;
+
+    border-radius: 18px;
+    padding: 32px;
+
+    margin-bottom: 24px;
+
+    box-shadow: 0 10px 28px rgba(50, 107, 157, 0.20);
+}
+
+.feature-card h2 {
+    margin: 0 0 10px;
+    font-size: 25px;
+}
+
+.feature-card p {
+    margin: 0 0 22px;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.6;
+}
+
+/* Dashboard cards */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.dashboard-card {
+    background: white;
+    border-radius: 18px;
+    padding: 26px;
+
+    box-shadow: 0 8px 25px rgba(30, 50, 70, 0.07);
+
+    transition: transform 0.2s ease,
+                box-shadow 0.2s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(30, 50, 70, 0.10);
+}
+
+.dashboard-card h2 {
+    margin: 8px 0 10px;
+    color: #243447;
+    font-size: 23px;
+}
+
+.dashboard-card p {
+    margin: 0;
+    color: #718096;
+    line-height: 1.6;
+}
+
+.card-label {
+    color: #8492a0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+}
+
+/* Buttons */
+
+.dashboard-button {
+    display: inline-block;
+
+    padding: 11px 18px;
+
+    border-radius: 9px;
+
+    background: white;
+    color: #326b9d;
+
+    text-decoration: none;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    transition: background 0.2s ease,
+                transform 0.2s ease;
+}
+
+.dashboard-button:hover {
+    transform: translateY(-1px);
+    background: #f4f8fb;
+}
+
+.dashboard-button.primary {
+    background: #326b9d;
+    color: white;
+}
+
+.dashboard-button.primary:hover {
+    background: #28577f;
+}
+
+/* Driver status */
+
+.status-active {
+    color: #3c8062 !important;
+}
+
+.status-inactive {
+    color: #9a6b35 !important;
+}
+
+.status-pending {
+    color: #9a7b32 !important;
+}
+
+/* Mobile */
+
+@media (max-width: 800px) {
+
+    .dashboard-nav {
+        flex-direction: column;
+        padding: 20px 0;
+    }
+
+    .dashboard-nav .nav-links {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+
+    .dashboard-header {
+        padding: 27px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 27px;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}

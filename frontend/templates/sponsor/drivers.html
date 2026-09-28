@@ -4,100 +4,112 @@
 
 {% block content %}
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}"> <nav class="navbar">
+<div class="logo">
+    Good Driver Program
+</div>
 
-<nav class="navbar">
-    <div class="logo">Good Driver Program</div>
+<div class="nav-links">
 
-    <div class="nav-links">
-        <a href="{{ url_for('home') }}">Home</a>
-        <a href="{{ url_for('sponsor_applications') }}">Applications</a>
-        <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
-        <a href="{{ url_for('about') }}">About</a>
-    </div>
+    <a href="{{ url_for('home') }}">Home</a>
 
-    <a href="{{ url_for('logout') }}"
-       class="logout-btn"
-       onclick="return confirm('Are you sure you want to log out?');">
-        Logout
+    <a href="{{ url_for('sponsor_application') }}">
+        Send Application
     </a>
-</nav>
 
-<div class="dashboard-container">
+    <a href="{{ url_for('sponsor_applications') }}">
+        Applications
+    </a>
 
-    <div class="dashboard-header">
+    <a href="{{ url_for('sponsor_drivers') }}">
+        My Drivers
+    </a>
 
-        <span class="role-badge">Sponsor</span>
+    <a href="{{ url_for('about') }}">About</a>
 
-        <h1>My Drivers</h1>
+</div>
 
-        <p>
-            Keep track of the drivers associated with you.
-        </p>
+<a href="{{ url_for('logout') }}"
+   class="logout-btn">
+    Logout
+</a>
 
-    </div>
+</nav> <div class="dashboard-wrapper">
+<div class="dashboard-header">
 
-    {% if drivers %}
+    <span class="role-badge">
+        Sponsor
+    </span>
 
-        <div class="driver-grid">
+    <h1>
+        My Drivers
+    </h1>
 
-            {% for driver in drivers %}
+    <p>
+        Drivers currently associated with your sponsorship.
+    </p>
 
-                <div class="driver-card">
+</div>
 
-                    <div class="driver-avatar">
-                        {{ driver.first_name[0] }}{{ driver.last_name[0] }}
-                    </div>
 
-                    <h2>
-                        {{ driver.first_name }}
-                        {{ driver.last_name }}
-                    </h2>
+{% if drivers %}
 
-                    <p>
-                        {{ driver.email }}
-                    </p>
+    <div class="dashboard-grid">
 
-                    <div class="driver-details">
+        {% for driver in drivers %}
 
-                        <div>
-                            <span class="application-label">
-                                Joined
-                            </span>
+            <div class="dashboard-card">
 
-                            <span>
-                                {{ driver.joined_date }}
-                            </span>
-                        </div>
-
-                    </div>
-
+                <div class="card-icon">
+                    👤
                 </div>
 
-            {% endfor %}
+                <h2>
+                    {{ driver.first_name }}
+                    {{ driver.last_name }}
+                </h2>
 
-        </div>
+                <p>
+                    {{ driver.email }}
+                </p>
 
-    {% else %}
+                <p>
+                    <strong>Points:</strong>
+                    {{ driver.points_balance }}
+                </p>
 
-        <div class="empty-state">
+                <p>
+                    <strong>Status:</strong>
+                    {{ driver.status }}
+                </p>
 
-            <h3>No drivers yet</h3>
+            </div>
 
-            <p>
-                Once a driver accepts your application,
-                they will appear here.
-            </p>
+        {% endfor %}
 
-            <a href="{{ url_for('home') }}"
-               class="primary-button">
-                Invite a Driver
-            </a>
+    </div>
 
-        </div>
+{% else %}
 
-    {% endif %}
+    <div class="dashboard-card empty-card">
+
+        <h2>
+            No Drivers Yet
+        </h2>
+
+        <p>
+            You don't currently have any drivers
+            associated with your sponsorship.
+        </p>
+
+        <a href="{{ url_for('sponsor_application') }}"
+           class="dashboard-button">
+            Send an Application
+        </a>
+
+    </div>
+
+{% endif %}
 
 </div>
 

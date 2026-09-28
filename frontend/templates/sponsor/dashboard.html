@@ -4,112 +4,140 @@
 
 {% block content %}
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}"> <nav class="navbar">
+<div class="logo">
+    Good Driver Program
+</div>
 
-<nav class="navbar">
-    <div class="logo">Good Driver Program</div>
+<div class="nav-links">
 
-    <div class="nav-links">
-        <a href="{{ url_for('home') }}">Home</a>
-        <a href="{{ url_for('sponsor_applications') }}">Applications</a>
-        <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
-        <a href="{{ url_for('about') }}">About</a>
-    </div>
-
-    <a href="{{ url_for('logout') }}"
-       class="logout-btn"
-       onclick="return confirm('Are you sure you want to log out?');">
-        Logout
+    <a href="{{ url_for('home') }}">
+        Home
     </a>
-</nav>
 
-<div class="dashboard-container">
+    <a href="{{ url_for('sponsor_applications') }}">
+        Send Application
+    </a>
 
-    <div class="dashboard-header">
-        <span class="role-badge">{{ role }}</span>
+    <a href="{{ url_for('sponsor_applications') }}">
+        Applications
+    </a>
 
-        <h1>Welcome, {{ first_name }}!</h1>
+    <a href="{{ url_for('sponsor_drivers') }}">
+        My Drivers
+    </a>
+
+    <a href="{{ url_for('about') }}">
+        About
+    </a>
+
+</div>
+
+<a href="{{ url_for('logout') }}"
+   class="logout-btn"
+   onclick="return confirm('Are you sure you want to log out?');">
+    Logout
+</a>
+
+</nav> <div class="dashboard-wrapper">
+<div class="dashboard-header">
+
+    <span class="role-badge">
+        {{ role }}
+    </span>
+
+    <h1>
+        Welcome, {{ first_name }}!
+    </h1>
+
+    <p>
+        Manage your drivers and applications
+        for the Good Driver Program.
+    </p>
+
+</div>
+
+
+<div class="dashboard-grid">
+
+
+    <!-- Send Application -->
+
+    <div class="dashboard-card">
+
+        <div class="card-icon">
+            +
+        </div>
+
+        <h2>
+            Send an Application
+        </h2>
 
         <p>
-            Manage your drivers and send new applications.
+            Invite a driver to join your Good Driver
+            Program by sending an application to
+            their email address.
         </p>
-    </div>
-
-    {% if success %}
-        <div class="message success-message">
-            {{ success }}
-        </div>
-    {% endif %}
-
-    {% if error %}
-        <div class="message error-message">
-            {{ error }}
-        </div>
-    {% endif %}
-
-    <div class="application-card">
-
-        <div class="card-header">
-            <h2>Send an Application</h2>
-
-            <p>
-                Enter the email address of the driver you want to invite.
-            </p>
-        </div>
-
-        <form method="POST"
-              action="{{ url_for('send_application') }}">
-
-            <div class="form-group">
-
-                <label for="driver_email">
-                    Driver Email
-                </label>
-
-                <input
-                    type="email"
-                    id="driver_email"
-                    name="driver_email"
-                    placeholder="driver@example.com"
-                    required
-                >
-
-            </div>
-
-            <button type="submit" class="primary-button">
-                Send Application
-            </button>
-
-        </form>
-
-    </div>
-
-    <div class="dashboard-links">
 
         <a href="{{ url_for('sponsor_applications') }}"
-           class="dashboard-link-card">
-
-            <h3>Applications</h3>
-
-            <p>
-                View applications you've sent and their current status.
-            </p>
-
+        class="dashboard-button">
+            Send an Application
         </a>
 
-        <a href="{{ url_for('sponsor_drivers') }}"
-           class="dashboard-link-card">
 
-            <h3>My Drivers</h3>
+    </div>
 
-            <p>
-                View and keep track of your current drivers.
-            </p>
 
+    <!-- Applications -->
+
+    <div class="dashboard-card">
+
+        <div class="card-icon">
+            ✓
+        </div>
+
+        <h2>
+            Applications
+        </h2>
+
+        <p>
+            View applications you've sent and keep
+            track of their current status.
+        </p>
+
+        <a href="{{ url_for('sponsor_applications') }}"
+           class="dashboard-button">
+            View Applications
         </a>
 
     </div>
+
+
+    <!-- Drivers -->
+
+    <div class="dashboard-card">
+
+        <div class="card-icon">
+            👥
+        </div>
+
+        <h2>
+            My Drivers
+        </h2>
+
+        <p>
+            View the drivers currently associated
+            with your sponsorship.
+        </p>
+
+        <a href="{{ url_for('sponsor_drivers') }}"
+           class="dashboard-button">
+            View Drivers
+        </a>
+
+    </div>
+
+</div>
 
 </div>
 

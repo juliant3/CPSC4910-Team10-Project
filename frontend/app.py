@@ -89,22 +89,72 @@ def home():
 
     role = session["role"].lower()
 
+    # -----------------------------------------
+    # Sponsor home page
+    # -----------------------------------------
     if role == "sponsor":
+
         return render_template(
             "sponsor/dashboard.html",
             first_name=session["first_name"],
             role=session["role"]
         )
 
+    # -----------------------------------------
+    # Driver home page
+    # -----------------------------------------
     if role == "driver":
-        return redirect(url_for("driver_applications"))
+
+        conn = get_db()
+
+        try:
+            with conn.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT
+                        Sponsors.company_name
+                    FROM Drivers
+
+                    JOIN Driver_Applications
+                        ON Drivers.driver_id =
+                           Driver_Applications.driver_id
+
+                    JOIN Sponsors
+                        ON Driver_Applications.sponsor_id =
+                           Sponsors.sponsor_id
+
+                    WHERE Drivers.driver_id = %s
+                      AND Driver_Applications.status = 'Pending'
+
+                    ORDER BY Driver_Applications.application_date DESC
+
+                    LIMIT 1
+                    """,
+                    (session["user_id"],)
+                )
+
+                sponsor = cursor.fetchone()
+
+        finally:
+            conn.close()
+
+        return render_template(
+            "shared/home.html",
+            first_name=session["first_name"],
+            role=session["role"],
+            sponsor=sponsor
+        )
+
+    # -----------------------------------------
+    # Other roles
+    # -----------------------------------------
 
     return render_template(
         "shared/home.html",
         first_name=session["first_name"],
         role=session["role"]
     )
-
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -370,11 +420,8 @@ def about():
         conn.close()
     return render_template("shared/about.html", metadata=metadata)
 
-if __name__ == "__main__":
-    app.run(debug=True)
 
-
-@app.route("/sponsor/applications")
+@app.route("/sponsor/applications", methods=["GET", "POST"])
 def sponsor_applications():
 
     if "user_id" not in session:
@@ -388,6 +435,119 @@ def sponsor_applications():
     try:
         with conn.cursor() as cursor:
 
+            if request.method == "POST":
+
+                driver_email = request.form.get(
+                    "driver_email",
+                    ""
+                ).strip().lower()
+
+                if not driver_email:
+                    return render_template(
+                        "sponsor/applications.html",
+                        first_name=session["first_name"],
+                        role=session["role"],
+                        applications=[],
+                        error="Please enter a driver's email address."
+                    )
+
+                # Find the driver.
+                cursor.execute(
+                    """
+                    SELECT
+                        Drivers.driver_id,
+                        Users.first_name,
+                        Users.last_name,
+                        Users.email
+                    FROM Drivers
+                    JOIN Users
+                        ON Drivers.driver_id = Users.user_id
+                    WHERE LOWER(Users.email) = %s
+                    """,
+                    (driver_email,)
+                )
+
+                driver = cursor.fetchone()
+
+                if not driver:
+                    return render_template(
+                        "sponsor/applications.html",
+                        first_name=session["first_name"],
+                        role=session["role"],
+                        applications=[],
+                        error="No driver was found with that email address."
+                    )
+
+                sponsor_id = session["user_id"]
+
+                # Make sure the sponsor actually exists.
+                cursor.execute(
+                    """
+                    SELECT sponsor_id
+                    FROM Sponsors
+                    WHERE sponsor_id = %s
+                    """,
+                    (sponsor_id,)
+                )
+
+                sponsor = cursor.fetchone()
+
+                if not sponsor:
+                    return render_template(
+                        "sponsor/applications.html",
+                        first_name=session["first_name"],
+                        role=session["role"],
+                        applications=[],
+                        error="Your account is not associated with a sponsor."
+                    )
+
+                # Prevent duplicate pending applications.
+                cursor.execute(
+                    """
+                    SELECT application_id
+                    FROM Driver_Applications
+                    WHERE driver_id = %s
+                      AND sponsor_id = %s
+                      AND status = 'Pending'
+                    """,
+                    (
+                        driver["driver_id"],
+                        sponsor_id
+                    )
+                )
+
+                existing = cursor.fetchone()
+
+                if existing:
+                    return render_template(
+                        "sponsor/applications.html",
+                        first_name=session["first_name"],
+                        role=session["role"],
+                        applications=[],
+                        error="There is already a pending application for this driver."
+                    )
+
+                # Create application.
+                cursor.execute(
+                    """
+                    INSERT INTO Driver_Applications
+                        (driver_id, sponsor_id, status)
+                    VALUES
+                        (%s, %s, 'Pending')
+                    """,
+                    (
+                        driver["driver_id"],
+                        sponsor_id
+                    )
+                )
+
+                conn.commit()
+
+                return redirect(
+                    url_for("sponsor_applications")
+                )
+
+            # Load sponsor's applications.
             cursor.execute(
                 """
                 SELECT
@@ -403,18 +563,14 @@ def sponsor_applications():
 
                 FROM Driver_Applications
 
-                JOIN Sponsors
-                    ON Driver_Applications.sponsor_id =
-                       Sponsors.sponsor_id
-
                 JOIN Drivers
                     ON Driver_Applications.driver_id =
                        Drivers.driver_id
 
                 JOIN Users
-                    ON Drivers.user_id = Users.user_id
+                    ON Drivers.driver_id = Users.user_id
 
-                WHERE Sponsors.user_id = %s
+                WHERE Driver_Applications.sponsor_id = %s
 
                 ORDER BY Driver_Applications.application_date DESC
                 """,
@@ -451,30 +607,22 @@ def sponsor_drivers():
             cursor.execute(
                 """
                 SELECT
+                    Drivers.driver_id,
+                    Drivers.points_balance,
+                    Drivers.status,
+
                     Users.first_name,
                     Users.last_name,
-                    Users.email,
+                    Users.email
 
-                    Driver_Applications.decision_date
-                        AS joined_date
-
-                FROM Driver_Applications
-
-                JOIN Sponsors
-                    ON Driver_Applications.sponsor_id =
-                       Sponsors.sponsor_id
-
-                JOIN Drivers
-                    ON Driver_Applications.driver_id =
-                       Drivers.driver_id
+                FROM Drivers
 
                 JOIN Users
-                    ON Drivers.user_id = Users.user_id
+                    ON Drivers.driver_id = Users.user_id
 
-                WHERE Sponsors.user_id = %s
-                  AND Driver_Applications.status = 'Accepted'
+                WHERE Drivers.sponsor_id = %s
 
-                ORDER BY Driver_Applications.decision_date DESC
+                ORDER BY Users.last_name, Users.first_name
                 """,
                 (session["user_id"],)
             )
@@ -490,3 +638,73 @@ def sponsor_drivers():
         role=session["role"],
         drivers=drivers
     )
+
+
+@app.route("/sponsor/dashboard")
+def sponsor_dashboard():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    return render_template(
+        "sponsor/dashboard.html",
+        first_name=session["first_name"],
+        role=session["role"]
+    )
+
+
+@app.route("/driver/dashboard")
+def driver_dashboard():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "driver":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    Drivers.driver_id,
+                    Drivers.points_balance,
+                    Drivers.status,
+                    Sponsors.company_name AS sponsor_name,
+                    Sponsors.email AS sponsor_email
+
+                FROM Drivers
+
+                LEFT JOIN Sponsors
+                    ON Drivers.sponsor_id = Sponsors.sponsor_id
+
+                WHERE Drivers.driver_id = %s
+                """,
+                (session["user_id"],)
+            )
+
+            driver = cursor.fetchone()
+
+    finally:
+        conn.close()
+
+    if not driver:
+        return redirect(url_for("logout"))
+
+    return render_template(
+        "driver/dashboard.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        driver=driver
+    )
+
+
+
+if __name__ == "__main__":
+    app.run(debug=True)

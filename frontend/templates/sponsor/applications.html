@@ -4,139 +4,106 @@
 
 {% block content %}
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}"> <nav class="navbar">
+<div class="logo">
+    Good Driver Program
+</div>
 
-<nav class="navbar">
-    <div class="logo">Good Driver Program</div>
+<div class="nav-links">
+    <a href="{{ url_for('home') }}">Home</a>
+    <a href="{{ url_for('sponsor_applications') }}">Applications</a>
+    <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
+    <a href="{{ url_for('about') }}">About</a>
+</div>
 
-    <div class="nav-links">
-        <a href="{{ url_for('home') }}">Home</a>
-        <a href="{{ url_for('sponsor_applications') }}">Applications</a>
-        <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
-        <a href="{{ url_for('about') }}">About</a>
+<a href="{{ url_for('logout') }}"
+   class="logout-btn"
+   onclick="return confirm('Are you sure you want to log out?');">
+    Logout
+</a>
+
+</nav> <div class="hero">
+<span class="role-badge">Sponsor</span>
+
+<h1>Send an Application</h1>
+
+<p>
+    Enter the email address of the driver you would like
+    to invite to your Good Driver Program.
+</p>
+
+{% if error %}
+    <div class="form-error">
+        {{ error }}
+    </div>
+{% endif %}
+
+{% if success %}
+    <div class="form-success">
+        {{ success }}
+    </div>
+{% endif %}
+
+<form method="POST"
+      action="{{ url_for('sponsor_applications') }}"
+      class="application-form">
+
+    <div class="form-group">
+
+        <label for="driver_email">
+            Driver Email
+        </label>
+
+        <input
+            type="email"
+            id="driver_email"
+            name="driver_email"
+            placeholder="driver@example.com"
+            required
+        >
+
     </div>
 
-    <a href="{{ url_for('logout') }}"
-       class="logout-btn"
-       onclick="return confirm('Are you sure you want to log out?');">
-        Logout
-    </a>
-</nav>
+    <button type="submit"
+            class="dashboard-button">
+        Send Application
+    </button>
 
-<div class="dashboard-container">
+</form>
 
-    <div class="dashboard-header">
+</div> <div class="hero">
+<h1>Your Applications</h1>
 
-        <span class="role-badge">Sponsor</span>
+{% if applications %}
 
-        <h1>Applications</h1>
+    {% for application in applications %}
 
-        <p>
-            Track the applications you have sent to drivers.
-        </p>
+        <div class="application-card">
 
-    </div>
-
-    {% if applications %}
-
-        {% for application in applications %}
-
-            <div class="application-card">
-
-                <div class="application-info">
-
-                    <div>
-                        <span class="application-label">
-                            Driver
-                        </span>
-
-                        <h3>
-                            {{ application.driver_first_name }}
-                            {{ application.driver_last_name }}
-                        </h3>
-
-                        <p>
-                            {{ application.driver_email }}
-                        </p>
-                    </div>
-
-                    <div>
-                        <span class="application-label">
-                            Status
-                        </span>
-
-                        <span class="status-badge status-{{ application.status|lower }}">
-                            {{ application.status }}
-                        </span>
-                    </div>
-
-                </div>
-
-                <div class="application-details">
-
-                    <div>
-                        <span class="application-label">
-                            Application Date
-                        </span>
-
-                        <span>
-                            {{ application.application_date }}
-                        </span>
-                    </div>
-
-                    {% if application.decision_date %}
-
-                        <div>
-                            <span class="application-label">
-                                Decision Date
-                            </span>
-
-                            <span>
-                                {{ application.decision_date }}
-                            </span>
-                        </div>
-
-                    {% endif %}
-
-                    {% if application.reason %}
-
-                        <div>
-                            <span class="application-label">
-                                Reason
-                            </span>
-
-                            <span>
-                                {{ application.reason }}
-                            </span>
-                        </div>
-
-                    {% endif %}
-
-                </div>
-
-            </div>
-
-        {% endfor %}
-
-    {% else %}
-
-        <div class="empty-state">
-
-            <h3>No applications yet</h3>
+            <h3>
+                {{ application.driver_first_name }}
+                {{ application.driver_last_name }}
+            </h3>
 
             <p>
-                You haven't sent any driver applications.
+                {{ application.driver_email }}
             </p>
 
-            <a href="{{ url_for('home') }}"
-               class="primary-button">
-                Send an Application
-            </a>
+            <span class="role-badge">
+                {{ application.status }}
+            </span>
 
         </div>
 
-    {% endif %}
+    {% endfor %}
+
+{% else %}
+
+    <p>
+        You have not sent any applications yet.
+    </p>
+
+{% endif %}
 
 </div>
 
