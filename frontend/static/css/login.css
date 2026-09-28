@@ -138,3 +138,33 @@ body {
     opacity: 0.7;
     background: none;
 }
+
+.login-container .password-wrapper {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.login-container .password-wrapper input[type="password"],
+.login-container .password-wrapper input[type="text"] {
+    margin-bottom: 0;
+    padding-right: 65px;
+}
+
+.login-container .toggle-password {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto;
+    padding: 6px 10px;
+    background: none;
+    color: #6a3093;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+}
+
+.login-container .toggle-password:hover {
+    background: #f1e9fb;
+    opacity: 1;
+}
