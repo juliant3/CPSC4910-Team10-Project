@@ -358,3 +358,63 @@ def about():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+@app.route("/sponsor/applications")
+def sponsor_applications():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    Driver_Applications.application_id,
+                    Driver_Applications.application_date,
+                    Driver_Applications.status,
+                    Driver_Applications.decision_date,
+                    Driver_Applications.reason,
+
+                    Users.first_name AS driver_first_name,
+                    Users.last_name AS driver_last_name,
+                    Users.email AS driver_email
+
+                FROM Driver_Applications
+
+                JOIN Sponsors
+                    ON Driver_Applications.sponsor_id =
+                       Sponsors.sponsor_id
+
+                JOIN Drivers
+                    ON Driver_Applications.driver_id =
+                       Drivers.driver_id
+
+                JOIN Users
+                    ON Drivers.user_id = Users.user_id
+
+                WHERE Sponsors.user_id = %s
+
+                ORDER BY Driver_Applications.application_date DESC
+                """,
+                (session["user_id"],)
+            )
+
+            applications = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "sponsor/applications.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        applications=applications
+    )
