@@ -418,3 +418,61 @@ def sponsor_applications():
         role=session["role"],
         applications=applications
     )
+
+
+@app.route("/sponsor/drivers")
+def sponsor_drivers():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    Users.first_name,
+                    Users.last_name,
+                    Users.email,
+
+                    Driver_Applications.decision_date
+                        AS joined_date
+
+                FROM Driver_Applications
+
+                JOIN Sponsors
+                    ON Driver_Applications.sponsor_id =
+                       Sponsors.sponsor_id
+
+                JOIN Drivers
+                    ON Driver_Applications.driver_id =
+                       Drivers.driver_id
+
+                JOIN Users
+                    ON Drivers.user_id = Users.user_id
+
+                WHERE Sponsors.user_id = %s
+                  AND Driver_Applications.status = 'Accepted'
+
+                ORDER BY Driver_Applications.decision_date DESC
+                """,
+                (session["user_id"],)
+            )
+
+            drivers = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "sponsor/drivers.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        drivers=drivers
+    )
