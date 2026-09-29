@@ -713,8 +713,227 @@ def driver_dashboard():
         role=session["role"],
         driver=driver
     )
+@app.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "POST":
+
+        role = request.form["role"]
+        first_name = request.form["first_name"].strip()
+        last_name = request.form["last_name"].strip()
+        email = request.form["email"].strip().lower()
+
+        password = request.form["password"]
+        confirm_password = request.form["confirm_password"]
+
+        company_name = request.form.get("company_name", "").strip()
+        phone = request.form.get("phone", "").strip()
 
 
+        # ----------------------------
+        # Validate account type
+        # ----------------------------
+
+        if role not in ["Driver", "Sponsor"]:
+            return render_template(
+                "shared/register.html",
+                error="Please select a valid account type."
+            )
+
+
+        # ----------------------------
+        # Validate passwords
+        # ----------------------------
+
+        if password != confirm_password:
+            return render_template(
+                "shared/register.html",
+                error="Passwords do not match."
+            )
+
+
+        # ----------------------------
+        # Password requirements
+        # ----------------------------
+
+        if len(password) < 8:
+            return render_template(
+                "shared/register.html",
+                error="Password must be at least 8 characters."
+            )
+
+
+        # ----------------------------
+        # Sponsor needs company name
+        # ----------------------------
+
+        if role == "Sponsor" and not company_name:
+            return render_template(
+                "shared/register.html",
+                error="Company name is required for Sponsor accounts."
+            )
+
+
+        conn = get_db()
+
+        try:
+
+            with conn.cursor() as cursor:
+
+                # ----------------------------
+                # Check if email already exists
+                # ----------------------------
+
+                cursor.execute(
+                    """
+                    SELECT user_id
+                    FROM Users
+                    WHERE email = %s
+                    """,
+                    (email,)
+                )
+
+                existing_user = cursor.fetchone()
+
+                if existing_user:
+
+                    return render_template(
+                        "shared/register.html",
+                        error="An account with this email already exists."
+                    )
+
+
+                # ----------------------------
+                # Create Users record
+                # ----------------------------
+
+                cursor.execute(
+                    """
+                    INSERT INTO Users
+                        (email, first_name, last_name, role)
+                    VALUES
+                        (%s, %s, %s, %s)
+                    """,
+                    (
+                        email,
+                        first_name,
+                        last_name,
+                        role
+                    )
+                )
+
+
+                # Get the new user ID
+                user_id = cursor.lastrowid
+
+
+                # ----------------------------
+                # Hash and store password
+                # ----------------------------
+
+                password_hash = generate_password_hash(password)
+
+                cursor.execute(
+                    """
+                    INSERT INTO Password
+                        (user_id, password_hash)
+                    VALUES
+                        (%s, %s)
+                    """,
+                    (
+                        user_id,
+                        password_hash
+                    )
+                )
+
+
+                # ============================
+                # DRIVER ACCOUNT
+                # ============================
+
+                if role == "Driver":
+
+                    cursor.execute(
+                        """
+                        INSERT INTO Drivers
+                            (driver_id)
+                        VALUES
+                            (%s)
+                        """,
+                        (user_id,)
+                    )
+
+
+                # ============================
+                # SPONSOR ACCOUNT
+                # ============================
+
+                elif role == "Sponsor":
+
+                    cursor.execute(
+                        """
+                        INSERT INTO Sponsors
+                            (
+                                sponsor_id,
+                                company_name,
+                                email,
+                                phone
+                            )
+                        VALUES
+                            (%s, %s, %s, %s)
+                        """,
+                        (
+                            user_id,
+                            company_name,
+                            email,
+                            phone if phone else None
+                        )
+                    )
+
+
+                    # Link the user to the sponsor
+                    cursor.execute(
+                        """
+                        INSERT INTO Sponsor_Users
+                            (user_id, sponsor_id)
+                        VALUES
+                            (%s, %s)
+                        """,
+                        (
+                            user_id,
+                            user_id
+                        )
+                    )
+
+
+            # Everything worked
+            conn.commit()
+
+
+        except Exception as e:
+
+            conn.rollback()
+
+            print("Registration error:", e)
+
+            return render_template(
+                "shared/register.html",
+                error="There was a problem creating your account."
+            )
+
+
+        finally:
+
+            conn.close()
+
+
+        # Account successfully created
+        return redirect(url_for("login"))
+
+
+    # GET request
+    return render_template("shared/register.html")
 
 if __name__ == "__main__":
     app.run(debug=True)
+

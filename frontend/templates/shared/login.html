@@ -135,6 +135,16 @@
             <button type="submit">Log In</button>
         </form>
 
+        <a href="{{ url_for('register') }}" class="create-account-btn">
+            Create Account
+        </a>
+
+        <p>
+            <a href="{{ url_for('forgot_password') }}">
+                Forgot Password?
+            </a>
+        </p>
+
         <p>
             <a href="{{ url_for('forgot_password') }}">
                 Forgot Password?

@@ -60,7 +60,7 @@ CREATE TABLE Drivers (
         ON DELETE CASCADE,
     FOREIGN KEY (sponsor_id)
         REFERENCES Sponsors(sponsor_id) 
-        ON DELETE SET NULL
+        ON DELETE SET NULL,
     CHECK (points_balance >= 0)
 );
 

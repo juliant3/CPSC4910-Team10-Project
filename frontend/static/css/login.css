@@ -168,3 +168,19 @@ body {
     background: #f1e9fb;
     opacity: 1;
 }
+
+.create-account-btn {
+    display: block;
+    width: 100%;
+    margin-top: 15px;
+    padding: 12px;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 6px;
+    border: 1px solid #333;
+    box-sizing: border-box;
+}
+
+.create-account-btn:hover {
+    opacity: 0.8;
+}
