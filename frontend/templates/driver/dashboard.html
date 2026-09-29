@@ -2,9 +2,13 @@
 
 {% block title %}Driver Dashboard{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
 {% block content %}
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}"> <nav class="navbar">
+<nav class="navbar">
 <div class="logo">
     Good Driver Program
 </div>

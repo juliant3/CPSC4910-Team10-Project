@@ -2,10 +2,13 @@
 
 {% block title %}About{% endblock %}
 
-{% block content %}
+{% block head %}
 
 <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/about.css') }}">
+{% endblock %}
+
+{% block content %} 
 
 <nav class="navbar">
     <div class="logo">Good Driver Program</div>
