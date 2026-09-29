@@ -412,13 +412,23 @@ def about():
     conn = get_db()
     try:
         with conn.cursor() as cursor:
+            #get project metadata
             cursor.execute(
                 "SELECT * FROM Project_Metadata ORDER BY metadata_id DESC LIMIT 1"
             )
             metadata = cursor.fetchone()
+            #count drivers
+            cursor.execute("SELECT COUNT(*) AS count FROM Drivers")
+            driver_count = cursor.fetchone()["count"]
+            #count sponsors
+            cursor.execute("SELECT COUNT(*) AS count FROM Sponsors")
+            sponsor_count = cursor.fetchone()["count"]
+            #count rewards
+            cursor.execute("SELECT COUNT(*) AS count FROM Orders")
+            rewards_count = cursor.fetchone()["count"]
     finally:
         conn.close()
-    return render_template("shared/about.html", metadata=metadata)
+    return render_template("shared/about.html", metadata=metadata, driver_count = driver_count, sponsor_count = sponsor_count, rewards_count = rewards_count)
 
 
 @app.route("/sponsor/applications", methods=["GET", "POST"])

@@ -55,6 +55,24 @@
             <h3>Jack Stivers</h3>
         </div>
     </div>
+<div class = "program-stats">
+    <div class = "stat"> 
+        <strong>{{driver_count}}</strong>
+        <span>Drivers</span>
+    </div>
+    <div class="stat">
+            <strong>{{ sponsor_count }}</strong>
+            <span>Sponsors</span>
+        </div>
+
+        <div class="stat">
+            <strong>{{ "{:,}".format(rewards_count) }}</strong>
+            <span>Rewards Redeemed</span>
+        </div>
+
+    </div>
+
 </div>
+
 
 {% endblock %}

@@ -110,3 +110,28 @@
     font-size: 15px;
     margin: 0;
 }
+
+.program-stats {
+    display: flex;
+    justify-content: center;
+    gap: 80px;
+    margin-top: 50px;
+    padding-top: 30px;
+    border-top: 1px solid #ddd;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stat strong {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.stat span {
+    margin-top: 5px;
+    font-size: 0.95rem;
+}
