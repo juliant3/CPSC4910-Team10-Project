@@ -11,7 +11,7 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ec2-18-215-157-218.compute-1.amazonaws.com
+          host: cpsc4910team10truckingproject.org
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
