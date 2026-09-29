@@ -34,6 +34,7 @@ CREATE TABLE Sponsors (
     company_name VARCHAR(255) NOT NULL,
     email VARCHAR(255), 
     phone VARCHAR(25),
+    invite_code VARCHAR(5) UNIQUE,
     point_value DECIMAL(10,4) NOT NULL DEFAULT 0.0100,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     FOREIGN KEY(sponsor_id)

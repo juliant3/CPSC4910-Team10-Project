@@ -728,6 +728,7 @@ def register():
 
         company_name = request.form.get("company_name", "").strip()
         phone = request.form.get("phone", "").strip()
+        invite_code = request.form.get("invite_code", "").strip()
 
 
         # ----------------------------
@@ -779,6 +780,31 @@ def register():
         try:
 
             with conn.cursor() as cursor:
+                #-----------------------------
+                # Validate driver invite code
+                #-----------------------------
+                sponsor = None
+                if role == "Driver": 
+                    if not invite_code: 
+                        return render_template(
+                            "shared/register.html",
+                             error="A Sponsor invite code is required for Driver accounts."
+                        )
+                    cursor.execute(
+                        """
+                        SELECT sponsor_is
+                        FROM Sponsors
+                        WHERE invite_code = %s
+                        AND is_active = True
+                        """, 
+                        (invite_code,)
+                    )
+                    sponsor = cursor.fetchone()
+                    if not sponsor: 
+                        return render_template(
+                            "shared/register.html", 
+                            error = "Invalid sponsor invite code."
+                        )
 
                 # ----------------------------
                 # Check if email already exists
@@ -856,11 +882,12 @@ def register():
                     cursor.execute(
                         """
                         INSERT INTO Drivers
-                            (driver_id)
+                            (driver_id, sponsor_id)
                         VALUES
-                            (%s)
+                            (%s, %s)
                         """,
-                        (user_id,)
+                        (user_id,
+                        sponsor["sponsor_id"])
                     )
 
 

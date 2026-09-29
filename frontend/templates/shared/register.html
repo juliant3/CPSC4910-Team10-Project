@@ -29,6 +29,16 @@
             <option value="Driver">Driver</option>
             <option value="Sponsor">Sponsor</option>
         </select>
+        <div id="driver-fields" style="display: none;">
+
+            <input
+                type="text"
+                name="invite_code"
+                id="invite_code"
+                placeholder="Sponsor Invite Code"
+                >
+
+            </div>
 
 
         <input
@@ -152,24 +162,40 @@ function showRoleFields() {
 
     const role = document.getElementById("role").value;
 
+    const driverFields = document.getElementById("driver-fields");
+
+
     const sponsorFields =
         document.getElementById("sponsor-fields");
+    
+    const inviteCode = document.getElementById("invite_code");
 
     const companyName =
         document.getElementById("company_name");
+    
+    if (role == "Driver"){ 
+        driver.Fields.style.display = "block"; 
+        sponsorFields.style.display = "none"; 
+        inviteCode.required = true; 
+        companyName.required = false; 
+    }
 
 
-    if (role === "Sponsor") {
+    else if (role === "Sponsor") {
 
+        driverFields.style.display = "none"; 
         sponsorFields.style.display = "block";
 
         companyName.required = true;
+        inviteCode.required = false; 
 
     } else {
 
+        driverFields.style.display = "none";
         sponsorFields.style.display = "none";
 
         companyName.required = false;
+        inviteCode.required = false; 
 
     }
 }
