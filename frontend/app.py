@@ -33,6 +33,19 @@ def get_db():
         cursorclass=pymysql.cursors.DictCursor
     )
 
+def get_login_stats():
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) AS c FROM Drivers")
+            driver_count = cursor.fetchone()["c"]
+
+            cursor.execute("SELECT COUNT(*) AS c FROM Sponsors")
+            sponsor_count = cursor.fetchone()["c"]
+    finally:
+        conn.close()
+    return driver_count, sponsor_count
+
 
 def send_reset_code(email):
     """
@@ -199,17 +212,23 @@ def login():
             session["role"] = user["role"]
 
             return redirect(url_for("home"))
-
+        
+        driver_count, sponsor_count = get_login_stats()
         return render_template(
             "shared/login.html",
             error="Invalid email or password.",
-            step="login"
+            step="login",
+            driver_count=driver_count,
+            sponsor_count=sponsor_count
         )
 
-    return render_template(
-        "shared/login.html",
-        step="login"
-    )
+        driver_count, sponsor_count = get_login_stats()
+        return render_template(
+            "shared/login.html",
+            step="login",
+            driver_count=driver_count,
+            sponsor_count=sponsor_count
+        )
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])

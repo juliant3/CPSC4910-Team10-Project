@@ -112,18 +112,14 @@
 
 {% else %}
 
-<div class="login-side">
-    <h2>Welcome to Drivers Advantage</h2>
-    <p>Pedal to the Points. Your miles. Your Rewards. Your Advantage.</p>
-    <div class="login-stats">
-        <div class="stat">
-            <strong>1,240+</strong>
-            <span>Active Drivers</span>
-        </div>
-        <div class="stat">
-            <strong>38</strong>
-            <span>Sponsor Fleets</span>
-        </div>
+<div class="login-stats">
+    <div class="stat">
+        <strong>{{ driver_count }}</strong>
+        <span>Active Drivers</span>
+    </div>
+    <div class="stat">
+        <strong>{{ sponsor_count }}</strong>
+        <span>Sponsor Fleets</span>
     </div>
 </div>
 
