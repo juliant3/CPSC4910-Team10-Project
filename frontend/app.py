@@ -222,13 +222,13 @@ def login():
             sponsor_count=sponsor_count
         )
 
-        driver_count, sponsor_count = get_login_stats()
-        return render_template(
-            "shared/login.html",
-            step="login",
-            driver_count=driver_count,
-            sponsor_count=sponsor_count
-        )
+    driver_count, sponsor_count = get_login_stats()
+    return render_template(
+        "shared/login.html",
+        step="login",
+        driver_count=driver_count,
+        sponsor_count=sponsor_count
+    )
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])
