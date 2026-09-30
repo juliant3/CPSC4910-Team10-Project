@@ -336,6 +336,7 @@ def forgot_password():
         step="email"
     )
 
+
 @app.route("/apply/<token>", methods=["GET", "POST"])
 def apply(token):
 
@@ -350,6 +351,7 @@ def apply(token):
                     application_id,
                     applicant_email,
                     driver_id,
+                    sponsor_id,
                     status
                 FROM Driver_Applications
                 WHERE token = %s
@@ -371,17 +373,45 @@ def apply(token):
                     error="This application has already been submitted or decided."
                 )
 
+            # Load the sponsor's custom questions for this application.
+            cursor.execute(
+                """
+                SELECT question_id, question_text, is_required
+                FROM Sponsor_Questions
+                WHERE sponsor_id = %s
+                ORDER BY display_order
+                """,
+                (application["sponsor_id"],)
+            )
+
+            questions = cursor.fetchall()
+
             if request.method == "POST":
 
                 first_name = request.form.get("first_name", "").strip()
                 last_name = request.form.get("last_name", "").strip()
+                date_of_birth = request.form.get("date_of_birth", "").strip()
+                address = request.form.get("address", "").strip()
 
-                if not first_name or not last_name:
+                if not first_name or not last_name or not date_of_birth or not address:
                     return render_template(
                         "shared/apply.html",
                         email=application["applicant_email"],
-                        error="Please enter your first and last name."
+                        questions=questions,
+                        error="Please fill out all required fields."
                     )
+
+                # Validate any required custom questions were answered.
+                for q in questions:
+                    if q["is_required"]:
+                        answer = request.form.get(f"question_{q['question_id']}", "").strip()
+                        if not answer:
+                            return render_template(
+                                "shared/apply.html",
+                                email=application["applicant_email"],
+                                questions=questions,
+                                error="Please answer all required questions."
+                            )
 
                 cursor.execute(
                     """
@@ -389,15 +419,37 @@ def apply(token):
                     SET
                         status = 'Submitted',
                         applicant_first_name = %s,
-                        applicant_last_name = %s
+                        applicant_last_name = %s,
+                        applicant_dob = %s,
+                        applicant_address = %s
                     WHERE application_id = %s
                     """,
                     (
                         first_name,
                         last_name,
+                        date_of_birth,
+                        address,
                         application["application_id"]
                     )
                 )
+
+                # Save answers to any custom questions.
+                for q in questions:
+                    answer = request.form.get(f"question_{q['question_id']}", "").strip()
+                    if answer:
+                        cursor.execute(
+                            """
+                            INSERT INTO Application_Answers
+                                (application_id, question_id, answer_text)
+                            VALUES
+                                (%s, %s, %s)
+                            """,
+                            (
+                                application["application_id"],
+                                q["question_id"],
+                                answer
+                            )
+                        )
 
                 conn.commit()
 
@@ -408,7 +460,8 @@ def apply(token):
 
             return render_template(
                 "shared/apply.html",
-                email=application["applicant_email"]
+                email=application["applicant_email"],
+                questions=questions
             )
 
     finally:
