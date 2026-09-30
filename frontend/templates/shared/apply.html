@@ -1,0 +1,47 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Apply{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+<div class="login-page-wrapper" style="display: flex; align-items: center; justify-content: center;">
+{% block content %}
+
+<div class="login-container">
+
+    {% if error %}
+        <h1>Application Link</h1>
+        <div class="error">{{ error }}</div>
+        <p><a href="{{ url_for('login') }}">Back to Login</a></p>
+
+    {% elif submitted %}
+        <h1>Application Submitted</h1>
+        <p>Thanks! Your sponsor will review your application and follow up by email.</p>
+
+    {% else %}
+        <h1>Complete Your Application</h1>
+        <p class="motto">You've been invited to join Drivers Advantage.</p>
+
+        <form method="POST" action="{{ url_for('apply', token=request.view_args.token) }}">
+            <input
+                type="text"
+                name="first_name"
+                placeholder="First Name"
+                required
+            >
+            <input
+                type="text"
+                name="last_name"
+                placeholder="Last Name"
+                required
+            >
+            <button type="submit">Submit Application</button>
+        </form>
+    {% endif %}
+
+</div>
+
+{% endblock %}
+</div>

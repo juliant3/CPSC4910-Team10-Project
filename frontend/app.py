@@ -336,6 +336,83 @@ def forgot_password():
         step="email"
     )
 
+@app.route("/apply/<token>", methods=["GET", "POST"])
+def apply(token):
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    application_id,
+                    applicant_email,
+                    driver_id,
+                    status
+                FROM Driver_Applications
+                WHERE token = %s
+                """,
+                (token,)
+            )
+
+            application = cursor.fetchone()
+
+            if not application:
+                return render_template(
+                    "shared/apply.html",
+                    error="This invitation link is invalid or has expired."
+                )
+
+            if application["status"] != "Pending":
+                return render_template(
+                    "shared/apply.html",
+                    error="This application has already been submitted or decided."
+                )
+
+            if request.method == "POST":
+
+                first_name = request.form.get("first_name", "").strip()
+                last_name = request.form.get("last_name", "").strip()
+
+                if not first_name or not last_name:
+                    return render_template(
+                        "shared/apply.html",
+                        email=application["applicant_email"],
+                        error="Please enter your first and last name."
+                    )
+
+                cursor.execute(
+                    """
+                    UPDATE Driver_Applications
+                    SET
+                        status = 'Submitted',
+                        applicant_first_name = %s,
+                        applicant_last_name = %s
+                    WHERE application_id = %s
+                    """,
+                    (
+                        first_name,
+                        last_name,
+                        application["application_id"]
+                    )
+                )
+
+                conn.commit()
+
+                return render_template(
+                    "shared/apply.html",
+                    submitted=True
+                )
+
+            return render_template(
+                "shared/apply.html",
+                email=application["applicant_email"]
+            )
+
+    finally:
+        conn.close()
 
 @app.route("/verify-reset-code", methods=["POST"])
 def verify_reset_code():
