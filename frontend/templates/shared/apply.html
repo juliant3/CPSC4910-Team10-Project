@@ -1,0 +1,83 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Apply{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="login-page-wrapper" style="display: flex; align-items: center; justify-content: center; padding: 40px 0;">
+
+<div class="login-container" style="max-width: 460px;">
+
+    {% if error %}
+        <h1>Application Link</h1>
+        <div class="error">{{ error }}</div>
+        {% if not questions %}
+            <p><a href="{{ url_for('login') }}">Back to Login</a></p>
+        {% endif %}
+    {% endif %}
+
+    {% if submitted %}
+        <h1>Application Submitted</h1>
+        <p>Thanks! Your sponsor will review your application and follow up by email.</p>
+
+    {% elif not submitted and (email or questions) %}
+        <h1>Complete Your Application</h1>
+        <p class="motto">You've been invited to join Drivers Advantage.</p>
+
+        <form method="POST" action="{{ request.path }}">
+            <input
+                type="text"
+                name="first_name"
+                placeholder="First Name"
+                required
+            >
+            <input
+                type="text"
+                name="last_name"
+                placeholder="Last Name"
+                required
+            >
+            <label style="display: block; text-align: left; font-size: 13px; color: #555; margin-bottom: 4px;">
+                Date of Birth
+            </label>
+            <input
+                type="date"
+                name="date_of_birth"
+                required
+            >
+            <input
+                type="text"
+                name="address"
+                placeholder="Home Address"
+                required
+            >
+
+            {% if questions %}
+                <div style="border-top: 1px dashed #E3DEEC; margin: 20px 0; padding-top: 16px;">
+                    {% for q in questions %}
+                        <label style="display: block; text-align: left; font-size: 13px; color: #555; margin-bottom: 4px;">
+                            {{ q.question_text }}{% if q.is_required %} *{% endif %}
+                        </label>
+                        <input
+                            type="text"
+                            name="question_{{ q.question_id }}"
+                            {% if q.is_required %}required{% endif %}
+                            style="margin-bottom: 14px;"
+                        >
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <button type="submit">Submit Application</button>
+        </form>
+    {% endif %}
+
+</div>
+
+</div>
+
+{% endblock %}

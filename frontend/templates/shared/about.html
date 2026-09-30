@@ -2,13 +2,16 @@
 
 {% block title %}About{% endblock %}
 
-{% block content %}
+{% block head %}
 
 <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/about.css') }}">
+{% endblock %}
+
+{% block content %} 
 
 <nav class="navbar">
-    <div class="logo">Good Driver Program</div>
+    <a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">Good Driver Program</a>
     <div class="nav-links">
         <a href="{{ url_for('home') }}">Home</a>
         <a href="#">My Points</a>
@@ -44,7 +47,7 @@
         </div>
         <div class="team-card">
             <div class="avatar">OP</div>
-            <h3>Olivia Pagen</h3>
+            <h3>Olivia Pagan</h3>
         </div>
         <div class="team-card">
             <div class="avatar">ZL</div>
@@ -55,6 +58,24 @@
             <h3>Jack Stivers</h3>
         </div>
     </div>
+<div class = "program-stats">
+    <div class = "stat"> 
+        <strong>{{driver_count}}</strong>
+        <span>Drivers</span>
+    </div>
+    <div class="stat">
+            <strong>{{ sponsor_count }}</strong>
+            <span>Sponsors</span>
+        </div>
+
+        <div class="stat">
+            <strong>{{ "{:,}".format(rewards_count) }}</strong>
+            <span>Rewards Redeemed</span>
+        </div>
+
+    </div>
+
 </div>
+
 
 {% endblock %}

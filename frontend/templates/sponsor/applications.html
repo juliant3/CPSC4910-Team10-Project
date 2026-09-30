@@ -1,0 +1,206 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Applications{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<nav class="navbar">
+<a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
+    Good Driver Program
+</a>
+
+
+<div class="nav-links">
+<a href="{{ url_for('home') }}">Home</a>
+<a href="{{ url_for('sponsor_applications') }}">Applications</a>
+<a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
+<a href="{{ url_for('about') }}">About</a>
+</div>
+
+<a href="{{ url_for('logout') }}"
+class="logout-btn"
+onclick="return confirm('Are you sure you want to log out?');">
+    Logout
+</a>
+
+</nav> <div class="hero">
+<span class="role-badge">Sponsor</span>
+
+<h1>Send an Application</h1>
+
+<p>
+    Enter the email address of the driver you would like
+    to invite to your Good Driver Program.
+</p>
+
+{% if error %}
+<div class="form-error">
+        {{ error }}
+</div>
+{% endif %}
+
+{% if success %}
+<div class="form-success">
+        {{ success }}
+</div>
+{% endif %}
+
+<form method="POST"
+action="{{ url_for('sponsor_applications') }}"
+class="application-form">
+
+<div class="form-group">
+
+<label for="driver_email">
+            Driver Email
+</label>
+
+<input
+type="email"
+id="driver_email"
+name="driver_email"
+placeholder="driver@example.com"
+required
+>
+
+</div>
+
+<button type="submit"
+class="dashboard-button">
+        Send Application
+</button>
+
+</form>
+
+</div>
+
+<div class="hero">
+<h1>Your Applications</h1>
+
+{% if applications %}
+
+    {% for application in applications %}
+
+<div class="application-card" style="flex-direction: column; align-items: stretch; text-align: left;">
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>
+            {% if application.driver_first_name %}
+                {{ application.driver_first_name }} {{ application.driver_last_name }}
+            {% elif application.applicant_first_name %}
+                {{ application.applicant_first_name }} {{ application.applicant_last_name }}
+            {% else %}
+                {{ application.applicant_email }}
+            {% endif %}
+        </h3>
+        <span class="role-badge">{{ application.status }}</span>
+    </div>
+
+    <p>{{ application.driver_email or application.applicant_email }}</p>
+
+    {% if application.applicant_dob or application.applicant_address %}
+    <p style="font-size: 13px; color: #6B6478; margin-top: 8px;">
+        {% if application.applicant_dob %}<strong>DOB:</strong> {{ application.applicant_dob }}<br>{% endif %}
+        {% if application.applicant_address %}<strong>Address:</strong> {{ application.applicant_address }}{% endif %}
+    </p>
+    {% endif %}
+
+    {% if application.answers %}
+    <div style="border-top: 1px dashed #E3DEEC; margin-top: 12px; padding-top: 12px;">
+        {% for a in application.answers %}
+            <p style="font-size: 13px; margin: 4px 0;"><strong>{{ a.question_text }}</strong> — {{ a.answer_text }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if application.status == "Submitted" %}
+    <div style="display: flex; gap: 10px; margin-top: 14px;">
+        <form method="POST" action="{{ url_for('accept_application', application_id=application.application_id) }}" style="flex: 1;">
+            <button type="submit" class="dashboard-button" style="width: 100%; background: #2F7D5C;">Accept</button>
+        </form>
+        <form method="POST" action="{{ url_for('reject_application', application_id=application.application_id) }}" style="flex: 1;">
+            <button type="submit" class="dashboard-button" style="width: 100%; background: #A3413A;">Reject</button>
+        </form>
+    </div>
+    {% endif %}
+
+</div>
+
+    {% endfor %}
+
+{% else %}
+
+<p>
+        You have not sent any applications yet.
+</p>
+
+{% endif %}
+
+</div>
+
+<div class="hero">
+<h1>Application Questions</h1>
+
+<p>
+    These questions will be shown to drivers when they apply,
+    in addition to name, date of birth, and address, which are
+    always required.
+</p>
+
+<form method="POST"
+action="{{ url_for('sponsor_questions') }}"
+class="application-form">
+
+<div class="form-group">
+<label for="question_text">New Question</label>
+<input
+type="text"
+id="question_text"
+name="question_text"
+placeholder="e.g. What state is your CDL issued in?"
+required
+>
+</div>
+
+<label style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 14px;">
+<input type="checkbox" name="is_required" style="width: auto;">
+    Required question
+</label>
+
+<button type="submit" class="dashboard-button">
+    Add Question
+</button>
+
+</form>
+
+{% if questions %}
+    <div class="application-list" style="margin-top: 24px;">
+        {% for q in questions %}
+        <div class="application-card">
+            <div>
+                <h3>{{ q.question_text }}</h3>
+                <p>{{ "Required" if q.is_required else "Optional" }}</p>
+            </div>
+            <form method="POST"
+                  action="{{ url_for('delete_sponsor_question', question_id=q.question_id) }}"
+                  onsubmit="return confirm('Delete this question?');">
+                <button type="submit" class="dashboard-button" style="background: #A3413A;">
+                    Delete
+                </button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p style="margin-top: 20px;">
+        You haven't added any custom questions yet.
+    </p>
+{% endif %}
+
+</div>
+
+{% endblock %}

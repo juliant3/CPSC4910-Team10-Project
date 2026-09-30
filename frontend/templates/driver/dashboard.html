@@ -1,0 +1,140 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Driver Dashboard{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<nav class="navbar">
+<a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
+    Good Driver Program
+</a>
+
+<div class="nav-links">
+
+    <a href="{{ url_for('home') }}">
+        Home
+    </a>
+
+    <a href="#">
+        My Points
+    </a>
+
+    <a href="#">
+        Catalog
+    </a>
+
+    <a href="{{ url_for('about') }}">
+        About
+    </a>
+
+</div>
+
+<a href="{{ url_for('logout') }}"
+   class="logout-btn"
+   onclick="return confirm('Are you sure you want to log out?');">
+    Logout
+</a>
+
+</nav> <div class="dashboard-wrapper">
+<div class="dashboard-header">
+
+    <span class="role-badge">
+        Driver
+    </span>
+
+    <h1>
+        Welcome, {{ first_name }}!
+    </h1>
+
+    <p>
+        Welcome to the Good Driver Program.
+    </p>
+
+</div>
+
+
+<div class="dashboard-grid">
+
+
+    <!-- Sponsor -->
+
+    <div class="dashboard-card">
+
+        <div class="card-icon">
+            ★
+        </div>
+
+        <h2>
+            Your Sponsor
+        </h2>
+
+        {% if driver.sponsor_name %}
+
+            <p>
+                {{ driver.sponsor_name }}
+            </p>
+
+        {% else %}
+
+            <p>
+                No sponsor assigned.
+            </p>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- Points -->
+
+    <div class="dashboard-card">
+
+        <div class="card-icon">
+            ★
+        </div>
+
+        <h2>
+            My Points
+        </h2>
+
+        <p>
+            You currently have
+            <strong>{{ driver.points_balance }}</strong>
+            points.
+        </p>
+
+        <a href="#"
+           class="dashboard-button">
+            View Points
+        </a>
+
+    </div>
+
+
+    <!-- Status -->
+
+    <div class="dashboard-card">
+
+        <div class="card-icon">
+            ✓
+        </div>
+
+        <h2>
+            Account Status
+        </h2>
+
+        <p>
+            {{ driver.status }}
+        </p>
+
+    </div>
+
+</div>
+
+</div>
+
+{% endblock %}

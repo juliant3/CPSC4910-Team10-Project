@@ -1,0 +1,120 @@
+{% extends "shared/base.html" %}
+
+{% block title %}My Drivers{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<nav class="navbar">
+<a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
+    Good Driver Program
+</a>
+
+<div class="nav-links">
+
+    <a href="{{ url_for('home') }}">Home</a>
+
+    <a href="{{ url_for('sponsor_application') }}">
+        Send Application
+    </a>
+
+    <a href="{{ url_for('sponsor_applications') }}">
+        Applications
+    </a>
+
+    <a href="{{ url_for('sponsor_drivers') }}">
+        My Drivers
+    </a>
+
+    <a href="{{ url_for('about') }}">About</a>
+
+</div>
+
+<a href="{{ url_for('logout') }}"
+   class="logout-btn">
+    Logout
+</a>
+
+</nav> <div class="dashboard-wrapper">
+<div class="dashboard-header">
+
+    <span class="role-badge">
+        Sponsor
+    </span>
+
+    <h1>
+        My Drivers
+    </h1>
+
+    <p>
+        Drivers currently associated with your sponsorship.
+    </p>
+
+</div>
+
+
+{% if drivers %}
+
+    <div class="dashboard-grid">
+
+        {% for driver in drivers %}
+
+            <div class="dashboard-card">
+
+                <div class="card-icon">
+                    👤
+                </div>
+
+                <h2>
+                    {{ driver.first_name }}
+                    {{ driver.last_name }}
+                </h2>
+
+                <p>
+                    {{ driver.email }}
+                </p>
+
+                <p>
+                    <strong>Points:</strong>
+                    {{ driver.points_balance }}
+                </p>
+
+                <p>
+                    <strong>Status:</strong>
+                    {{ driver.status }}
+                </p>
+
+            </div>
+
+        {% endfor %}
+
+    </div>
+
+{% else %}
+
+    <div class="dashboard-card empty-card">
+
+        <h2>
+            No Drivers Yet
+        </h2>
+
+        <p>
+            You don't currently have any drivers
+            associated with your sponsorship.
+        </p>
+
+        <a href="{{ url_for('sponsor_application') }}"
+           class="dashboard-button">
+            Send an Application
+        </a>
+
+    </div>
+
+{% endif %}
+
+</div>
+
+{% endblock %}
