@@ -8,19 +8,22 @@
 
 {% block content %}
 
+<nav class="navbar">
+<a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
     Good Driver Program
-</div>
+</a>
+
 
 <div class="nav-links">
-    <a href="{{ url_for('home') }}">Home</a>
-    <a href="{{ url_for('sponsor_applications') }}">Applications</a>
-    <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
-    <a href="{{ url_for('about') }}">About</a>
+<a href="{{ url_for('home') }}">Home</a>
+<a href="{{ url_for('sponsor_applications') }}">Applications</a>
+<a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
+<a href="{{ url_for('about') }}">About</a>
 </div>
 
 <a href="{{ url_for('logout') }}"
-   class="logout-btn"
-   onclick="return confirm('Are you sure you want to log out?');">
+class="logout-btn"
+onclick="return confirm('Are you sure you want to log out?');">
     Logout
 </a>
 
@@ -35,41 +38,41 @@
 </p>
 
 {% if error %}
-    <div class="form-error">
+<div class="form-error">
         {{ error }}
-    </div>
+</div>
 {% endif %}
 
 {% if success %}
-    <div class="form-success">
+<div class="form-success">
         {{ success }}
-    </div>
+</div>
 {% endif %}
 
 <form method="POST"
-      action="{{ url_for('sponsor_applications') }}"
-      class="application-form">
+action="{{ url_for('sponsor_applications') }}"
+class="application-form">
 
-    <div class="form-group">
+<div class="form-group">
 
-        <label for="driver_email">
+<label for="driver_email">
             Driver Email
-        </label>
+</label>
 
-        <input
-            type="email"
-            id="driver_email"
-            name="driver_email"
-            placeholder="driver@example.com"
-            required
-        >
+<input
+type="email"
+id="driver_email"
+name="driver_email"
+placeholder="driver@example.com"
+required
+>
 
-    </div>
+</div>
 
-    <button type="submit"
-            class="dashboard-button">
+<button type="submit"
+class="dashboard-button">
         Send Application
-    </button>
+</button>
 
 </form>
 
@@ -80,30 +83,30 @@
 
     {% for application in applications %}
 
-        <div class="application-card">
+<div class="application-card">
 
-            <h3>
+<h3>
                 {{ application.driver_first_name }}
                 {{ application.driver_last_name }}
-            </h3>
+</h3>
 
-            <p>
+<p>
                 {{ application.driver_email }}
-            </p>
+</p>
 
-            <span class="role-badge">
+<span class="role-badge">
                 {{ application.status }}
-            </span>
+</span>
 
-        </div>
+</div>
 
     {% endfor %}
 
 {% else %}
 
-    <p>
+<p>
         You have not sent any applications yet.
-    </p>
+</p>
 
 {% endif %}
 
