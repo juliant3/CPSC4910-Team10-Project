@@ -730,6 +730,19 @@ def sponsor_applications():
 
             applications = cursor.fetchall()
 
+            # Load this sponsor's custom application questions.
+            cursor.execute(
+                """
+                SELECT question_id, question_text, is_required, display_order
+                FROM Sponsor_Questions
+                WHERE sponsor_id = %s
+                ORDER BY display_order
+                """,
+                (session["user_id"],)
+            )
+
+            questions = cursor.fetchall()
+
     finally:
         conn.close()
 
@@ -737,9 +750,76 @@ def sponsor_applications():
         "sponsor/applications.html",
         first_name=session["first_name"],
         role=session["role"],
-        applications=applications
+        applications=applications,
+        questions=questions
     )
+@app.route("/sponsor/questions", methods=["POST"])
+def sponsor_questions():
 
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    sponsor_id = session["user_id"]
+    question_text = request.form.get("question_text", "").strip()
+    is_required = bool(request.form.get("is_required"))
+
+    if question_text:
+        conn = get_db()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT COALESCE(MAX(display_order), 0) AS max_order
+                    FROM Sponsor_Questions
+                    WHERE sponsor_id = %s
+                    """,
+                    (sponsor_id,)
+                )
+                next_order = cursor.fetchone()["max_order"] + 1
+
+                cursor.execute(
+                    """
+                    INSERT INTO Sponsor_Questions
+                        (sponsor_id, question_text, is_required, display_order)
+                    VALUES
+                        (%s, %s, %s, %s)
+                    """,
+                    (sponsor_id, question_text, is_required, next_order)
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+    return redirect(url_for("sponsor_applications"))
+
+
+@app.route("/sponsor/questions/<int:question_id>/delete", methods=["POST"])
+def delete_sponsor_question(question_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM Sponsor_Questions
+                WHERE question_id = %s AND sponsor_id = %s
+                """,
+                (question_id, session["user_id"])
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return redirect(url_for("sponsor_applications"))
 
 @app.route("/sponsor/drivers")
 def sponsor_drivers():
