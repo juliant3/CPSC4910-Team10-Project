@@ -3,12 +3,14 @@
 {% block title %}Login{% endblock %}
 
 {% block head %}
-
 <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 {% endblock %}
 
 {% block content %}
 
+{% if step == "email" or step == "code" or step == "reset" %}
+
+<div class="login-form-side" style="max-width: none; width: 100%;">
 <div class="login-container">
 
     {% if step == "email" %}
@@ -103,53 +105,78 @@
             <button type="submit">Reset Password</button>
         </form>
 
-    {% else %}
-        <h1>Welcome to Drivers Advantage</h1>
-        <p class = "motto">Pedal to the Points. Your miles. Your Rewards. Your Advantage.</p>
-
-        {% if error %}
-            <div class="error">{{ error }}</div>
-        {% endif %}
-
-        <form method="POST" action="{{ url_for('login') }}">
-            <input
-                type="text"
-                name="username"
-                placeholder="Email/Username"
-                required
-            >
-
-            <div class="password-wrapper">
-                <input
-                    type="password"
-                    name="password"
-                    id="password"
-                    placeholder="Password"
-                    required
-                >
-                <button type="button" class="toggle-password" onclick="togglePassword('password', this)">Show</button>
-            </div>
-
-            <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0 16px; color: #555; font-size: 14px;">
-                <input type="checkbox" name="remember" style="width: auto;">
-                Remember me
-            </label>
-
-            <button type="submit">Log In</button>
-        </form>
-
-        <a href="{{ url_for('register') }}" class="create-account-btn">
-            Create Account
-        </a>
-
-        <p>
-            <a href="{{ url_for('forgot_password') }}">
-                Forgot Password?
-            </a>
-        </p>
     {% endif %}
 
 </div>
+</div>
+
+{% else %}
+
+<div class="login-side">
+    <h2>Welcome to Drivers Advantage</h2>
+    <p>Pedal to the Points. Your miles. Your Rewards. Your Advantage.</p>
+    <div class="login-stats">
+        <div class="stat">
+            <strong>1,240+</strong>
+            <span>Active Drivers</span>
+        </div>
+        <div class="stat">
+            <strong>38</strong>
+            <span>Sponsor Fleets</span>
+        </div>
+    </div>
+</div>
+
+<div class="login-form-side">
+<div class="login-container">
+
+    <h1>Log In</h1>
+
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('login') }}">
+        <input
+            type="text"
+            name="username"
+            placeholder="Email/Username"
+            required
+        >
+
+        <div class="password-wrapper">
+            <input
+                type="password"
+                name="password"
+                id="password"
+                placeholder="Password"
+                required
+            >
+            <button type="button" class="toggle-password" onclick="togglePassword('password', this)">Show</button>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0 16px; color: #555; font-size: 14px;">
+            <input type="checkbox" name="remember" style="width: auto;">
+            Remember me
+        </label>
+
+        <button type="submit">Log In</button>
+    </form>
+
+    <a href="{{ url_for('register') }}" class="create-account-btn">
+        Create Account
+    </a>
+
+    <p>
+        <a href="{{ url_for('forgot_password') }}">
+            Forgot Password?
+        </a>
+    </p>
+
+</div>
+</div>
+
+{% endif %}
 
 <script>
     function togglePassword(inputId, btn) {
