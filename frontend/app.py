@@ -47,6 +47,76 @@ def get_login_stats():
         conn.close()
     return driver_count, sponsor_count
 
+def send_acceptance_email(email, first_name, temp_password):
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_username = os.environ.get("SMTP_USERNAME")
+    smtp_password = os.environ.get("SMTP_PASSWORD")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_from = os.environ.get("SMTP_FROM", smtp_username)
+
+    login_link = "https://cpsc4910team10truckingproject.org/login"
+
+    if not smtp_host or not smtp_username or not smtp_password:
+        print(f"[ACCEPTANCE] {email} temp password: {temp_password}")
+        return True
+
+    message = EmailMessage()
+    message["Subject"] = "Your Drivers Advantage application was accepted!"
+    message["From"] = smtp_from
+    message["To"] = email
+    message.set_content(
+        f"Hi {first_name},\n\n"
+        f"Congratulations! Your application has been accepted.\n\n"
+        f"Log in here: {login_link}\n"
+        f"Email: {email}\n"
+        f"Temporary password: {temp_password}\n\n"
+        "Please log in and change your password as soon as possible."
+    )
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(message)
+        return True
+    except Exception as e:
+        print(f"Failed to send acceptance email: {e}")
+        return False
+
+
+def send_rejection_email(email, first_name):
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_username = os.environ.get("SMTP_USERNAME")
+    smtp_password = os.environ.get("SMTP_PASSWORD")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_from = os.environ.get("SMTP_FROM", smtp_username)
+
+    if not smtp_host or not smtp_username or not smtp_password:
+        print(f"[REJECTION] Notified {email}")
+        return True
+
+    message = EmailMessage()
+    message["Subject"] = "Your Drivers Advantage application"
+    message["From"] = smtp_from
+    message["To"] = email
+    message.set_content(
+        f"Hi {first_name or ''},\n\n"
+        "Thank you for your interest in Drivers Advantage. "
+        "After review, we're unable to move forward with your application at this time."
+    )
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(message)
+        return True
+    except Exception as e:
+        print(f"Failed to send rejection email: {e}")
+        return False
+    
+
+
 def send_application_invite(email, token):
     apply_link = f"https://cpsc4910team10truckingproject.org/apply/{token}"
 
@@ -751,6 +821,7 @@ def sponsor_applications():
                 )
 
             # Load sponsor's applications.
+            # Load sponsor's applications.
             cursor.execute(
                 """
                 SELECT
@@ -760,6 +831,10 @@ def sponsor_applications():
                     Driver_Applications.decision_date,
                     Driver_Applications.reason,
                     Driver_Applications.applicant_email,
+                    Driver_Applications.applicant_first_name,
+                    Driver_Applications.applicant_last_name,
+                    Driver_Applications.applicant_dob,
+                    Driver_Applications.applicant_address,
 
                     Users.first_name AS driver_first_name,
                     Users.last_name AS driver_last_name,
@@ -782,6 +857,22 @@ def sponsor_applications():
             )
 
             applications = cursor.fetchall()
+
+            # Load custom question answers for each application.
+            for application in applications:
+                cursor.execute(
+                    """
+                    SELECT
+                        Sponsor_Questions.question_text,
+                        Application_Answers.answer_text
+                    FROM Application_Answers
+                    JOIN Sponsor_Questions
+                        ON Application_Answers.question_id = Sponsor_Questions.question_id
+                    WHERE Application_Answers.application_id = %s
+                    """,
+                    (application["application_id"],)
+                )
+                application["answers"] = cursor.fetchall()
 
             # Load this sponsor's custom application questions.
             cursor.execute(
@@ -847,6 +938,171 @@ def sponsor_questions():
             conn.close()
 
     return redirect(url_for("sponsor_applications"))
+
+
+@app.route("/sponsor/applications/<int:application_id>/accept", methods=["POST"])
+def accept_application(application_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT *
+                FROM Driver_Applications
+                WHERE application_id = %s
+                  AND sponsor_id = %s
+                """,
+                (application_id, session["user_id"])
+            )
+
+            application = cursor.fetchone()
+
+            if not application or application["status"] != "Submitted":
+                return redirect(url_for("sponsor_applications"))
+
+            # Create the Users record.
+            cursor.execute(
+                """
+                INSERT INTO Users
+                    (email, first_name, last_name, role)
+                VALUES
+                    (%s, %s, %s, 'Driver')
+                """,
+                (
+                    application["applicant_email"],
+                    application["applicant_first_name"],
+                    application["applicant_last_name"]
+                )
+            )
+
+            user_id = cursor.lastrowid
+
+            # Generate a temporary password.
+            temp_password = secrets.token_urlsafe(9)
+            password_hash = generate_password_hash(temp_password, method="pbkdf2:sha256")
+
+            cursor.execute(
+                """
+                INSERT INTO Password
+                    (user_id, password_hash)
+                VALUES
+                    (%s, %s)
+                """,
+                (user_id, password_hash)
+            )
+
+            # Create the Drivers record.
+            cursor.execute(
+                """
+                INSERT INTO Drivers
+                    (driver_id, points_balance, sponsor_id, status)
+                VALUES
+                    (%s, 0, %s, 'Active')
+                """,
+                (user_id, session["user_id"])
+            )
+
+            # Create the Driver_Profiles record.
+            cursor.execute(
+                """
+                INSERT INTO Driver_Profiles
+                    (driver_id, date_of_birth, address)
+                VALUES
+                    (%s, %s, %s)
+                """,
+                (user_id, application["applicant_dob"], application["applicant_address"])
+            )
+
+            # Update the application.
+            cursor.execute(
+                """
+                UPDATE Driver_Applications
+                SET
+                    status = 'Accepted',
+                    driver_id = %s,
+                    decision_date = NOW(),
+                    decision_by_user_id = %s
+                WHERE application_id = %s
+                """,
+                (user_id, session["user_id"], application_id)
+            )
+
+            conn.commit()
+
+            send_acceptance_email(
+                application["applicant_email"],
+                application["applicant_first_name"],
+                temp_password
+            )
+
+    finally:
+        conn.close()
+
+    return redirect(url_for("sponsor_applications"))
+
+
+@app.route("/sponsor/applications/<int:application_id>/reject", methods=["POST"])
+def reject_application(application_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT *
+                FROM Driver_Applications
+                WHERE application_id = %s
+                  AND sponsor_id = %s
+                """,
+                (application_id, session["user_id"])
+            )
+
+            application = cursor.fetchone()
+
+            if not application or application["status"] != "Submitted":
+                return redirect(url_for("sponsor_applications"))
+
+            cursor.execute(
+                """
+                UPDATE Driver_Applications
+                SET
+                    status = 'Rejected',
+                    decision_date = NOW(),
+                    decision_by_user_id = %s
+                WHERE application_id = %s
+                """,
+                (session["user_id"], application_id)
+            )
+
+            conn.commit()
+
+            send_rejection_email(
+                application["applicant_email"],
+                application["applicant_first_name"]
+            )
+
+    finally:
+        conn.close()
+
+    return redirect(url_for("sponsor_applications"))
+
 
 
 @app.route("/sponsor/questions/<int:question_id>/delete", methods=["POST"])
