@@ -10,13 +10,56 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+<style>
+.site-footer {
+    background: #1A1128;
+    padding: 28px 40px 22px;
+    text-align: center;
+}
+
+.footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.footer-links a {
+    color: rgba(255, 255, 255, 0.65);
+    text-decoration: none;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    transition: color 0.15s;
+}
+
+.footer-links a:hover {
+    color: #D9662C;
+}
+
+.footer-copy {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 12px;
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+}
+</style>
+
 {% block head %}{% endblock %}
 </head>
 
 <body>
     {% block content %}{% endblock %}
+
+    <footer class="site-footer">
+        <div class="footer-links">
+            <a href="{{ url_for('about') }}">About</a>
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+            <a href="#">Help</a>
+            <a href="#">Contact</a>
+        </div>
+        <p class="footer-copy">&copy; 2026 Drivers Advantage. Built by Team 10.</p>
+    </footer>
 </body>
 </html>
-
-
-

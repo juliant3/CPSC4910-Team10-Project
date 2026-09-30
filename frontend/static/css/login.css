@@ -30,6 +30,23 @@ body {
     overflow: hidden;
 }
 
+.route-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.login-side h2,
+.login-side p,
+.login-stats {
+    position: relative;
+    z-index: 1;
+}
+
 .login-side::before {
     content: "";
     position: absolute;
@@ -38,6 +55,7 @@ body {
     top: 38%;
     border-top: 3px dashed var(--orange-600);
     opacity: 0.5;
+    z-index: 0;
 }
 
 .login-side h2 {
@@ -60,6 +78,9 @@ body {
 .login-stats {
     display: flex;
     gap: 50px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.3);
+    padding-top: 22px;
+    margin-top: 4px;
 }
 
 .login-stats .stat {
