@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import pymysql
 import os
 import smtplib
+import secrets
 from datetime import timedelta
 from email.message import EmailMessage
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -46,7 +47,39 @@ def get_login_stats():
         conn.close()
     return driver_count, sponsor_count
 
+def send_application_invite(email, token):
+    apply_link = f"https://cpsc4910team10truckingproject.org/apply/{token}"
 
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_username = os.environ.get("SMTP_USERNAME")
+    smtp_password = os.environ.get("SMTP_PASSWORD")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_from = os.environ.get("SMTP_FROM", smtp_username)
+
+    if not smtp_host or not smtp_username or not smtp_password:
+        print(f"[APPLICATION INVITE] Link for {email}: {apply_link}")
+        return True
+
+    message = EmailMessage()
+    message["Subject"] = "You've been invited to Drivers Advantage"
+    message["From"] = smtp_from
+    message["To"] = email
+    message.set_content(
+        f"You've been invited to apply for the Drivers Advantage rewards program.\n\n"
+        f"Complete your application here:\n{apply_link}\n\n"
+        "If you weren't expecting this, you can ignore this email."
+    )
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(message)
+        return True
+    except Exception as e:
+        print(f"Failed to send invite email: {e}")
+        return False
+    
 def send_reset_code(email):
     """
     Sends the password reset code to the user's email.
@@ -480,33 +513,6 @@ def sponsor_applications():
                         error="Please enter a driver's email address."
                     )
 
-                # Find the driver.
-                cursor.execute(
-                    """
-                    SELECT
-                        Drivers.driver_id,
-                        Users.first_name,
-                        Users.last_name,
-                        Users.email
-                    FROM Drivers
-                    JOIN Users
-                        ON Drivers.driver_id = Users.user_id
-                    WHERE LOWER(Users.email) = %s
-                    """,
-                    (driver_email,)
-                )
-
-                driver = cursor.fetchone()
-
-                if not driver:
-                    return render_template(
-                        "sponsor/applications.html",
-                        first_name=session["first_name"],
-                        role=session["role"],
-                        applications=[],
-                        error="No driver was found with that email address."
-                    )
-
                 sponsor_id = session["user_id"]
 
                 # Make sure the sponsor actually exists.
@@ -530,47 +536,85 @@ def sponsor_applications():
                         error="Your account is not associated with a sponsor."
                     )
 
+                # Check if this person already has a driver account.
+                cursor.execute(
+                    """
+                    SELECT Drivers.driver_id
+                    FROM Drivers
+                    JOIN Users
+                        ON Drivers.driver_id = Users.user_id
+                    WHERE LOWER(Users.email) = %s
+                    """,
+                    (driver_email,)
+                )
+
+                existing_driver = cursor.fetchone()
+
                 # Prevent duplicate pending applications.
                 cursor.execute(
                     """
                     SELECT application_id
                     FROM Driver_Applications
-                    WHERE driver_id = %s
-                      AND sponsor_id = %s
+                    WHERE sponsor_id = %s
                       AND status = 'Pending'
+                      AND (
+                          applicant_email = %s
+                          OR driver_id = %s
+                      )
                     """,
                     (
-                        driver["driver_id"],
-                        sponsor_id
+                        sponsor_id,
+                        driver_email,
+                        existing_driver["driver_id"] if existing_driver else None
                     )
                 )
 
-                existing = cursor.fetchone()
+                existing_application = cursor.fetchone()
 
-                if existing:
+                if existing_application:
                     return render_template(
                         "sponsor/applications.html",
                         first_name=session["first_name"],
                         role=session["role"],
                         applications=[],
-                        error="There is already a pending application for this driver."
+                        error="There is already a pending application for this email."
                     )
 
-                # Create application.
-                cursor.execute(
-                    """
-                    INSERT INTO Driver_Applications
-                        (driver_id, sponsor_id, status)
-                    VALUES
-                        (%s, %s, 'Pending')
-                    """,
-                    (
-                        driver["driver_id"],
-                        sponsor_id
+                token = secrets.token_urlsafe(32)
+
+                if existing_driver:
+                    cursor.execute(
+                        """
+                        INSERT INTO Driver_Applications
+                            (driver_id, applicant_email, sponsor_id, status, token)
+                        VALUES
+                            (%s, %s, %s, 'Pending', %s)
+                        """,
+                        (
+                            existing_driver["driver_id"],
+                            driver_email,
+                            sponsor_id,
+                            token
+                        )
                     )
-                )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO Driver_Applications
+                            (driver_id, applicant_email, sponsor_id, status, token)
+                        VALUES
+                            (NULL, %s, %s, 'Pending', %s)
+                        """,
+                        (
+                            driver_email,
+                            sponsor_id,
+                            token
+                        )
+                    )
 
                 conn.commit()
+
+                send_application_invite(driver_email, token)
 
                 return redirect(
                     url_for("sponsor_applications")
@@ -585,6 +629,7 @@ def sponsor_applications():
                     Driver_Applications.status,
                     Driver_Applications.decision_date,
                     Driver_Applications.reason,
+                    Driver_Applications.applicant_email,
 
                     Users.first_name AS driver_first_name,
                     Users.last_name AS driver_last_name,
@@ -592,11 +637,11 @@ def sponsor_applications():
 
                 FROM Driver_Applications
 
-                JOIN Drivers
+                LEFT JOIN Drivers
                     ON Driver_Applications.driver_id =
                        Drivers.driver_id
 
-                JOIN Users
+                LEFT JOIN Users
                     ON Drivers.driver_id = Users.user_id
 
                 WHERE Driver_Applications.sponsor_id = %s
@@ -811,7 +856,7 @@ def register():
                         )
                     cursor.execute(
                         """
-                        SELECT sponsor_is
+                        SELECT sponsor_id
                         FROM Sponsors
                         WHERE invite_code = %s
                         AND is_active = True
