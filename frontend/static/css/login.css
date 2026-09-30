@@ -5,6 +5,7 @@
     --ink: #211C2E;
     --slate: #6B6478;
     --line: #E3DEEC;
+    --paper: #FAF9FC;
     --bad: #A3413A;
     --bad-bg: #FBEAE8;
 }
@@ -13,10 +14,79 @@ body {
     margin: 0;
     min-height: 100vh;
     display: flex;
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--purple-900);
+}
+
+.login-side {
+    flex: 1;
+    background: linear-gradient(160deg, var(--purple-900) 0%, var(--purple-700) 100%);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 70px;
+    position: relative;
+    overflow: hidden;
+}
+
+.login-side::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 38%;
+    border-top: 3px dashed var(--orange-600);
+    opacity: 0.5;
+}
+
+.login-side h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 44px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 0 0 18px;
+    max-width: 420px;
+}
+
+.login-side p {
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.75);
+    max-width: 380px;
+    line-height: 1.6;
+    margin: 0 0 40px;
+}
+
+.login-stats {
+    display: flex;
+    gap: 50px;
+}
+
+.login-stats .stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.login-stats strong {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--orange-600);
+}
+
+.login-stats span {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 2px;
+}
+
+.login-form-side {
+    flex: 1;
+    max-width: 480px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Inter', -apple-system, sans-serif;
-    background: linear-gradient(135deg, var(--purple-900) 0%, var(--purple-700) 55%, var(--orange-600) 130%);
+    background: var(--paper);
 }
 
 .login-container {
@@ -173,4 +243,22 @@ body {
 
 .create-account-btn:hover {
     border-color: var(--orange-600);
+}
+
+@media (max-width: 900px) {
+    body {
+        flex-direction: column;
+    }
+    .login-side {
+        padding: 40px 30px;
+        min-height: 220px;
+    }
+    .login-side h2 {
+        font-size: 30px;
+    }
+    .login-form-side {
+        max-width: none;
+        flex: none;
+        padding: 40px 20px;
+    }
 }
