@@ -8,6 +8,8 @@
 
 {% block content %}
 
+<div class="login-page-wrapper">
+
 {% if step == "email" or step == "code" or step == "reset" %}
 
 <div class="login-form-side" style="max-width: none; width: 100%;">
@@ -187,6 +189,8 @@
 </div>
 
 {% endif %}
+
+</div>
 
 <script>
     function togglePassword(inputId, btn) {

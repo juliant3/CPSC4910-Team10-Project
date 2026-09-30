@@ -12,9 +12,12 @@
 
 body {
     margin: 0;
+    font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.login-page-wrapper {
     min-height: 100vh;
     display: flex;
-    font-family: 'Inter', -apple-system, sans-serif;
     background: var(--purple-900);
 }
 
@@ -267,7 +270,7 @@ body {
 }
 
 @media (max-width: 900px) {
-    body {
+    .login-page-wrapper {
         flex-direction: column;
     }
     .login-side {
