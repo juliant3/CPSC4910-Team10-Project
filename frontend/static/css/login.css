@@ -291,7 +291,7 @@ body {
 .login-logo { 
     position: absolute;
     top: 25px;
-    right: 30px;
+    left: 30px;
     width: 140px; 
     height: auto; 
     z-index: 10;
