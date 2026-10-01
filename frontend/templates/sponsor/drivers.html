@@ -15,9 +15,11 @@
 
 <div class="nav-links">
 
-    <a href="{{ url_for('home') }}">Home</a>
+    <a href="{{ url_for('home') }}">
+        Home
+    </a>
 
-    <a href="{{ url_for('sponsor_application') }}">
+    <a href="{{ url_for('sponsor_applications') }}">
         Send Application
     </a>
 
@@ -29,7 +31,9 @@
         My Drivers
     </a>
 
-    <a href="{{ url_for('about') }}">About</a>
+    <a href="{{ url_for('about') }}">
+        About
+    </a>
 
 </div>
 
@@ -114,7 +118,7 @@
             associated with your sponsorship.
         </p>
 
-        <a href="{{ url_for('sponsor_application') }}"
+        <a href="{{ url_for('sponsor_applications') }}"
            class="dashboard-button">
             Send an Application
         </a>
