@@ -286,3 +286,11 @@ body {
         padding: 40px 20px;
     }
 }
+
+.login-logo { 
+    width: 140px; 
+    height: auto; 
+    margin-bottom: 20px;
+    position: relative; 
+    z-index: 2; 
+}
