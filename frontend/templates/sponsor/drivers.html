@@ -87,6 +87,14 @@
                     {{ driver.status }}
                 </p>
 
+                <a href="{{ url_for(
+                        'sponsor_driver_profile',
+                        driver_id=driver.driver_id
+                    ) }}"
+                class="dashboard-button">
+                    View Profile
+                </a>
+
             </div>
 
         {% endfor %}

@@ -1,0 +1,245 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Driver Profile{% endblock %}
+
+{% block head %}
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<nav class="navbar">
+
+    <a href="{{ url_for('home') }}"
+       class="logo"
+       style="text-decoration: none;">
+        Good Driver Program
+    </a>
+
+    <div class="nav-links">
+
+        <a href="{{ url_for('home') }}">
+            Home
+        </a>
+
+        {% if sponsor_view %}
+
+            <a href="{{ url_for('sponsor_applications') }}">
+                Applications
+            </a>
+
+            <a href="{{ url_for('sponsor_drivers') }}">
+                My Drivers
+            </a>
+
+        {% else %}
+
+            <a href="{{ url_for('driver_profile') }}">
+                My Profile
+            </a>
+
+            <a href="#">
+                My Points
+            </a>
+
+            <a href="#">
+                Catalog
+            </a>
+
+        {% endif %}
+
+        <a href="{{ url_for('about') }}">
+            About
+        </a>
+
+    </div>
+
+    <a href="{{ url_for('logout') }}"
+       class="logout-btn"
+       onclick="return confirm('Are you sure you want to log out?');">
+        Logout
+    </a>
+
+</nav>
+
+
+<div class="dashboard-wrapper">
+
+    <div class="dashboard-header">
+
+        <span class="role-badge">
+            {% if sponsor_view %}
+                Driver Profile
+            {% else %}
+                My Profile
+            {% endif %}
+        </span>
+
+        <h1>
+            {{ driver.first_name }}
+            {{ driver.last_name }}
+        </h1>
+
+        {% if sponsor_view %}
+            <p>
+                View this driver's account and application information.
+            </p>
+        {% else %}
+            <p>
+                View your account and application information.
+            </p>
+        {% endif %}
+
+    </div>
+
+
+    <div class="profile-grid">
+
+        <div class="profile-section">
+
+            <h2>Personal Information</h2>
+
+            <div class="profile-row">
+                <span class="profile-label">First Name</span>
+                <span class="profile-value">
+                    {{ driver.first_name }}
+                </span>
+            </div>
+
+            <div class="profile-row">
+                <span class="profile-label">Last Name</span>
+                <span class="profile-value">
+                    {{ driver.last_name }}
+                </span>
+            </div>
+
+            <div class="profile-row">
+                <span class="profile-label">Email</span>
+                <span class="profile-value">
+                    {{ driver.email }}
+                </span>
+            </div>
+
+            <div class="profile-row">
+                <span class="profile-label">Date of Birth</span>
+                <span class="profile-value">
+                    {% if driver.date_of_birth %}
+                        {{ driver.date_of_birth }}
+                    {% else %}
+                        Not provided
+                    {% endif %}
+                </span>
+            </div>
+
+            <div class="profile-row">
+                <span class="profile-label">Address</span>
+                <span class="profile-value">
+                    {% if driver.address %}
+                        {{ driver.address }}
+                    {% else %}
+                        Not provided
+                    {% endif %}
+                </span>
+            </div>
+
+        </div>
+
+
+        <div class="profile-section">
+
+            <h2>Program Information</h2>
+
+            <div class="profile-row">
+                <span class="profile-label">Sponsor</span>
+                <span class="profile-value">
+                    {% if driver.sponsor_name %}
+                        {{ driver.sponsor_name }}
+                    {% else %}
+                        No sponsor assigned
+                    {% endif %}
+                </span>
+            </div>
+
+            <div class="profile-row">
+                <span class="profile-label">Status</span>
+                <span class="profile-value">
+                    {{ driver.status }}
+                </span>
+            </div>
+
+            <div class="profile-row">
+                <span class="profile-label">Points Balance</span>
+                <span class="profile-value">
+                    {{ driver.points_balance }}
+                </span>
+            </div>
+
+            {% if driver.sponsor_email %}
+
+                <div class="profile-row">
+                    <span class="profile-label">Sponsor Email</span>
+                    <span class="profile-value">
+                        {{ driver.sponsor_email }}
+                    </span>
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+    <div class="profile-section profile-answers">
+
+        <h2>Application Answers</h2>
+
+        {% if answers %}
+
+            {% for answer in answers %}
+
+                <div class="answer-item">
+
+                    <div class="answer-question">
+                        {{ answer.question_text }}
+                    </div>
+
+                    <div class="answer-text">
+                        {{ answer.answer_text }}
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+        {% else %}
+
+            <p class="no-answers">
+                No application answers are available for this driver.
+            </p>
+
+        {% endif %}
+
+    </div>
+
+
+    {% if sponsor_view %}
+
+        <a href="{{ url_for('sponsor_drivers') }}"
+           class="dashboard-button profile-back-button">
+            Back to My Drivers
+        </a>
+
+    {% else %}
+
+        <a href="{{ url_for('driver_dashboard') }}"
+           class="dashboard-button profile-back-button">
+            Back to Dashboard
+        </a>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

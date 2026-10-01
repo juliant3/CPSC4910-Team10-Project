@@ -15,6 +15,7 @@ app.secret_key = os.environ.get(
 )
 app.permanent_session_lifetime = timedelta(days=14) 
 
+
 DB_CONFIG = {
     "host": "cpsc4910-f26.cobd8enwsupz.us-east-1.rds.amazonaws.com",
     "user": "Team10",
@@ -205,72 +206,16 @@ def home():
 
     role = session["role"].lower()
 
-    # -----------------------------------------
-    # Sponsor home page
-    # -----------------------------------------
-    if role == "sponsor":
-
-        return render_template(
-            "sponsor/dashboard.html",
-            first_name=session["first_name"],
-            role=session["role"]
-        )
-
-    # -----------------------------------------
-    # Driver home page
-    # -----------------------------------------
     if role == "driver":
+        return redirect(url_for("driver_dashboard"))
 
-        conn = get_db()
+    if role == "sponsor":
+        return redirect(url_for("sponsor_dashboard"))
 
-        try:
-            with conn.cursor() as cursor:
+    if role == "admin":
+        return redirect(url_for("admin_dashboard"))
 
-                cursor.execute(
-                    """
-                    SELECT
-                        Sponsors.company_name
-                    FROM Drivers
-
-                    JOIN Driver_Applications
-                        ON Drivers.driver_id =
-                           Driver_Applications.driver_id
-
-                    JOIN Sponsors
-                        ON Driver_Applications.sponsor_id =
-                           Sponsors.sponsor_id
-
-                    WHERE Drivers.driver_id = %s
-                      AND Driver_Applications.status = 'Pending'
-
-                    ORDER BY Driver_Applications.application_date DESC
-
-                    LIMIT 1
-                    """,
-                    (session["user_id"],)
-                )
-
-                sponsor = cursor.fetchone()
-
-        finally:
-            conn.close()
-
-        return render_template(
-            "shared/home.html",
-            first_name=session["first_name"],
-            role=session["role"],
-            sponsor=sponsor
-        )
-
-    # -----------------------------------------
-    # Other roles
-    # -----------------------------------------
-
-    return render_template(
-        "shared/home.html",
-        first_name=session["first_name"],
-        role=session["role"]
-    )
+    return redirect(url_for("login"))
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -652,6 +597,226 @@ def reset_password():
         "shared/login.html",
         step="login",
         error="Password reset successfully. Please log in."
+    )
+
+@app.route("/driver/profile")
+def driver_profile():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "driver":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Load the driver's main profile information.
+            cursor.execute(
+                """
+                SELECT
+                    Drivers.driver_id,
+                    Drivers.points_balance,
+                    Drivers.status,
+
+                    Users.first_name,
+                    Users.last_name,
+                    Users.email,
+
+                    Driver_Profiles.date_of_birth,
+                    Driver_Profiles.address,
+
+                    Sponsors.company_name AS sponsor_name,
+                    Sponsors.email AS sponsor_email
+
+                FROM Drivers
+
+                JOIN Users
+                    ON Drivers.driver_id = Users.user_id
+
+                LEFT JOIN Driver_Profiles
+                    ON Drivers.driver_id = Driver_Profiles.driver_id
+
+                LEFT JOIN Sponsors
+                    ON Drivers.sponsor_id = Sponsors.sponsor_id
+
+                WHERE Drivers.driver_id = %s
+                """,
+                (session["user_id"],)
+            )
+
+            driver = cursor.fetchone()
+
+            if not driver:
+                return redirect(url_for("logout"))
+
+            # Find the accepted application belonging to this driver.
+            cursor.execute(
+                """
+                SELECT application_id
+                FROM Driver_Applications
+                WHERE driver_id = %s
+                  AND status = 'Accepted'
+                ORDER BY decision_date DESC, application_id DESC
+                LIMIT 1
+                """,
+                (session["user_id"],)
+            )
+
+            application = cursor.fetchone()
+
+            answers = []
+
+            # Load the driver's answers if this account came
+            # from an accepted application.
+            if application:
+                cursor.execute(
+                    """
+                    SELECT
+                        Sponsor_Questions.question_text,
+                        Application_Answers.answer_text
+                    FROM Application_Answers
+
+                    JOIN Sponsor_Questions
+                        ON Application_Answers.question_id =
+                           Sponsor_Questions.question_id
+
+                    WHERE Application_Answers.application_id = %s
+
+                    ORDER BY Sponsor_Questions.display_order
+                    """,
+                    (application["application_id"],)
+                )
+
+                answers = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "driver/profile.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        driver=driver,
+        answers=answers,
+        sponsor_view=False
+    )
+
+@app.route("/sponsor/drivers/<int:driver_id>/profile")
+def sponsor_driver_profile(driver_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Only return the driver if they belong to
+            # the currently logged-in sponsor.
+            cursor.execute(
+                """
+                SELECT
+                    Drivers.driver_id,
+                    Drivers.points_balance,
+                    Drivers.status,
+
+                    Users.first_name,
+                    Users.last_name,
+                    Users.email,
+
+                    Driver_Profiles.date_of_birth,
+                    Driver_Profiles.address,
+
+                    Sponsors.company_name AS sponsor_name,
+                    Sponsors.email AS sponsor_email
+
+                FROM Drivers
+
+                JOIN Users
+                    ON Drivers.driver_id = Users.user_id
+
+                LEFT JOIN Driver_Profiles
+                    ON Drivers.driver_id = Driver_Profiles.driver_id
+
+                LEFT JOIN Sponsors
+                    ON Drivers.sponsor_id = Sponsors.sponsor_id
+
+                WHERE Drivers.driver_id = %s
+                  AND Drivers.sponsor_id = %s
+                """,
+                (
+                    driver_id,
+                    session["user_id"]
+                )
+            )
+
+            driver = cursor.fetchone()
+
+            # Sponsor tried to access a driver that does not
+            # belong to them.
+            if not driver:
+                return redirect(url_for("sponsor_drivers"))
+
+            # Find the accepted application for this driver
+            # from this sponsor.
+            cursor.execute(
+                """
+                SELECT application_id
+                FROM Driver_Applications
+                WHERE driver_id = %s
+                  AND sponsor_id = %s
+                  AND status = 'Accepted'
+                ORDER BY decision_date DESC, application_id DESC
+                LIMIT 1
+                """,
+                (
+                    driver_id,
+                    session["user_id"]
+                )
+            )
+
+            application = cursor.fetchone()
+
+            answers = []
+
+            if application:
+                cursor.execute(
+                    """
+                    SELECT
+                        Sponsor_Questions.question_text,
+                        Application_Answers.answer_text
+                    FROM Application_Answers
+
+                    JOIN Sponsor_Questions
+                        ON Application_Answers.question_id =
+                           Sponsor_Questions.question_id
+
+                    WHERE Application_Answers.application_id = %s
+
+                    ORDER BY Sponsor_Questions.display_order
+                    """,
+                    (application["application_id"],)
+                )
+
+                answers = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "driver/profile.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        driver=driver,
+        answers=answers,
+        sponsor_view=True
     )
 
 
