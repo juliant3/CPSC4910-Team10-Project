@@ -92,7 +92,17 @@ class="dashboard-button">
     {{ counts['Submitted'] }} new application{{ 's' if counts['Submitted'] != 1 }} waiting for your review.
 </div>
 {% endif %}
+{% set current = status_filter or 'all' %}
+<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px 0 10px;">
+    {% for key, label in [('all', 'All'), ('Submitted', 'New'), ('Pending', 'Pending'), ('Accepted', 'Accepted'), ('Rejected', 'Rejected')] %}
+    <a href="{{ url_for('sponsor_applications', status=key) }}"
+       style="padding: 6px 14px; border: 1px solid #E3DEEC; border-radius: 4px; font-size: 13px; text-decoration: none; {% if current == key %}background: #4C2A85; color: #fff;{% else %}background: #fff; color: #2E1A4D;{% endif %}">
+        {{ label }} ({{ counts['Total'] if key == 'all' else counts[key] }})
+    </a>
+    {% endfor %}
+</div>
 {% endif %}
+
 
 {% if applications %}
 
@@ -155,7 +165,7 @@ class="dashboard-button">
 {% else %}
 
 <p>
-        You have not sent any applications yet.
+        {% if status_filter and status_filter != 'all' %}No applications match this filter.{% else %}You have not sent any applications yet.{% endif %}
 </p>
 
 {% endif %}

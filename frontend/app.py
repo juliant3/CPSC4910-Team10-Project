@@ -816,7 +816,10 @@ def sponsor_applications():
                 )
 
             # Load sponsor's applications.
-            # Load sponsor's applications.
+            status_filter = request.args.get("status", "all")
+            if status_filter not in ("Pending", "Submitted", "Accepted", "Rejected"):
+                status_filter = "all"
+            
             cursor.execute(
                 """
                 SELECT
@@ -845,10 +848,12 @@ def sponsor_applications():
                     ON Drivers.driver_id = Users.user_id
 
                 WHERE Driver_Applications.sponsor_id = %s
+                    AND (%s = 'all' OR Driver_Applications.status = %s)
+                
 
                 ORDER BY Driver_Applications.application_date DESC
                 """,
-                (session["user_id"],)
+                (session["user_id"], status_filter, status_filter)
             )
 
             applications = cursor.fetchall()
@@ -908,6 +913,7 @@ def sponsor_applications():
         applications=applications,
         questions=questions,
         counts=counts
+        status_filter=status_filter
     )
 @app.route("/sponsor/questions", methods=["POST"])
 def sponsor_questions():
