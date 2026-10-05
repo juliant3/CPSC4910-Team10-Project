@@ -1,0 +1,77 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Pending Applications{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<nav class="navbar">
+    <a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
+        Good Driver Program
+    </a>
+
+    <div class="nav-links">
+        <a href="{{ url_for('home') }}">Home</a>
+        <a href="{{ url_for('admin_pending_applications') }}">Pending Applications</a>
+        <a href="{{ url_for('about') }}">About</a>
+    </div>
+
+    <a href="{{ url_for('logout') }}"
+       class="logout-btn"
+       onclick="return confirm('Are you sure you want to log out?');">
+        Logout
+    </a>
+</nav>
+
+<div class="hero" style="max-width: 980px;">
+    <span class="role-badge">Admin</span>
+
+    <h1>Pending Applications</h1>
+
+    <p>
+        Every driver application still waiting on a decision, across all sponsors.
+    </p>
+
+    <div style="display: flex; justify-content: center; margin: 22px 0 6px;">
+        <div style="text-align: center;">
+            <strong style="font-size: 30px; color: #D9662C;">{{ applications|length }}</strong><br>
+            <span style="font-size: 12px; color: #6B6478;">AWAITING DECISION</span>
+        </div>
+    </div>
+
+    {% if applications %}
+    <div style="overflow-x: auto; margin-top: 18px;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+            <thead>
+                <tr style="border-bottom: 2px solid #E3DEEC; color: #2E1A4D;">
+                    <th style="padding: 10px 12px;">Sponsor</th>
+                    <th style="padding: 10px 12px;">Applicant</th>
+                    <th style="padding: 10px 12px;">Email</th>
+                    <th style="padding: 10px 12px;">Status</th>
+                    <th style="padding: 10px 12px;">Sent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in applications %}
+                <tr style="border-bottom: 1px dashed #E3DEEC;">
+                    <td style="padding: 10px 12px;">{{ a.sponsor_name }}</td>
+                    <td style="padding: 10px 12px;">
+                        {% if a.applicant_first_name %}{{ a.applicant_first_name }} {{ a.applicant_last_name }}{% else %}&mdash;{% endif %}
+                    </td>
+                    <td style="padding: 10px 12px;">{{ a.applicant_email }}</td>
+                    <td style="padding: 10px 12px;"><span class="role-badge">{{ 'New' if a.status == 'Submitted' else a.status }}</span></td>
+                    <td style="padding: 10px 12px;">{{ a.application_date.strftime('%b %d, %Y') if a.application_date else '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>There are no pending applications right now.</p>
+    {% endif %}
+</div>
+
+{% endblock %}
