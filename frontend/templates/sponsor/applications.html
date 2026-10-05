@@ -87,6 +87,11 @@ class="dashboard-button">
     <div style="text-align: center;"><strong style="font-size: 30px; color: #D9662C;">{{ counts[key] }}</strong><br><span style="font-size: 12px; color: #6B6478;">{{ label }}</span></div>
     {% endfor %}
 </div>
+{% if counts['Submitted'] > 0 %}
+<div style="background: #FBF1DE; color: #9A6B2E; border-left: 3px solid #9A6B2E; padding: 10px 14px; font-size: 14px; text-align: left; margin: 14px 0;">
+    {{ counts['Submitted'] }} new application{{ 's' if counts['Submitted'] != 1 }} waiting for your review.
+</div>
+{% endif %}
 {% endif %}
 
 {% if applications %}
@@ -105,7 +110,7 @@ class="dashboard-button">
                 {{ application.applicant_email }}
             {% endif %}
         </h3>
-        <span class="role-badge">{{ application.status }}</span>
+            <span class="role-badge">{{ 'New' if application.status == 'Submitted' else application.status }}</span>
     </div>
 
     <p>{{ application.driver_email or application.applicant_email }}</p>
