@@ -258,6 +258,37 @@ def home():
         )
 
     # -----------------------------------------
+    # Admin home page
+    # -----------------------------------------
+    if role == "admin":
+
+        conn = get_db()
+
+        try:
+            with conn.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS c
+                    FROM Driver_Applications
+                    WHERE status IN ('Pending', 'Submitted')
+                    """
+                )
+
+                pending_count = cursor.fetchone()["c"]
+
+        finally:
+            conn.close()
+
+        return render_template(
+            "admin/dashboard.html",
+            first_name=session["first_name"],
+            role=session["role"],
+            pending_count=pending_count
+        )
+
+
+    # -----------------------------------------
     # Other roles
     # -----------------------------------------
 
