@@ -912,7 +912,7 @@ def sponsor_applications():
         role=session["role"],
         applications=applications,
         questions=questions,
-        counts=counts
+        counts=counts,
         status_filter=status_filter
     )
 @app.route("/sponsor/questions", methods=["POST"])
