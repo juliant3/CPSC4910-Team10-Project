@@ -1,0 +1,89 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+<style>
+.admin-grid {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 850px) {
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<nav class="navbar">
+    <a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
+        Good Driver Program
+    </a>
+
+    <div class="nav-links">
+        <a href="{{ url_for('home') }}">Home</a>
+        <a href="{{ url_for('admin_pending_applications') }}">Pending Applications</a>
+        <a href="{{ url_for('about') }}">About</a>
+    </div>
+
+    <a href="{{ url_for('logout') }}"
+       class="logout-btn"
+       onclick="return confirm('Are you sure you want to log out?');">
+        Logout
+    </a>
+</nav>
+
+<div class="dashboard-wrapper">
+
+    <div class="dashboard-header">
+        <span class="role-badge">{{ role }}</span>
+
+        <h1>Welcome, {{ first_name }}!</h1>
+
+        <p>Monitor application activity across all sponsors.</p>
+    </div>
+
+    <div class="dashboard-grid admin-grid">
+
+        <!-- Pending Applications -->
+        <div class="dashboard-card">
+            <div class="card-icon">📋</div>
+
+            <h2>Pending Applications</h2>
+
+            <p>
+                {{ pending_count }} application{{ 's' if pending_count != 1 }}
+                waiting on a decision across all sponsors.
+            </p>
+
+            <a href="{{ url_for('admin_pending_applications') }}"
+               class="dashboard-button">
+                View Pending Applications
+            </a>
+        </div>
+
+        <!-- About -->
+        <div class="dashboard-card">
+            <div class="card-icon">ℹ️</div>
+
+            <h2>About</h2>
+
+            <p>
+                See the project details, the team, and live program stats.
+            </p>
+
+            <a href="{{ url_for('about') }}"
+               class="dashboard-button">
+                View About
+            </a>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
