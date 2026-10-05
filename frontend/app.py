@@ -15,7 +15,6 @@ app.secret_key = os.environ.get(
 )
 app.permanent_session_lifetime = timedelta(days=14) 
 
-
 DB_CONFIG = {
     "host": "cpsc4910-f26.cobd8enwsupz.us-east-1.rds.amazonaws.com",
     "user": "Team10",
@@ -48,74 +47,69 @@ def get_login_stats():
         conn.close()
     return driver_count, sponsor_count
 
-def send_acceptance_email(email, first_name, temp_password):
+def send_email(to_email, subject, body):
     smtp_host = os.environ.get("SMTP_HOST")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
     smtp_username = os.environ.get("SMTP_USERNAME")
     smtp_password = os.environ.get("SMTP_PASSWORD")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
     smtp_from = os.environ.get("SMTP_FROM", smtp_username)
 
+    # If SMTP isn't configured, print the email so development can continue.
+    if not smtp_host or not smtp_username or not smtp_password:
+        print(f"[EMAIL to {to_email}] {subject}\n{body}")
+        return True
+
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = smtp_from
+    message["To"] = to_email
+    message.set_content(body)
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(message)
+        return True
+    except Exception as e:
+        print(f"Failed to send email to {to_email}: {e}")
+        return False
+
+
+def send_acceptance_email(email, first_name, temp_password=None):
     login_link = "https://cpsc4910team10truckingproject.org/login"
 
-    if not smtp_host or not smtp_username or not smtp_password:
-        print(f"[ACCEPTANCE] {email} temp password: {temp_password}")
-        return True
+    if temp_password:
+        details = (
+            f"Log in here: {login_link}\n"
+            f"Email: {email}\n"
+            f"Temporary password: {temp_password}\n\n"
+            "Please log in and change your password as soon as possible."
+        )
+    else:
+        details = f"Log in with your existing account here: {login_link}"
 
-    message = EmailMessage()
-    message["Subject"] = "Your Drivers Advantage application was accepted!"
-    message["From"] = smtp_from
-    message["To"] = email
-    message.set_content(
-        f"Hi {first_name},\n\n"
-        f"Congratulations! Your application has been accepted.\n\n"
-        f"Log in here: {login_link}\n"
-        f"Email: {email}\n"
-        f"Temporary password: {temp_password}\n\n"
-        "Please log in and change your password as soon as possible."
+    body = (
+        f"Hi {first_name or ''},\n\n"
+        "Congratulations! Your application has been accepted.\n\n"
+        f"{details}"
     )
 
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.send_message(message)
-        return True
-    except Exception as e:
-        print(f"Failed to send acceptance email: {e}")
-        return False
+    return send_email(email, "Your Drivers Advantage application was accepted!", body)
 
 
-def send_rejection_email(email, first_name):
-    smtp_host = os.environ.get("SMTP_HOST")
-    smtp_username = os.environ.get("SMTP_USERNAME")
-    smtp_password = os.environ.get("SMTP_PASSWORD")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_from = os.environ.get("SMTP_FROM", smtp_username)
-
-    if not smtp_host or not smtp_username or not smtp_password:
-        print(f"[REJECTION] Notified {email}")
-        return True
-
-    message = EmailMessage()
-    message["Subject"] = "Your Drivers Advantage application"
-    message["From"] = smtp_from
-    message["To"] = email
-    message.set_content(
+def send_rejection_email(email, first_name, reason=None):
+    body = (
         f"Hi {first_name or ''},\n\n"
         "Thank you for your interest in Drivers Advantage. "
-        "After review, we're unable to move forward with your application at this time."
+        "After review, your sponsor was unable to move forward "
+        "with your application at this time."
     )
 
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.send_message(message)
-        return True
-    except Exception as e:
-        print(f"Failed to send rejection email: {e}")
-        return False
-    
+    if reason:
+        body += f"\n\nReason provided: {reason}"
+
+    return send_email(email, "Your Drivers Advantage application", body)
 
 
 def send_application_invite(email, token):
@@ -206,16 +200,72 @@ def home():
 
     role = session["role"].lower()
 
-    if role == "driver":
-        return redirect(url_for("driver_dashboard"))
-
+    # -----------------------------------------
+    # Sponsor home page
+    # -----------------------------------------
     if role == "sponsor":
-        return redirect(url_for("sponsor_dashboard"))
 
-    if role == "admin":
-        return redirect(url_for("admin_dashboard"))
+        return render_template(
+            "sponsor/dashboard.html",
+            first_name=session["first_name"],
+            role=session["role"]
+        )
 
-    return redirect(url_for("login"))
+    # -----------------------------------------
+    # Driver home page
+    # -----------------------------------------
+    if role == "driver":
+
+        conn = get_db()
+
+        try:
+            with conn.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT
+                        Sponsors.company_name
+                    FROM Drivers
+
+                    JOIN Driver_Applications
+                        ON Drivers.driver_id =
+                           Driver_Applications.driver_id
+
+                    JOIN Sponsors
+                        ON Driver_Applications.sponsor_id =
+                           Sponsors.sponsor_id
+
+                    WHERE Drivers.driver_id = %s
+                      AND Driver_Applications.status = 'Pending'
+
+                    ORDER BY Driver_Applications.application_date DESC
+
+                    LIMIT 1
+                    """,
+                    (session["user_id"],)
+                )
+
+                sponsor = cursor.fetchone()
+
+        finally:
+            conn.close()
+
+        return render_template(
+            "shared/home.html",
+            first_name=session["first_name"],
+            role=session["role"],
+            sponsor=sponsor
+        )
+
+    # -----------------------------------------
+    # Other roles
+    # -----------------------------------------
+
+    return render_template(
+        "shared/home.html",
+        first_name=session["first_name"],
+        role=session["role"]
+    )
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -599,226 +649,6 @@ def reset_password():
         error="Password reset successfully. Please log in."
     )
 
-@app.route("/driver/profile")
-def driver_profile():
-
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
-    if session["role"].lower() != "driver":
-        return redirect(url_for("home"))
-
-    conn = get_db()
-
-    try:
-        with conn.cursor() as cursor:
-
-            # Load the driver's main profile information.
-            cursor.execute(
-                """
-                SELECT
-                    Drivers.driver_id,
-                    Drivers.points_balance,
-                    Drivers.status,
-
-                    Users.first_name,
-                    Users.last_name,
-                    Users.email,
-
-                    Driver_Profiles.date_of_birth,
-                    Driver_Profiles.address,
-
-                    Sponsors.company_name AS sponsor_name,
-                    Sponsors.email AS sponsor_email
-
-                FROM Drivers
-
-                JOIN Users
-                    ON Drivers.driver_id = Users.user_id
-
-                LEFT JOIN Driver_Profiles
-                    ON Drivers.driver_id = Driver_Profiles.driver_id
-
-                LEFT JOIN Sponsors
-                    ON Drivers.sponsor_id = Sponsors.sponsor_id
-
-                WHERE Drivers.driver_id = %s
-                """,
-                (session["user_id"],)
-            )
-
-            driver = cursor.fetchone()
-
-            if not driver:
-                return redirect(url_for("logout"))
-
-            # Find the accepted application belonging to this driver.
-            cursor.execute(
-                """
-                SELECT application_id
-                FROM Driver_Applications
-                WHERE driver_id = %s
-                  AND status = 'Accepted'
-                ORDER BY decision_date DESC, application_id DESC
-                LIMIT 1
-                """,
-                (session["user_id"],)
-            )
-
-            application = cursor.fetchone()
-
-            answers = []
-
-            # Load the driver's answers if this account came
-            # from an accepted application.
-            if application:
-                cursor.execute(
-                    """
-                    SELECT
-                        Sponsor_Questions.question_text,
-                        Application_Answers.answer_text
-                    FROM Application_Answers
-
-                    JOIN Sponsor_Questions
-                        ON Application_Answers.question_id =
-                           Sponsor_Questions.question_id
-
-                    WHERE Application_Answers.application_id = %s
-
-                    ORDER BY Sponsor_Questions.display_order
-                    """,
-                    (application["application_id"],)
-                )
-
-                answers = cursor.fetchall()
-
-    finally:
-        conn.close()
-
-    return render_template(
-        "driver/profile.html",
-        first_name=session["first_name"],
-        role=session["role"],
-        driver=driver,
-        answers=answers,
-        sponsor_view=False
-    )
-
-@app.route("/sponsor/drivers/<int:driver_id>/profile")
-def sponsor_driver_profile(driver_id):
-
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
-    if session["role"].lower() != "sponsor":
-        return redirect(url_for("home"))
-
-    conn = get_db()
-
-    try:
-        with conn.cursor() as cursor:
-
-            # Only return the driver if they belong to
-            # the currently logged-in sponsor.
-            cursor.execute(
-                """
-                SELECT
-                    Drivers.driver_id,
-                    Drivers.points_balance,
-                    Drivers.status,
-
-                    Users.first_name,
-                    Users.last_name,
-                    Users.email,
-
-                    Driver_Profiles.date_of_birth,
-                    Driver_Profiles.address,
-
-                    Sponsors.company_name AS sponsor_name,
-                    Sponsors.email AS sponsor_email
-
-                FROM Drivers
-
-                JOIN Users
-                    ON Drivers.driver_id = Users.user_id
-
-                LEFT JOIN Driver_Profiles
-                    ON Drivers.driver_id = Driver_Profiles.driver_id
-
-                LEFT JOIN Sponsors
-                    ON Drivers.sponsor_id = Sponsors.sponsor_id
-
-                WHERE Drivers.driver_id = %s
-                  AND Drivers.sponsor_id = %s
-                """,
-                (
-                    driver_id,
-                    session["user_id"]
-                )
-            )
-
-            driver = cursor.fetchone()
-
-            # Sponsor tried to access a driver that does not
-            # belong to them.
-            if not driver:
-                return redirect(url_for("sponsor_drivers"))
-
-            # Find the accepted application for this driver
-            # from this sponsor.
-            cursor.execute(
-                """
-                SELECT application_id
-                FROM Driver_Applications
-                WHERE driver_id = %s
-                  AND sponsor_id = %s
-                  AND status = 'Accepted'
-                ORDER BY decision_date DESC, application_id DESC
-                LIMIT 1
-                """,
-                (
-                    driver_id,
-                    session["user_id"]
-                )
-            )
-
-            application = cursor.fetchone()
-
-            answers = []
-
-            if application:
-                cursor.execute(
-                    """
-                    SELECT
-                        Sponsor_Questions.question_text,
-                        Application_Answers.answer_text
-                    FROM Application_Answers
-
-                    JOIN Sponsor_Questions
-                        ON Application_Answers.question_id =
-                           Sponsor_Questions.question_id
-
-                    WHERE Application_Answers.application_id = %s
-
-                    ORDER BY Sponsor_Questions.display_order
-                    """,
-                    (application["application_id"],)
-                )
-
-                answers = cursor.fetchall()
-
-    finally:
-        conn.close()
-
-    return render_template(
-        "driver/profile.html",
-        first_name=session["first_name"],
-        role=session["role"],
-        driver=driver,
-        answers=answers,
-        sponsor_view=True
-    )
-
 
 @app.route("/logout")
 def logout():
@@ -1023,6 +853,22 @@ def sponsor_applications():
 
             applications = cursor.fetchall()
 
+                        # Counts by status for this sponsor.
+            cursor.execute(
+                """
+                SELECT status, COUNT(*) AS count
+                FROM Driver_Applications
+                WHERE sponsor_id = %s
+                GROUP BY status
+                """,
+                (session["user_id"],)
+            )
+
+            counts = {"Pending": 0, "Submitted": 0, "Accepted": 0, "Rejected": 0}
+            for row in cursor.fetchall():
+                counts[row["status"]] = row["count"]
+            counts["Total"] = sum(counts.values())
+
             # Load custom question answers for each application.
             for application in applications:
                 cursor.execute(
@@ -1060,7 +906,8 @@ def sponsor_applications():
         first_name=session["first_name"],
         role=session["role"],
         applications=applications,
-        questions=questions
+        questions=questions,
+        counts=counts
     )
 @app.route("/sponsor/questions", methods=["POST"])
 def sponsor_questions():
@@ -1132,6 +979,54 @@ def accept_application(application_id):
             application = cursor.fetchone()
 
             if not application or application["status"] != "Submitted":
+                return redirect(url_for("sponsor_applications"))
+
+            if application["driver_id"]:
+                # Driver already has an account: link them to this sponsor.
+                existing_id = application["driver_id"]
+
+                cursor.execute(
+                    """
+                    UPDATE Drivers
+                    SET sponsor_id = %s, status = 'Active'
+                    WHERE driver_id = %s
+                    """,
+                    (session["user_id"], existing_id)
+                )
+
+                cursor.execute(
+                    """
+                    REPLACE INTO Driver_Profiles
+                        (driver_id, date_of_birth, address)
+                    VALUES
+                        (%s, %s, %s)
+                    """,
+                    (
+                        existing_id,
+                        application["applicant_dob"],
+                        application["applicant_address"]
+                    )
+                )
+
+                cursor.execute(
+                    """
+                    UPDATE Driver_Applications
+                    SET
+                        status = 'Accepted',
+                        decision_date = NOW(),
+                        decision_by_user_id = %s
+                    WHERE application_id = %s
+                    """,
+                    (session["user_id"], application_id)
+                )
+
+                conn.commit()
+
+                send_acceptance_email(
+                    application["applicant_email"],
+                    application["applicant_first_name"]
+                )
+
                 return redirect(url_for("sponsor_applications"))
 
             # Create the Users record.
@@ -1224,6 +1119,11 @@ def reject_application(application_id):
     if session["role"].lower() != "sponsor":
         return redirect(url_for("home"))
 
+    reason = request.form.get("reason", "").strip()[:500]
+
+    if not reason:
+        return redirect(url_for("sponsor_applications"))
+
     conn = get_db()
 
     try:
@@ -1249,18 +1149,20 @@ def reject_application(application_id):
                 UPDATE Driver_Applications
                 SET
                     status = 'Rejected',
+                    reason = %s,
                     decision_date = NOW(),
                     decision_by_user_id = %s
                 WHERE application_id = %s
                 """,
-                (session["user_id"], application_id)
+                (reason, session["user_id"], application_id)
             )
 
             conn.commit()
 
             send_rejection_email(
                 application["applicant_email"],
-                application["applicant_first_name"]
+                application["applicant_first_name"],
+                reason
             )
 
     finally:
