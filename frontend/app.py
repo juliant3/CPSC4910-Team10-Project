@@ -1203,6 +1203,55 @@ def delete_sponsor_question(question_id):
 
     return redirect(url_for("sponsor_applications"))
 
+@app.route("/admin/applications")
+def admin_pending_applications():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "admin":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    Driver_Applications.application_id,
+                    Driver_Applications.application_date,
+                    Driver_Applications.status,
+                    Driver_Applications.applicant_email,
+                    Driver_Applications.applicant_first_name,
+                    Driver_Applications.applicant_last_name,
+
+                    Sponsors.company_name AS sponsor_name
+
+                FROM Driver_Applications
+
+                JOIN Sponsors
+                    ON Driver_Applications.sponsor_id = Sponsors.sponsor_id
+
+                WHERE Driver_Applications.status IN ('Pending', 'Submitted')
+
+                ORDER BY Driver_Applications.application_date DESC
+                """
+            )
+
+            applications = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "admin/pending_applications.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        applications=applications
+    )
+
 @app.route("/sponsor/drivers")
 def sponsor_drivers():
 
