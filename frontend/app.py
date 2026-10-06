@@ -211,51 +211,11 @@ def home():
             role=session["role"]
         )
 
-    # -----------------------------------------
+        # -----------------------------------------
     # Driver home page
     # -----------------------------------------
     if role == "driver":
-
-        conn = get_db()
-
-        try:
-            with conn.cursor() as cursor:
-
-                cursor.execute(
-                    """
-                    SELECT
-                        Sponsors.company_name
-                    FROM Drivers
-
-                    JOIN Driver_Applications
-                        ON Drivers.driver_id =
-                           Driver_Applications.driver_id
-
-                    JOIN Sponsors
-                        ON Driver_Applications.sponsor_id =
-                           Sponsors.sponsor_id
-
-                    WHERE Drivers.driver_id = %s
-                      AND Driver_Applications.status = 'Pending'
-
-                    ORDER BY Driver_Applications.application_date DESC
-
-                    LIMIT 1
-                    """,
-                    (session["user_id"],)
-                )
-
-                sponsor = cursor.fetchone()
-
-        finally:
-            conn.close()
-
-        return render_template(
-            "shared/home.html",
-            first_name=session["first_name"],
-            role=session["role"],
-            sponsor=sponsor
-        )
+        return redirect(url_for("driver_dashboard"))
 
     # -----------------------------------------
     # Admin home page
