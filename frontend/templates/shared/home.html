@@ -19,6 +19,7 @@
         Home
     </a>
 
+
     <a href="#">
         My Points
     </a>
@@ -26,6 +27,14 @@
     <a href="#">
         Catalog
     </a>
+    {% if role|lower == 'driver' %}
+        <a href="{{ url_for('driver_dashboard') }}">
+            Dashboard
+        </a>
+        <a href="{{ url_for('driver_sponsors') }}">
+            Available Sponsors
+        </a>
+    {% endif %}
 
     <a href="{{ url_for('about') }}">
         About
