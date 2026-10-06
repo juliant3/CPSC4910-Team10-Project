@@ -1,0 +1,58 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Available Sponsors{% endblock %}
+
+{% block content %}
+
+<div class="sponsors-page">
+
+    <h1>Available Sponsors</h1>
+
+    <p>
+        Browse sponsors participating in Drivers Advantage.
+    </p>
+
+    {% if sponsors %}
+
+        <div class="sponsor-list">
+
+            {% for sponsor in sponsors %}
+
+                <div class="sponsor-card">
+
+                    <h2>{{ sponsor.company_name }}</h2>
+
+                    {% if sponsor.email %}
+                        <p>
+                            <strong>Email:</strong>
+                            {{ sponsor.email }}
+                        </p>
+                    {% endif %}
+
+                    {% if sponsor.phone %}
+                        <p>
+                            <strong>Phone:</strong>
+                            {{ sponsor.phone }}
+                        </p>
+                    {% endif %}
+
+                    <p>
+                        <strong>Point Value:</strong>
+                        ${{ "%.4f"|format(sponsor.point_value) }}
+                    </p>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+
+        <p>No sponsors are currently available.</p>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

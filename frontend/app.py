@@ -1532,6 +1532,38 @@ def driver_dashboard():
         role=session["role"],
         driver=driver
     )
+@app.route("/driver/sponsors")
+def driver_sponsors(): 
+    if "user_id" not in session: 
+        return redirect(url_for("login"))
+    if session["role"].lower() != "driver":
+        return redirect(url_for("home"))
+    conn = get_db()
+    try: 
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    sponsor_id,
+                    company_name,
+                    email,
+                    phone,
+                    point_value
+                FROM Sponsors
+                WHERE is_active = TRUE
+                ORDER BY company_name
+                """
+            )
+            sponsors = cursor.fetchall()
+    finally: 
+        conn.close()
+    return render_template(
+        "driver/sponsors.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        sponsors=sponsors
+    )
 @app.route("/register", methods=["GET", "POST"])
 def register():
 

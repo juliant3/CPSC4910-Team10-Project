@@ -467,4 +467,84 @@ h1, h2, h3 {
     .profile-value {
         text-align: left;
     }
+
+}
+
+
+.sponsors-page {
+    max-width: 1050px;
+    margin: 48px auto;
+    padding: 0 25px 50px;
+}
+
+.sponsors-page h1 {
+    color: var(--purple-900);
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.sponsors-page > p {
+    color: var(--slate);
+    font-size: 15px;
+    margin-bottom: 30px;
+}
+
+.sponsor-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.sponsor-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 26px;
+    border-radius: 6px;
+
+    transition:
+        transform 0.15s,
+        box-shadow 0.15s,
+        border-color 0.15s;
+}
+
+.sponsor-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--purple-500);
+    box-shadow: 0 6px 18px rgba(46, 26, 77, 0.10);
+}
+
+.sponsor-card h2 {
+    color: var(--purple-900);
+    font-size: 22px;
+    margin: 0 0 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+.sponsor-card p {
+    color: var(--slate);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 9px 0;
+}
+
+.sponsor-card strong {
+    color: var(--ink);
+}
+
+
+@media (max-width: 850px) {
+
+    .sponsor-list {
+        grid-template-columns: 1fr 1fr;
+    }
+
+}
+
+@media (max-width: 600px) {
+
+    .sponsor-list {
+        grid-template-columns: 1fr;
+    }
+
 }
