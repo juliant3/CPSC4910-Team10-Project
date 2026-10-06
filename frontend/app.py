@@ -1455,7 +1455,7 @@ def driver_profile():
 
 
 @app.route("/sponsor/drivers/<int:driver_id>")
-def sponsor_view_driver(driver_id):
+def sponsor_driver_profile(driver_id):
 
     if "user_id" not in session:
         return redirect(url_for("login"))
