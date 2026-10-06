@@ -1354,6 +1354,136 @@ def sponsor_dashboard():
         role=session["role"]
     )
 
+def get_driver_profile_data(cursor, driver_id):
+
+    cursor.execute(
+        """
+        SELECT
+            Drivers.driver_id,
+            Drivers.sponsor_id,
+            Drivers.points_balance,
+            Drivers.status,
+
+            Users.first_name,
+            Users.last_name,
+            Users.email,
+
+            Driver_Profiles.date_of_birth,
+            Driver_Profiles.address,
+
+            Sponsors.company_name AS sponsor_name,
+            Sponsors.email AS sponsor_email
+
+        FROM Drivers
+
+        JOIN Users
+            ON Drivers.driver_id = Users.user_id
+
+        LEFT JOIN Driver_Profiles
+            ON Drivers.driver_id = Driver_Profiles.driver_id
+
+        LEFT JOIN Sponsors
+            ON Drivers.sponsor_id = Sponsors.sponsor_id
+
+        WHERE Drivers.driver_id = %s
+        """,
+        (driver_id,)
+    )
+
+    driver = cursor.fetchone()
+
+    cursor.execute(
+        """
+        SELECT
+            Sponsor_Questions.question_text,
+            Application_Answers.answer_text
+
+        FROM Application_Answers
+
+        JOIN Driver_Applications
+            ON Application_Answers.application_id =
+               Driver_Applications.application_id
+
+        JOIN Sponsor_Questions
+            ON Application_Answers.question_id =
+               Sponsor_Questions.question_id
+
+        WHERE Driver_Applications.driver_id = %s
+          AND Driver_Applications.status = 'Accepted'
+
+        ORDER BY Sponsor_Questions.display_order
+        """,
+        (driver_id,)
+    )
+
+    answers = cursor.fetchall()
+
+    return driver, answers
+
+
+@app.route("/driver/profile")
+def driver_profile():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "driver":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            driver, answers = get_driver_profile_data(
+                cursor,
+                session["user_id"]
+            )
+    finally:
+        conn.close()
+
+    if not driver:
+        return redirect(url_for("home"))
+
+    return render_template(
+        "driver/profile.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        driver=driver,
+        answers=answers,
+        sponsor_view=False
+    )
+
+
+@app.route("/sponsor/drivers/<int:driver_id>")
+def sponsor_view_driver(driver_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            driver, answers = get_driver_profile_data(cursor, driver_id)
+    finally:
+        conn.close()
+
+    # A sponsor can only view their own drivers.
+    if not driver or driver["sponsor_id"] != session["user_id"]:
+        return redirect(url_for("sponsor_drivers"))
+
+    return render_template(
+        "driver/profile.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        driver=driver,
+        answers=answers,
+        sponsor_view=True
+    )
+
 
 @app.route("/driver/dashboard")
 def driver_dashboard():
