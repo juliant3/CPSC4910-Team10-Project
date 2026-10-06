@@ -850,10 +850,13 @@ def sponsor_applications():
             status_filter = request.args.get("status", "all")
             if status_filter not in ("Pending", "Submitted", "Accepted", "Rejected"):
                 status_filter = "all"
-            
+            sort_order = request.args.get("sort", "newest")
+            if sort_order not in ("newest", "oldest"):
+                sort_order = "newest"
             cursor.execute(
                 """
                 SELECT
+                   
                     Driver_Applications.application_id,
                     Driver_Applications.application_date,
                     Driver_Applications.status,
@@ -882,9 +885,12 @@ def sponsor_applications():
                     AND (%s = 'all' OR Driver_Applications.status = %s)
                 
 
-                ORDER BY Driver_Applications.application_date DESC
+                ORDER BY
+                    CASE WHEN %s = 'oldest' THEN 
+                Driver_Applications.application_date END ASC,
+                    Driver_Applications.application_date DESC
                 """,
-                (session["user_id"], status_filter, status_filter)
+                (session["user_id"], status_filter, status_filter, sort_order)
             )
 
             applications = cursor.fetchall()
