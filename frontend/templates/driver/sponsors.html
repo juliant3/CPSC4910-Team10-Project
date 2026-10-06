@@ -6,11 +6,22 @@
 
 <div class="sponsors-page">
 
-    <h1>Available Sponsors</h1>
+    <!-- Page Header -->
+    <div class="sponsors-header">
 
-    <p>
-        Browse sponsors participating in Drivers Advantage.
-    </p>
+        <span class="role-badge">
+            DRIVER
+        </span>
+
+        <h1>Available Sponsors</h1>
+
+        <p>
+            Browse participating sponsors and find the
+            organization that's right for you.
+        </p>
+
+    </div>
+
 
     {% if sponsors %}
 
@@ -20,26 +31,73 @@
 
                 <div class="sponsor-card">
 
-                    <h2>{{ sponsor.company_name }}</h2>
+                    <!-- Sponsor Icon -->
+                    <div class="sponsor-icon">
+                        {{ sponsor.company_name[0]|upper }}
+                    </div>
 
-                    {% if sponsor.email %}
-                        <p>
-                            <strong>Email:</strong>
-                            {{ sponsor.email }}
-                        </p>
-                    {% endif %}
+                    <!-- Company Name -->
+                    <h2>
+                        {{ sponsor.company_name }}
+                    </h2>
 
-                    {% if sponsor.phone %}
-                        <p>
-                            <strong>Phone:</strong>
-                            {{ sponsor.phone }}
-                        </p>
-                    {% endif %}
+                    <div class="sponsor-divider"></div>
 
-                    <p>
-                        <strong>Point Value:</strong>
-                        ${{ "%.4f"|format(sponsor.point_value) }}
-                    </p>
+
+                    <!-- Sponsor Information -->
+                    <div class="sponsor-info">
+
+                        {% if sponsor.email %}
+
+                            <div class="sponsor-info-row">
+                                <span class="sponsor-label">
+                                    Email
+                                </span>
+
+                                <span class="sponsor-value">
+                                    {{ sponsor.email }}
+                                </span>
+                            </div>
+
+                        {% endif %}
+
+
+                        {% if sponsor.phone %}
+
+                            <div class="sponsor-info-row">
+                                <span class="sponsor-label">
+                                    Phone
+                                </span>
+
+                                <span class="sponsor-value">
+                                    {{ sponsor.phone }}
+                                </span>
+                            </div>
+
+                        {% endif %}
+
+
+                        <div class="sponsor-info-row">
+                            <span class="sponsor-label">
+                                Point Value
+                            </span>
+
+                            <span class="sponsor-value point-value">
+                                ${{ "%.4f"|format(sponsor.point_value) }}
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <!-- Future Apply Button -->
+                    <button
+                        class="sponsor-apply-button"
+                        type="button"
+                        disabled
+                    >
+                        Apply Coming Soon
+                    </button>
 
                 </div>
 
@@ -47,11 +105,36 @@
 
         </div>
 
+
     {% else %}
 
-        <p>No sponsors are currently available.</p>
+        <div class="no-sponsors">
+
+            <div class="no-sponsors-icon">
+                S
+            </div>
+
+            <h2>No Sponsors Available</h2>
+
+            <p>
+                There are currently no active sponsors
+                available. Please check again later.
+            </p>
+
+        </div>
 
     {% endif %}
+
+
+    <!-- Back Button -->
+    <div class="sponsors-footer">
+
+        <a href="{{ url_for('home') }}"
+           class="back-button">
+            ← Back to Home
+        </a>
+
+    </div>
 
 </div>
 
