@@ -53,6 +53,11 @@
         Drivers currently associated with your sponsorship.
     </p>
 
+    <a href="{{ url_for('sponsor_recurring') }}" class="dashboard-button" style="margin-top: 14px;">
+        Set Up Recurring Points
+    </a>
+
+
 </div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
