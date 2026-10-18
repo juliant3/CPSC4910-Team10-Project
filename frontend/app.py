@@ -1766,6 +1766,219 @@ def sponsor_edit_driver(driver_id):
     )
 
 
+def advance_run(next_run, frequency, now):
+    """Moves next_run forward by one period until it is in the future."""
+    import calendar
+    from datetime import timedelta as td
+
+    while next_run <= now:
+        if frequency == "Daily":
+            next_run = next_run + td(days=1)
+        elif frequency == "Weekly":
+            next_run = next_run + td(days=7)
+        else:
+            month = next_run.month % 12 + 1
+            year = next_run.year + (1 if next_run.month == 12 else 0)
+            day = min(next_run.day, calendar.monthrange(year, month)[1])
+            next_run = next_run.replace(year=year, month=month, day=day)
+    return next_run
+
+
+def process_recurring_points():
+    """Gives points for every recurring rule that is due. Safe to call often."""
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute("SELECT NOW() AS now")
+            now = cursor.fetchone()["now"]
+
+            cursor.execute(
+                """
+                SELECT recurring_id, sponsor_id, point_change, reason,
+                       frequency, next_run
+                FROM Recurring_Points
+                WHERE is_active = 1 AND next_run <= %s
+                """,
+                (now,)
+            )
+            rules = cursor.fetchall()
+
+            for rule in rules:
+
+                new_next = advance_run(rule["next_run"], rule["frequency"], now)
+
+                # Claim the rule first so two requests cannot both award it.
+                cursor.execute(
+                    """
+                    UPDATE Recurring_Points
+                    SET next_run = %s, last_run = %s
+                    WHERE recurring_id = %s AND next_run = %s
+                    """,
+                    (new_next, now, rule["recurring_id"], rule["next_run"])
+                )
+
+                if cursor.rowcount == 0:
+                    continue
+
+                cursor.execute(
+                    """
+                    SELECT driver_id FROM Drivers
+                    WHERE sponsor_id = %s AND status = 'Active'
+                    """,
+                    (rule["sponsor_id"],)
+                )
+
+                for d in cursor.fetchall():
+
+                    cursor.execute(
+                        """
+                        UPDATE Drivers
+                        SET points_balance = points_balance + %s
+                        WHERE driver_id = %s
+                        """,
+                        (rule["point_change"], d["driver_id"])
+                    )
+
+                    cursor.execute(
+                        """
+                        INSERT INTO Point_Transactions
+                            (driver_id, sponsor_id, changed_by_user_id,
+                             point_change, reason)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (d["driver_id"], rule["sponsor_id"], rule["sponsor_id"],
+                         rule["point_change"], rule["reason"])
+                    )
+
+                    cursor.execute(
+                        """
+                        INSERT INTO Notifications
+                            (user_id, notification_type, subject, message)
+                        VALUES (%s, 'Point Change', %s, %s)
+                        """,
+                        (d["driver_id"],
+                         str(rule["point_change"]) + " points added",
+                         "Recurring points: " + rule["reason"])
+                    )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+
+@app.before_request
+def run_due_recurring_points():
+    if request.method != "GET" or request.endpoint in (None, "static"):
+        return
+
+    try:
+        process_recurring_points()
+    except Exception as e:
+        print("Recurring points error:", e)
+
+
+@app.route("/sponsor/recurring", methods=["GET", "POST"])
+def sponsor_recurring():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    error = None
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            if request.method == "POST":
+                from datetime import date
+
+                action = request.form.get("action", "create")
+                recurring_id = request.form.get("recurring_id", type=int)
+
+                if action == "toggle" and recurring_id:
+                    cursor.execute(
+                        """
+                        UPDATE Recurring_Points
+                        SET is_active = 1 - is_active
+                        WHERE recurring_id = %s AND sponsor_id = %s
+                        """,
+                        (recurring_id, session["user_id"])
+                    )
+                    conn.commit()
+                    return redirect(url_for("sponsor_recurring"))
+
+                if action == "delete" and recurring_id:
+                    cursor.execute(
+                        """
+                        DELETE FROM Recurring_Points
+                        WHERE recurring_id = %s AND sponsor_id = %s
+                        """,
+                        (recurring_id, session["user_id"])
+                    )
+                    conn.commit()
+                    return redirect(url_for("sponsor_recurring"))
+
+                points = request.form.get("point_change", type=int)
+                reason = request.form.get("reason", "").strip()[:255]
+                frequency = request.form.get("frequency", "")
+                start_date = request.form.get("start_date", "")
+
+                try:
+                    date.fromisoformat(start_date)
+                    valid_date = True
+                except ValueError:
+                    valid_date = False
+
+                if not points or points <= 0:
+                    error = "Enter a point amount greater than 0."
+                elif not reason:
+                    error = "Enter a reason."
+                elif frequency not in ("Daily", "Weekly", "Monthly"):
+                    error = "Choose a frequency."
+                elif not valid_date:
+                    error = "Choose a start date."
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO Recurring_Points
+                            (sponsor_id, point_change, reason, frequency, next_run)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (session["user_id"], points, reason, frequency, start_date)
+                    )
+                    conn.commit()
+                    return redirect(url_for("sponsor_recurring"))
+
+            cursor.execute(
+                """
+                SELECT recurring_id, point_change, reason, frequency,
+                       next_run, last_run, is_active
+                FROM Recurring_Points
+                WHERE sponsor_id = %s
+                ORDER BY recurring_id DESC
+                """,
+                (session["user_id"],)
+            )
+            rules = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "sponsor/recurring.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        rules=rules,
+        error=error
+    )
+
+
 @app.route("/driver/dashboard")
 def driver_dashboard():
 
