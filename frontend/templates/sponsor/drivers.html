@@ -62,6 +62,21 @@
 {% endwith %}
 
 
+<form method="GET" action="{{ url_for('sponsor_drivers') }}" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; margin-bottom: 20px;">
+    <label>Sort by
+        <select name="sort" style="padding: 8px;">
+            <option value="name"{% if sort_key == 'name' %} selected{% endif %}>Name</option>
+            <option value="points_high"{% if sort_key == 'points_high' %} selected{% endif %}>Points: high to low</option>
+            <option value="points_low"{% if sort_key == 'points_low' %} selected{% endif %}>Points: low to high</option>
+        </select>
+    </label>
+    <input type="number" name="min_points" placeholder="Min points" value="{{ min_points if min_points is not none else '' }}" style="width: 120px; padding: 8px;">
+    <input type="number" name="max_points" placeholder="Max points" value="{{ max_points if max_points is not none else '' }}" style="width: 120px; padding: 8px;">
+    <button type="submit" class="dashboard-button">Apply</button>
+    <a href="{{ url_for('sponsor_drivers') }}" style="font-size: 14px; color: #4C2A85;">Reset</a>
+</form>
+
+
 {% if drivers %}
 
     <div class="dashboard-grid">

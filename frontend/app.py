@@ -1258,13 +1258,33 @@ def sponsor_drivers():
     if session["role"].lower() != "sponsor":
         return redirect(url_for("home"))
 
+    sort_options = {
+        "name": "Users.last_name, Users.first_name",
+        "points_high": "COALESCE(Drivers.points_balance, 0) DESC, Users.last_name",
+        "points_low": "COALESCE(Drivers.points_balance, 0) ASC, Users.last_name"
+    }
+
+    sort_key = request.args.get("sort", "name")
+    if sort_key not in sort_options:
+        sort_key = "name"
+
+    def to_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    min_points = to_int(request.args.get("min_points"))
+    max_points = to_int(request.args.get("max_points"))
+
     conn = get_db()
 
     try:
         with conn.cursor() as cursor:
 
+            # The ORDER BY text comes from the fixed dictionary above.
             cursor.execute(
-                """
+                f"""
                 SELECT
                     Drivers.driver_id,
                     Drivers.points_balance,
@@ -1280,10 +1300,16 @@ def sponsor_drivers():
                     ON Drivers.driver_id = Users.user_id
 
                 WHERE Drivers.sponsor_id = %s
+                  AND (%s IS NULL OR COALESCE(Drivers.points_balance, 0) >= %s)
+                  AND (%s IS NULL OR COALESCE(Drivers.points_balance, 0) <= %s)
 
-                ORDER BY Users.last_name, Users.first_name
+                ORDER BY {sort_options[sort_key]}
                 """,
-                (session["user_id"],)
+                (
+                    session["user_id"],
+                    min_points, min_points,
+                    max_points, max_points
+                )
             )
 
             drivers = cursor.fetchall()
@@ -1295,7 +1321,10 @@ def sponsor_drivers():
         "sponsor/drivers.html",
         first_name=session["first_name"],
         role=session["role"],
-        drivers=drivers
+        drivers=drivers,
+        sort_key=sort_key,
+        min_points=min_points,
+        max_points=max_points
     )
 
 @app.route("/sponsor/drivers/<int:driver_id>/points", methods=["POST"])
