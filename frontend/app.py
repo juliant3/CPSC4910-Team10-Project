@@ -1698,6 +1698,104 @@ def driver_sponsors():
         sponsors=sponsors
     )
 
+@app.route("/driver/points")
+def driver_points():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "driver":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT points_balance
+                FROM Drivers
+                WHERE driver_id = %s
+                """,
+                (session["user_id"],)
+            )
+            driver = cursor.fetchone()
+
+            cursor.execute(
+                """
+                SELECT
+                    COALESCE(SUM(CASE WHEN point_change > 0 THEN point_change END), 0) AS earned,
+                    COALESCE(SUM(CASE WHEN point_change < 0 THEN -point_change END), 0) AS deducted
+                FROM Point_Transactions
+                WHERE driver_id = %s
+                """,
+                (session["user_id"],)
+            )
+            totals = cursor.fetchone()
+
+            cursor.execute(
+                """
+                SELECT
+                    Point_Transactions.point_change,
+                    Point_Transactions.reason,
+                    Point_Transactions.created_at,
+                    Sponsors.company_name AS sponsor_name,
+                    CONCAT(Users.first_name, ' ', Users.last_name) AS changed_by_name
+                FROM Point_Transactions
+                LEFT JOIN Sponsors
+                    ON Point_Transactions.sponsor_id = Sponsors.sponsor_id
+                LEFT JOIN Users
+                    ON Point_Transactions.changed_by_user_id = Users.user_id
+                WHERE Point_Transactions.driver_id = %s
+                ORDER BY Point_Transactions.created_at DESC,
+                         Point_Transactions.transaction_id DESC
+                LIMIT 50
+                """,
+                (session["user_id"],)
+            )
+            history = cursor.fetchall()
+
+            cursor.execute(
+                """
+                SELECT
+                    Point_Transactions.point_change,
+                    Point_Transactions.reason,
+                    Point_Transactions.created_at,
+                    Sponsors.company_name AS sponsor_name,
+                    CONCAT(Users.first_name, ' ', Users.last_name) AS changed_by_name
+                FROM Point_Transactions
+                LEFT JOIN Sponsors
+                    ON Point_Transactions.sponsor_id = Sponsors.sponsor_id
+                LEFT JOIN Users
+                    ON Point_Transactions.changed_by_user_id = Users.user_id
+                WHERE Point_Transactions.driver_id = %s
+                  AND Point_Transactions.point_change < 0
+                ORDER BY Point_Transactions.created_at DESC,
+                         Point_Transactions.transaction_id DESC
+                LIMIT 5
+                """,
+                (session["user_id"],)
+            )
+            recent_deductions = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    if not driver:
+        return redirect(url_for("logout"))
+
+    return render_template(
+        "driver/points.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        driver=driver,
+        totals=totals,
+        history=history,
+        recent_deductions=recent_deductions
+    )
+
+
 @app.route("/notifications")
 def notifications():
 
