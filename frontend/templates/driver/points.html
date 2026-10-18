@@ -1,6 +1,6 @@
 {% extends "shared/base.html" %}
 
-{% block title %}My Points{% endblock %}
+{% block title %}{% if sponsor_view %}Driver Profile{% else %}My Profile{% endif %}{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
@@ -15,8 +15,16 @@
 
     <div class="nav-links">
         <a href="{{ url_for('home') }}">Home</a>
-        <a href="{{ url_for('driver_profile') }}">My Profile</a>
-        <a href="{{ url_for('driver_points') }}">My Points</a>
+
+        {% if sponsor_view %}
+            <a href="{{ url_for('sponsor_applications') }}">Applications</a>
+            <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
+        {% else %}
+            <a href="{{ url_for('driver_profile') }}">My Profile</a>
+            <a href="{{ url_for('driver_points') }}">My Points</a>
+            <a href="{{ url_for('driver_sponsors') }}">Sponsors</a>
+        {% endif %}
+
         <a href="{{ url_for('about') }}">About</a>
     </div>
 
@@ -28,73 +36,43 @@
 </nav>
 
 <div class="hero" style="max-width: 780px;">
-    <span class="role-badge">Driver</span>
+    <span class="role-badge">{% if sponsor_view %}Driver{% else %}My Profile{% endif %}</span>
 
-    <h1>My Points</h1>
+    <h1>{{ driver.first_name }} {{ driver.last_name }}</h1>
 
-    <div style="margin: 18px 0 6px;">
-        <strong style="font-size: 56px; color: #D9662C;">{{ driver.points_balance or 0 }}</strong><br>
-        <span style="font-size: 13px; color: #6B6478;">CURRENT BALANCE</span>
-    </div>
+    <p>{{ driver.email }}</p>
 
-    <div style="display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; margin: 22px 0 10px;">
-        <div style="text-align: center;">
-            <strong style="font-size: 28px; color: #2F7D5C;">+{{ totals.earned }}</strong><br>
-            <span style="font-size: 12px; color: #6B6478;">TOTAL EARNED</span>
-        </div>
-        <div style="text-align: center;">
-            <strong style="font-size: 28px; color: #A3413A;">-{{ totals.deducted }}</strong><br>
-            <span style="font-size: 12px; color: #6B6478;">TOTAL DEDUCTED</span>
-        </div>
+    <div style="margin-top: 18px;">
+        {% if sponsor_view %}
+        <a href="{{ url_for('sponsor_edit_driver', driver_id=driver.driver_id) }}" class="dashboard-button">
+            Edit Driver
+        </a>
+        {% else %}
+        <a href="{{ url_for('driver_edit_profile') }}" class="dashboard-button">
+            Edit Profile
+        </a>
+        {% endif %}
     </div>
 </div>
 
-<div class="hero" style="max-width: 780px;">
-    <h1>Recent Deductions</h1>
+<div class="hero" style="max-width: 780px; text-align: left;">
+    <h1 style="text-align: center;">Details</h1>
 
-    {% if recent_deductions %}
-        {% for t in recent_deductions %}
-        <div class="application-card" style="flex-direction: column; align-items: stretch; text-align: left; border-left: 4px solid #A3413A;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3>-{{ -t.point_change }} points</h3>
-                <span style="font-size: 12px; color: #6B6478;">
-                    {{ t.created_at.strftime('%b %d, %Y') if t.created_at else '' }}
-                </span>
-            </div>
-            <p><strong>Reason:</strong> {{ t.reason }}</p>
-            {% if t.changed_by_name %}
-            <p style="font-size: 12px; color: #6B6478;">Changed by {{ t.changed_by_name }}{% if t.sponsor_name %} ({{ t.sponsor_name }}){% endif %}</p>
-            {% endif %}
-        </div>
-        {% endfor %}
-    {% else %}
-        <p>No points have been deducted.</p>
-    {% endif %}
+    <p><strong>Date of Birth:</strong> {{ driver.date_of_birth or 'Not provided' }}</p>
+    <p><strong>Address:</strong> {{ driver.address or 'Not provided' }}</p>
+    <p><strong>Sponsor:</strong> {{ driver.sponsor_name or 'No sponsor assigned' }}</p>
+    <p><strong>Points:</strong> {{ driver.points_balance or 0 }}</p>
+    <p><strong>Status:</strong> {{ driver.status }}</p>
 </div>
 
-<div class="hero" style="max-width: 780px;">
-    <h1>Points History</h1>
+{% if answers %}
+<div class="hero" style="max-width: 780px; text-align: left;">
+    <h1 style="text-align: center;">Application Answers</h1>
 
-    {% if history %}
-        {% for t in history %}
-        <div class="application-card" style="flex-direction: column; align-items: stretch; text-align: left;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="color: {{ '#2F7D5C' if t.point_change > 0 else '#A3413A' }};">
-                    {{ '+' if t.point_change > 0 }}{{ t.point_change }} points
-                </h3>
-                <span style="font-size: 12px; color: #6B6478;">
-                    {{ t.created_at.strftime('%b %d, %Y %I:%M %p') if t.created_at else '' }}
-                </span>
-            </div>
-            <p>{{ t.reason }}</p>
-            {% if t.changed_by_name %}
-            <p style="font-size: 12px; color: #6B6478;">By {{ t.changed_by_name }}</p>
-            {% endif %}
-        </div>
-        {% endfor %}
-    {% else %}
-        <p>No point activity yet.</p>
-    {% endif %}
+    {% for a in answers %}
+    <p><strong>{{ a.question_text }}</strong> &mdash; {{ a.answer_text }}</p>
+    {% endfor %}
 </div>
+{% endif %}
 
 {% endblock %}
