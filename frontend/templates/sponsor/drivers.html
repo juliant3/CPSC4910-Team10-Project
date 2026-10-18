@@ -55,6 +55,12 @@
 
 </div>
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="{{ 'form-success' if category == 'success' else 'form-error' }}" style="margin-bottom: 18px;">{{ message }}</div>
+    {% endfor %}
+{% endwith %}
+
 
 {% if drivers %}
 
@@ -86,6 +92,13 @@
                     <strong>Status:</strong>
                     {{ driver.status }}
                 </p>
+
+                <form method="POST" action="{{ url_for('change_driver_points', driver_id=driver.driver_id) }}" style="margin: 14px 0;">
+                <input type="number" name="amount" min="1" placeholder="Points" required style="width: 100%; box-sizing: border-box; padding: 9px; margin-bottom: 8px;">
+                <input type="text" name="reason" maxlength="255" placeholder="Reason (required)" required style="width: 100%; box-sizing: border-box; padding: 9px; margin-bottom: 8px;">
+                <button type="submit" name="action" value="add" class="dashboard-button" style="background: #2F7D5C;">Add</button>
+                <button type="submit" name="action" value="deduct" class="dashboard-button" style="background: #A3413A;">Deduct</button>
+                </form>
 
                 <a href="{{ url_for(
                         'sponsor_driver_profile',

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import pymysql
 import os
 import smtplib
@@ -1297,6 +1297,92 @@ def sponsor_drivers():
         role=session["role"],
         drivers=drivers
     )
+
+@app.route("/sponsor/drivers/<int:driver_id>/points", methods=["POST"])
+def change_driver_points(driver_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    action = request.form.get("action", "")
+    reason = request.form.get("reason", "").strip()[:255]
+
+    try:
+        amount = int(request.form.get("amount", ""))
+    except ValueError:
+        amount = 0
+
+    if action not in ("add", "deduct") or amount <= 0 or not reason:
+        flash("Enter a whole number of points above 0 and a reason.", "error")
+        return redirect(url_for("sponsor_drivers"))
+
+    point_change = amount if action == "add" else -amount
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Lock the row so two changes can't overwrite each other.
+            cursor.execute(
+                """
+                SELECT points_balance
+                FROM Drivers
+                WHERE driver_id = %s
+                  AND sponsor_id = %s
+                FOR UPDATE
+                """,
+                (driver_id, session["user_id"])
+            )
+
+            driver = cursor.fetchone()
+
+            if not driver:
+                return redirect(url_for("sponsor_drivers"))
+
+            if (driver["points_balance"] or 0) + point_change < 0:
+                flash("You can't deduct more points than the driver has.", "error")
+                return redirect(url_for("sponsor_drivers"))
+
+            cursor.execute(
+                """
+                UPDATE Drivers
+                SET points_balance = COALESCE(points_balance, 0) + %s
+                WHERE driver_id = %s
+                """,
+                (point_change, driver_id)
+            )
+
+            cursor.execute(
+                """
+                INSERT INTO Point_Transactions
+                    (driver_id, sponsor_id, changed_by_user_id, point_change, reason)
+                VALUES
+                    (%s, %s, %s, %s, %s)
+                """,
+                (
+                    driver_id,
+                    session["user_id"],
+                    session["user_id"],
+                    point_change,
+                    reason
+                )
+            )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+    if action == "add":
+        flash(f"Added {amount} points.", "success")
+    else:
+        flash(f"Deducted {amount} points.", "success")
+
+    return redirect(url_for("sponsor_drivers"))
 
 
 @app.route("/sponsor/dashboard")
