@@ -47,6 +47,30 @@ def get_login_stats():
         conn.close()
     return driver_count, sponsor_count
 
+@app.context_processor
+def inject_unread_count():
+    if "user_id" not in session:
+        return {"unread_count": 0}
+
+    try:
+        conn = get_db()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS c
+                    FROM Notifications
+                    WHERE user_id = %s
+                      AND is_read = 0
+                    """,
+                    (session["user_id"],)
+                )
+                return {"unread_count": cursor.fetchone()["c"]}
+        finally:
+            conn.close()
+    except Exception:
+        return {"unread_count": 0}
+
 def send_email(to_email, subject, body):
     smtp_host = os.environ.get("SMTP_HOST")
     smtp_port = int(os.environ.get("SMTP_PORT", "587"))
@@ -1639,6 +1663,49 @@ def driver_sponsors():
         role=session["role"],
         sponsors=sponsors
     )
+
+@app.route("/notifications")
+def notifications():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT notification_id, subject, message, is_read, created_at
+                FROM Notifications
+                WHERE user_id = %s
+                ORDER BY created_at DESC, notification_id DESC
+                LIMIT 100
+                """,
+                (session["user_id"],)
+            )
+            items = cursor.fetchall()
+
+            cursor.execute(
+                """
+                UPDATE Notifications
+                SET is_read = 1
+                WHERE user_id = %s
+                  AND is_read = 0
+                """,
+                (session["user_id"],)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return render_template(
+        "shared/notifications.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        notifications=items
+    )
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
 
