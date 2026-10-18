@@ -1,0 +1,164 @@
+python3 - <<'PY'
+path = "frontend/app.py"
+text = open(path).read()
+
+code = '''def save_driver_profile(cursor, driver_id, form):
+    """Validates and saves profile fields. Returns an error message or None."""
+    from datetime import date
+
+    first_name = form.get("first_name", "").strip()[:100]
+    last_name = form.get("last_name", "").strip()[:100]
+    date_of_birth = form.get("date_of_birth", "").strip()
+    address = form.get("address", "").strip()[:500]
+
+    if not first_name or not last_name or not date_of_birth or not address:
+        return "Please fill out every field."
+
+    try:
+        date.fromisoformat(date_of_birth)
+    except ValueError:
+        return "Please enter a valid date of birth."
+
+    cursor.execute(
+        """
+        UPDATE Users
+        SET first_name = %s, last_name = %s
+        WHERE user_id = %s
+        """,
+        (first_name, last_name, driver_id)
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO Driver_Profiles
+            (driver_id, date_of_birth, address)
+        VALUES
+            (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            date_of_birth = VALUES(date_of_birth),
+            address = VALUES(address)
+        """,
+        (driver_id, date_of_birth, address)
+    )
+
+    return None
+
+
+def profile_form_values(driver):
+    dob = driver.get("date_of_birth")
+    return {
+        "first_name": driver.get("first_name") or "",
+        "last_name": driver.get("last_name") or "",
+        "date_of_birth": dob.isoformat() if hasattr(dob, "isoformat") else (dob or ""),
+        "address": driver.get("address") or ""
+    }
+
+
+@app.route("/driver/profile/edit", methods=["GET", "POST"])
+def driver_edit_profile():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "driver":
+        return redirect(url_for("home"))
+
+    error = None
+    posted_form = None
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            if request.method == "POST":
+                error = save_driver_profile(cursor, session["user_id"], request.form)
+
+                if not error:
+                    conn.commit()
+                    session["first_name"] = request.form.get("first_name", "").strip()[:100]
+                    return redirect(url_for("driver_profile"))
+
+                posted_form = request.form
+
+            driver, answers = get_driver_profile_data(cursor, session["user_id"])
+
+    finally:
+        conn.close()
+
+    if not driver:
+        return redirect(url_for("home"))
+
+    return render_template(
+        "driver/edit_profile.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        driver=driver,
+        form=posted_form or profile_form_values(driver),
+        form_action=url_for("driver_edit_profile"),
+        back_url=url_for("driver_profile"),
+        sponsor_view=False,
+        error=error
+    )
+
+
+@app.route("/sponsor/drivers/<int:driver_id>/edit", methods=["GET", "POST"])
+def sponsor_edit_driver(driver_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    error = None
+    posted_form = None
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            driver, answers = get_driver_profile_data(cursor, driver_id)
+
+            # A sponsor can only edit their own drivers.
+            if not driver or driver["sponsor_id"] != session["user_id"]:
+                return redirect(url_for("sponsor_drivers"))
+
+            if request.method == "POST":
+                error = save_driver_profile(cursor, driver_id, request.form)
+
+                if not error:
+                    conn.commit()
+                    return redirect(url_for("sponsor_driver_profile", driver_id=driver_id))
+
+                posted_form = request.form
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "driver/edit_profile.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        driver=driver,
+        form=posted_form or profile_form_values(driver),
+        form_action=url_for("sponsor_edit_driver", driver_id=driver_id),
+        back_url=url_for("sponsor_driver_profile", driver_id=driver_id),
+        sponsor_view=True,
+        error=error
+    )
+
+
+'''
+
+anchor = '@app.route("/driver/dashboard")'
+
+if "def driver_edit_profile" in text:
+    print("STOPPED: driver_edit_profile already exists")
+elif text.count(anchor) != 1:
+    print("STOPPED: anchor found", text.count(anchor), "times")
+else:
+    open(path, "w").write(text.replace(anchor, code + anchor))
+    print("DONE: edit profile routes added")
+PY
