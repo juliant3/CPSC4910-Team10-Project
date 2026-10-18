@@ -531,6 +531,21 @@ def apply(token):
                             )
                         )
 
+                cursor.execute(
+
+                    """
+                    INSERT INTO Notifications
+                        (user_id, notification_type, subject, message)
+                    VALUES
+                        (%s, 'New Application', %s, %s)
+                    """,
+                    (
+                        application["sponsor_id"],
+                        "New application received",
+                        f"{first_name} {last_name} ({application['applicant_email']}) submitted an application."
+                    )
+                )    
+
                 conn.commit()
 
                 return render_template(
@@ -1425,6 +1440,23 @@ def change_driver_points(driver_id):
                 )
             )
 
+            if action == "add":
+                note_subject = f"{amount} points added"
+                note_message = f"Your sponsor added {amount} points to your account. Reason: {reason}"
+            else:
+                note_subject = f"{amount} points removed"
+                note_message = f"Your sponsor deducted {amount} points from your account. Reason: {reason}"
+
+            cursor.execute(
+                """
+                INSERT INTO Notifications
+                    (user_id, notification_type, subject, message)
+                VALUES
+                    (%s, 'Point Change', %s, %s)
+                """,
+                (driver_id, note_subject, note_message)
+            )
+
         conn.commit()
 
     finally:
@@ -1436,6 +1468,8 @@ def change_driver_points(driver_id):
         flash(f"Deducted {amount} points.", "success")
 
     return redirect(url_for("sponsor_drivers"))
+                                    
+               
 
 
 @app.route("/sponsor/dashboard")
