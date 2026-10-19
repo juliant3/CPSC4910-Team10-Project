@@ -27,30 +27,70 @@ DB_CONFIG = {
 # Change this to a randomly generated value later.
 RESET_CODE = "123456"
 
-SESSION_TIMEOUT = timedelta(minutes = 5)
+# ==========================================
+# SESSION TIMEOUT - 5 MINUTES
+# ==========================================
+
+SESSION_TIMEOUT = timedelta(minutes=5)
+
+
 @app.before_request
-def check_session_timeout(): 
-    if request.endpoint == "static": 
-        return 
-    if "user_id" not in session: 
-        return 
+def check_session_timeout():
+
+    if request.endpoint == "static":
+        return
+
+    if "user_id" not in session:
+        return
+
     last_activity = session.get("last_activity")
-    if not last_activity: 
+
+    if not last_activity:
         session.clear()
         return redirect(url_for("login"))
+
+    try:
+        last_activity_time = datetime.fromisoformat(last_activity)
+
+        if last_activity_time.tzinfo is None:
+            last_activity_time = last_activity_time.replace(
+                tzinfo=timezone.utc
+            )
+
+    except (ValueError, TypeError):
+        session.clear()
+        return redirect(url_for("login"))
+
     now = datetime.now(timezone.utc)
-    last_activity_time = datetime.fromisoformat(last_activity)
-    if now - last_activity_time >= SESSION_TIMEOUT: 
+
+    if now - last_activity_time >= SESSION_TIMEOUT:
         session.clear()
         return redirect(url_for("login"))
-    @app.route("/session/keep-alive", methods = ["POST"])
-    def session_keep_alive(): 
-        if "user_id" not in session: 
-            return {"success": False}, 401
-        session["last_activity"] = datetime.now(timezone.utc).isoformat()
-        return {"success": True}
-    def get_db():
-        return pymysql.connect(
+
+
+# ==========================================
+# SESSION KEEP ALIVE
+# ==========================================
+
+@app.route("/session/keep-alive", methods=["POST"])
+def session_keep_alive():
+
+    if "user_id" not in session:
+        return {"success": False}, 401
+
+    session["last_activity"] = datetime.now(
+        timezone.utc
+    ).isoformat()
+
+    return {"success": True}
+
+
+# ==========================================
+# DATABASE CONNECTION
+# ==========================================
+
+def get_db():
+    return pymysql.connect(
         **DB_CONFIG,
         cursorclass=pymysql.cursors.DictCursor
     )
