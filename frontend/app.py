@@ -3,7 +3,7 @@ import pymysql
 import os
 import smtplib
 import secrets
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from email.message import EmailMessage
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -13,7 +13,7 @@ app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY",
     "change_this_to_a_secure_random_value"
 )
-app.permanent_session_lifetime = timedelta(days=14) 
+app.permanent_session_lifetime = timedelta(minutes = 5) 
 
 DB_CONFIG = {
     "host": "cpsc4910-f26.cobd8enwsupz.us-east-1.rds.amazonaws.com",
@@ -27,7 +27,21 @@ DB_CONFIG = {
 # Change this to a randomly generated value later.
 RESET_CODE = "123456"
 
-
+SESSION_TIMEOUT = timedelta(minutes = 5)
+@app.before_request
+def check_session_timeout(): 
+    if request.endpoint == "statis": 
+        return 
+    if "user_id" not in session: 
+        return 
+    now = datetime.now(timezone.utc)
+    last_activity = session.get("last_activity")
+    if last_activity: 
+        last_activity_time = datetime.fromisoformat(last_activity)
+        if now - last_activity_time > SESSION_TIMEOUT: 
+            session.clear()
+            return redirect(url_for("login"))
+        session["last_activity"] = now.isoformat()
 def get_db():
     return pymysql.connect(
         **DB_CONFIG,
@@ -320,9 +334,15 @@ def login():
             user["password_hash"],
             password
         ):
+            session.clear()
+
             session["user_id"] = user["user_id"]
             session["first_name"] = user["first_name"]
             session["role"] = user["role"]
+
+            session.permanent = True
+
+            session["last_activity"] = datetime.now(timezone.utc).isoformat()
 
             return redirect(url_for("home"))
         

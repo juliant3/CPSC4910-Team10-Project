@@ -24,5 +24,9 @@
     {% endif %}
 
     {% block content %}{% endblock %}
+    <!-- Automatically log out after 5 minutes of inactivity -->
+    {% if session.get('user_id') %}
+        <script src="{{ url_for('static', filename='js/session-timeout.js') }}"></script>
+    {% endif %}
 </body>
 </html>
