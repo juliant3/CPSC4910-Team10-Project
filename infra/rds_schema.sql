@@ -299,3 +299,20 @@ CREATE INDEX idx_audit_sponsor
 
 CREATE INDEX idx_audit_driver
     ON Audit_Logs(driver_id);
+
+
+-- Recurring points: target all drivers or only the ones listed below
+ALTER TABLE Recurring_Points
+    ADD COLUMN all_drivers TINYINT(1) NOT NULL DEFAULT 1;
+
+CREATE TABLE Recurring_Point_Drivers (
+    recurring_id INT NOT NULL,
+    driver_id INT NOT NULL,
+    PRIMARY KEY (recurring_id, driver_id),
+    FOREIGN KEY (recurring_id)
+        REFERENCES Recurring_Points(recurring_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (driver_id)
+        REFERENCES Drivers(driver_id)
+        ON DELETE CASCADE
+);

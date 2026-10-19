@@ -32,7 +32,7 @@
     <span class="role-badge">Sponsor</span>
 
     <h1>Recurring Points</h1>
-    <p>Automatically give points to all of your active drivers on a schedule.</p>
+    <p>Automatically give points to your active drivers on a schedule.</p>
 
     {% if error %}
     <p style="color: #A3413A;"><strong>{{ error }}</strong></p>
@@ -48,6 +48,35 @@
         <label>Reason
             <input type="text" name="reason" maxlength="255" required style="width: 100%;">
         </label>
+
+        <fieldset style="border: 1px solid #ddd; border-radius: 8px; padding: 10px;">
+            <legend>Give points to</legend>
+
+            <label style="display: block;">
+                <input type="radio" name="target" value="all" checked
+                       onchange="document.getElementById('driver-picker').style.display = 'none';">
+                All active drivers
+            </label>
+
+            <label style="display: block;">
+                <input type="radio" name="target" value="selected"
+                       onchange="document.getElementById('driver-picker').style.display = 'block';">
+                Specific drivers
+            </label>
+
+            <div id="driver-picker" style="display: none; margin-top: 8px; padding-left: 22px;">
+                {% if drivers %}
+                    {% for d in drivers %}
+                    <label style="display: block;">
+                        <input type="checkbox" name="driver_ids" value="{{ d.driver_id }}">
+                        {{ d.first_name }} {{ d.last_name }}
+                    </label>
+                    {% endfor %}
+                {% else %}
+                    <p style="font-size: 13px; color: #6B6478;">You don't have any active drivers yet.</p>
+                {% endif %}
+            </div>
+        </fieldset>
 
         <label>Frequency
             <select name="frequency" style="width: 100%;">
@@ -73,6 +102,10 @@
         <div class="application-card" style="flex-direction: column; align-items: stretch; text-align: left;">
             <h3>+{{ r.point_change }} points {{ r.frequency|lower }}</h3>
             <p>{{ r.reason }}</p>
+            <p style="font-size: 13px;">
+                <strong>Drivers:</strong>
+                {% if r.all_drivers %}All active drivers{% else %}{{ r.driver_names|join(', ') or 'None' }}{% endif %}
+            </p>
             <p style="font-size: 12px; color: #6B6478;">
                 {% if r.is_active %}Next: {{ r.next_run.strftime('%b %d, %Y') }}{% else %}Paused{% endif %}
                 {% if r.last_run %} &middot; Last: {{ r.last_run.strftime('%b %d, %Y') }}{% endif %}

@@ -1797,7 +1797,7 @@ def process_recurring_points():
             cursor.execute(
                 """
                 SELECT recurring_id, sponsor_id, point_change, reason,
-                       frequency, next_run
+                       frequency, next_run, all_drivers
                 FROM Recurring_Points
                 WHERE is_active = 1 AND next_run <= %s
                 """,
@@ -1826,8 +1826,13 @@ def process_recurring_points():
                     """
                     SELECT driver_id FROM Drivers
                     WHERE sponsor_id = %s AND status = 'Active'
+                      AND (%s = 1 OR driver_id IN (
+                          SELECT driver_id FROM Recurring_Point_Drivers
+                          WHERE recurring_id = %s
+                      ))
                     """,
-                    (rule["sponsor_id"],)
+                    (rule["sponsor_id"], rule["all_drivers"],
+                     rule["recurring_id"])
                 )
 
                 for d in cursor.fetchall():
@@ -1928,6 +1933,19 @@ def sponsor_recurring():
                 reason = request.form.get("reason", "").strip()[:255]
                 frequency = request.form.get("frequency", "")
                 start_date = request.form.get("start_date", "")
+                all_drivers = request.form.get("target", "all") != "selected"
+                picked_ids = set(request.form.getlist("driver_ids", type=int))
+
+                # Only keep drivers that actually belong to this sponsor.
+                cursor.execute(
+                    """
+                    SELECT driver_id FROM Drivers
+                    WHERE sponsor_id = %s AND status = 'Active'
+                    """,
+                    (session["user_id"],)
+                )
+                own_ids = {row["driver_id"] for row in cursor.fetchall()}
+                picked_ids &= own_ids
 
                 try:
                     date.fromisoformat(start_date)
@@ -1943,22 +1961,38 @@ def sponsor_recurring():
                     error = "Choose a frequency."
                 elif not valid_date:
                     error = "Choose a start date."
+                elif not all_drivers and not picked_ids:
+                    error = "Select at least one driver."
                 else:
                     cursor.execute(
                         """
                         INSERT INTO Recurring_Points
-                            (sponsor_id, point_change, reason, frequency, next_run)
-                        VALUES (%s, %s, %s, %s, %s)
+                            (sponsor_id, point_change, reason, frequency,
+                             next_run, all_drivers)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                         """,
-                        (session["user_id"], points, reason, frequency, start_date)
+                        (session["user_id"], points, reason, frequency,
+                         start_date, 1 if all_drivers else 0)
                     )
+                    new_id = cursor.lastrowid
+
+                    if not all_drivers:
+                        cursor.executemany(
+                            """
+                            INSERT INTO Recurring_Point_Drivers
+                                (recurring_id, driver_id)
+                            VALUES (%s, %s)
+                            """,
+                            [(new_id, driver_id) for driver_id in picked_ids]
+                        )
+
                     conn.commit()
                     return redirect(url_for("sponsor_recurring"))
 
             cursor.execute(
                 """
                 SELECT recurring_id, point_change, reason, frequency,
-                       next_run, last_run, is_active
+                       next_run, last_run, is_active, all_drivers
                 FROM Recurring_Points
                 WHERE sponsor_id = %s
                 ORDER BY recurring_id DESC
@@ -1966,6 +2000,41 @@ def sponsor_recurring():
                 (session["user_id"],)
             )
             rules = cursor.fetchall()
+
+            # Names of the chosen drivers for each "selected drivers" rule.
+            cursor.execute(
+                """
+                SELECT Recurring_Point_Drivers.recurring_id,
+                       Users.first_name, Users.last_name
+                FROM Recurring_Point_Drivers
+                JOIN Recurring_Points
+                    ON Recurring_Points.recurring_id = Recurring_Point_Drivers.recurring_id
+                JOIN Users
+                    ON Users.user_id = Recurring_Point_Drivers.driver_id
+                WHERE Recurring_Points.sponsor_id = %s
+                ORDER BY Users.last_name, Users.first_name
+                """,
+                (session["user_id"],)
+            )
+            names_by_rule = {}
+            for row in cursor.fetchall():
+                names_by_rule.setdefault(row["recurring_id"], []).append(
+                    row["first_name"] + " " + row["last_name"]
+                )
+            for rule in rules:
+                rule["driver_names"] = names_by_rule.get(rule["recurring_id"], [])
+
+            cursor.execute(
+                """
+                SELECT Drivers.driver_id, Users.first_name, Users.last_name
+                FROM Drivers
+                JOIN Users ON Drivers.driver_id = Users.user_id
+                WHERE Drivers.sponsor_id = %s AND Drivers.status = 'Active'
+                ORDER BY Users.last_name, Users.first_name
+                """,
+                (session["user_id"],)
+            )
+            drivers = cursor.fetchall()
 
     finally:
         conn.close()
@@ -1975,6 +2044,7 @@ def sponsor_recurring():
         first_name=session["first_name"],
         role=session["role"],
         rules=rules,
+        drivers=drivers,
         error=error
     )
 
