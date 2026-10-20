@@ -12,7 +12,7 @@
 
 body {
     margin: 0;
-    font-family: 'Inter', -apple-system, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .login-page-wrapper {
@@ -63,17 +63,18 @@ body {
 }
 
 .login-side h2 {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 44px;
+    color: #fff;
+    font-size: 40px;
     font-weight: 700;
-    line-height: 1.1;
-    margin: 0 0 18px;
-    max-width: 420px;
+    letter-spacing: -0.8px;
+    line-height: 1.15;
+    margin: 0 0 16px;
+    max-width: 460px;
 }
 
 .login-side p {
-    font-size: 15px;
-    color: rgba(255, 255, 255, 0.75);
+    font-size: 17px;
+    color: rgba(255, 255, 255, 0.78);
     max-width: 380px;
     line-height: 1.6;
     margin: 0 0 40px;
@@ -93,15 +94,15 @@ body {
 }
 
 .login-stats strong {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 32px;
+    font-size: 30px;
     font-weight: 700;
+    letter-spacing: -0.5px;
     color: var(--orange-600);
 }
 
 .login-stats span {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.65);
     margin-top: 2px;
 }
 
@@ -124,12 +125,12 @@ body {
 }
 
 .login-container h1 {
-    font-family: 'Barlow Condensed', sans-serif;
     color: var(--purple-900);
     text-align: center;
     margin: 0 0 6px;
-    font-size: 30px;
+    font-size: 26px;
     font-weight: 700;
+    letter-spacing: -0.4px;
 }
 
 .login-container .motto {
@@ -271,6 +272,28 @@ body {
     border-color: var(--orange-600);
 }
 
+.account-help {
+    margin: 22px 0 0;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    color: var(--slate);
+    font-size: 13px;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.account-help strong {
+    color: var(--purple-900);
+    font-weight: 600;
+}
+
+.forgot-link {
+    display: block;
+    margin-top: 14px;
+    text-align: center;
+    font-size: 14px;
+}
+
 @media (max-width: 900px) {
     .login-page-wrapper {
         flex-direction: column;
@@ -281,6 +304,14 @@ body {
     }
     .login-side h2 {
         font-size: 30px;
+    }
+    .login-logo {
+        position: static;
+        display: block;
+        margin: 0 auto 20px;
+    }
+    .login-form-side {
+        flex-direction: column;
     }
     .login-form-side {
         max-width: none;
