@@ -1408,6 +1408,8 @@ def sponsor_drivers():
 
     min_points = to_int(request.args.get("min_points"))
     max_points = to_int(request.args.get("max_points"))
+    search = request.args.get("search", "").strip()[:100]
+    search_pattern = f"%{' '.join(search.split())}%"
 
     conn = get_db()
 
@@ -1432,15 +1434,24 @@ def sponsor_drivers():
                     ON Drivers.driver_id = Users.user_id
 
                 WHERE Drivers.sponsor_id = %s
-                  AND (%s IS NULL OR COALESCE(Drivers.points_balance, 0) >= %s)
-                  AND (%s IS NULL OR COALESCE(Drivers.points_balance, 0) <= %s)
-
+                    AND (%s IS NULL OR COALESCE(Drivers.points_balance, 0) >= %s)
+                    AND (%s IS NULL OR COALESCE(Drivers.points_balance, 0) <= %s)
+                    AND (
+                        %s = ''
+                        OR Users.first_name LIKE %s
+                        OR Users.last_name LIKE %s
+                        OR CONCAT_WS(' ', Users.first_name, Users.last_name) LIKE %s
+                    )
                 ORDER BY {sort_options[sort_key]}
                 """,
                 (
                     session["user_id"],
                     min_points, min_points,
-                    max_points, max_points
+                    max_points, max_points,
+                    search,
+                    search_pattern, 
+                    search_pattern, 
+                    search_pattern
                 )
             )
 
@@ -1456,7 +1467,8 @@ def sponsor_drivers():
         drivers=drivers,
         sort_key=sort_key,
         min_points=min_points,
-        max_points=max_points
+        max_points=max_points, 
+        search=search
     )
 
 @app.route("/sponsor/drivers/<int:driver_id>/points", methods=["POST"])
