@@ -116,6 +116,11 @@ body {
     position: relative;
 }
 
+/* Keep the card clear of the absolutely-positioned logo */
+.login-form-side:has(.login-logo) {
+    padding: 180px 0 48px;
+}
+
 .login-container {
     background: #fff;
     padding: 40px 36px;
@@ -305,15 +310,14 @@ body {
     .login-side h2 {
         font-size: 30px;
     }
-    .login-logo {
+    .login-form-side .login-logo {
         position: static;
         display: block;
         margin: 0 auto 20px;
     }
-    .login-form-side {
+    .login-form-side,
+    .login-form-side:has(.login-logo) {
         flex-direction: column;
-    }
-    .login-form-side {
         max-width: none;
         flex: none;
         padding: 40px 20px;
@@ -327,4 +331,79 @@ body {
     width: 140px; 
     height: auto; 
     z-index: 10;
+}
+/* Centered single-card pages: sponsor request / sponsor application */
+
+.auth-center {
+    flex: 1 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+    background: var(--paper);
+}
+
+.auth-center .login-container {
+    max-width: 460px;
+    box-shadow: 0 4px 18px rgba(33, 28, 46, 0.08);
+}
+
+.auth-center .login-container p {
+    color: var(--slate);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.auth-center label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--purple-900);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.auth-center .optional {
+    color: var(--slate);
+    font-weight: 400;
+}
+
+.auth-center textarea {
+    width: 100%;
+    min-height: 96px;
+    padding: 12px 13px;
+    margin-bottom: 14px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 15px;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.auth-center textarea:focus {
+    outline: none;
+    border-color: var(--orange-600);
+}
+
+.name-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.auth-note {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+    font-size: 14px;
+}
+
+.success-box {
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: #E6F4EC;
+    border-left: 3px solid #2F7D5C;
+    color: #2F7D5C;
+    font-size: 14px;
 }

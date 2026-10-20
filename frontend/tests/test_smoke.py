@@ -50,9 +50,8 @@ def test_sponsor_home_renders_dashboard(client, set_session):
     assert b"Manage your drivers and applications" in response.data
 
 
-def test_driver_home_renders_with_database_stub(client, set_session, fake_db):
+def test_driver_home_redirects_to_driver_dashboard(client, set_session):
     set_session(role="Driver", user_id=13, first_name="Dana")
-    fake_db(fetchone_values=[{"company_name": "Test Sponsor"}])
-    response = client.get("/")
-    assert response.status_code == 200
-    assert b"Test Sponsor" in response.data
+    response = client.get("/", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/driver/dashboard")

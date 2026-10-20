@@ -1,0 +1,121 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Sponsor Requests{% endblock %}
+
+{% block content %}
+
+<div class="page">
+
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">Admin</span>
+            <h1>Sponsor Requests</h1>
+            <p>Organizations asking to join the program as sponsors. Approving one creates their account and emails them a temporary password.</p>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    <div class="stack">
+
+        <div class="card">
+            <div class="card-header">
+                <h2>{{ pending|length }} awaiting review</h2>
+            </div>
+
+            {% if pending %}
+            <ul class="row-list">
+                {% for r in pending %}
+                <li class="row-item row-unread">
+
+                    <div class="row-main">
+                        <div class="row-link">
+                            <span class="avatar">{{ (r.company_name or '?')[:1]|upper }}</span>
+                            <span class="row-text">
+                                <p class="row-title">{{ r.company_name }}</p>
+                                <p class="row-sub">{{ r.first_name }} {{ r.last_name }} &middot; {{ r.email }}{% if r.phone %} &middot; {{ r.phone }}{% endif %}</p>
+                            </span>
+                        </div>
+
+                        {% if r.submitted_at %}
+                        <div class="row-meta">
+                            <span class="row-meta-label">Submitted</span>
+                            <span class="row-meta-value" style="font-size: 14px;">{{ r.submitted_at.strftime('%b %d, %Y') }}</span>
+                        </div>
+                        {% endif %}
+
+                        <span class="badge badge-accent">{{ 'New organization' if r.request_type == 'New' else 'Join organization' }}</span>
+                    </div>
+
+                    <div class="row-detail">
+                        {% if r.message %}
+                            <p style="white-space: pre-wrap;">{{ r.message }}</p>
+                        {% endif %}
+
+                        <div class="toolbar" style="margin-top: 12px;">
+                            <form method="POST" action="{{ url_for('approve_sponsor_request', request_id=r.request_id) }}"
+                                  onsubmit="return confirm('Approve this request and create the sponsor account?');">
+                                <button type="submit" class="btn btn-success">Approve</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('reject_sponsor_request', request_id=r.request_id) }}"
+                                  class="toolbar" style="flex: 1;">
+                                <input type="text" name="reason" class="input" placeholder="Reason for rejection (required)"
+                                       maxlength="1000" required style="flex: 1; min-width: 200px;" aria-label="Reason for rejection">
+                                <button type="submit" class="btn btn-danger">Reject</button>
+                            </form>
+                        </div>
+                    </div>
+
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <h3>No pending requests</h3>
+                <p>New sponsor applications will show up here.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if decided %}
+        <div class="card">
+            <div class="card-header">
+                <h2>Recently Reviewed</h2>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Organization</th>
+                            <th>Contact</th>
+                            <th>Status</th>
+                            <th>Decided</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in decided %}
+                        <tr>
+                            <td>{{ r.company_name }}</td>
+                            <td>{{ r.first_name }} {{ r.last_name }}<br><span class="muted small">{{ r.email }}</span></td>
+                            <td>
+                                <span class="badge {{ 'badge-success' if r.status == 'Approved' else 'badge-danger' }}">{{ r.status }}</span>
+                                {% if r.status == 'Rejected' and r.reason %}<div class="muted small" style="margin-top: 4px;">{{ r.reason }}</div>{% endif %}
+                            </td>
+                            <td style="white-space: nowrap;">{{ r.decision_date.strftime('%b %d, %Y') if r.decision_date else '' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

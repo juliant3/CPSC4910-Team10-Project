@@ -1,0 +1,115 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Team{% endblock %}
+
+{% block content %}
+
+<div class="page">
+
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">{{ company_name or 'Sponsor' }}</span>
+            <h1>Team</h1>
+            <p>Sponsor users in your organization. Everyone here manages the same drivers, applications, and points.</p>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    <div class="stack">
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Invite a Teammate</h2>
+                    <p>They'll get an email link to set a password and join {{ company_name or 'your organization' }}.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" class="toolbar">
+                    <input type="hidden" name="action" value="invite">
+                    <div class="form-group" style="flex: 1; min-width: 140px;">
+                        <label for="first_name">First Name</label>
+                        <input type="text" id="first_name" name="first_name" maxlength="100" required>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 140px;">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" name="last_name" maxlength="100" required>
+                    </div>
+                    <div class="form-group" style="flex: 2; min-width: 220px;">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" maxlength="255" placeholder="teammate@company.com" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="height: 40px;">Send Invite</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>{{ members|length }} member{{ 's' if members|length != 1 }}</h2>
+            </div>
+            <ul class="row-list">
+                {% for m in members %}
+                <li class="row-item">
+                    <div class="row-main">
+                        <div class="row-link">
+                            <span class="avatar">{{ (m.first_name or '?')[:1]|upper }}{{ (m.last_name or '')[:1]|upper }}</span>
+                            <span class="row-text">
+                                <p class="row-title">
+                                    {{ m.first_name }} {{ m.last_name }}
+                                    {% if m.user_id == session.get('user_id') %}<span class="muted small" style="font-weight: 400;">(you)</span>{% endif %}
+                                </p>
+                                <p class="row-sub">{{ m.email }}</p>
+                            </span>
+                        </div>
+                        {% if m.created_at %}
+                        <div class="row-meta">
+                            <span class="row-meta-label">Joined</span>
+                            <span class="row-meta-value" style="font-size: 14px;">{{ m.created_at.strftime('%b %d, %Y') }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% if invites %}
+        <div class="card">
+            <div class="card-header">
+                <h2>Pending Invites</h2>
+            </div>
+            <ul class="row-list">
+                {% for inv in invites %}
+                <li class="row-item">
+                    <div class="row-main">
+                        <div class="row-link">
+                            <span class="avatar">{{ (inv.first_name or '?')[:1]|upper }}{{ (inv.last_name or '')[:1]|upper }}</span>
+                            <span class="row-text">
+                                <p class="row-title">{{ inv.first_name }} {{ inv.last_name }}</p>
+                                <p class="row-sub">{{ inv.email }}</p>
+                            </span>
+                        </div>
+                        <span class="badge badge-warn">Invited{% if inv.created_at %} {{ inv.created_at.strftime('%b %d') }}{% endif %}</span>
+                        <form method="POST" onsubmit="return confirm('Cancel this invite?');">
+                            <input type="hidden" name="action" value="cancel">
+                            <input type="hidden" name="request_id" value="{{ inv.request_id }}">
+                            <button type="submit" class="btn btn-ghost-danger btn-sm">Cancel</button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -134,6 +134,16 @@ def get_login_stats():
         conn.close()
     return driver_count, sponsor_count
 
+def current_sponsor_id():
+    """
+    The sponsor organization the logged-in sponsor user belongs to.
+
+    Set at login from Sponsor_Users. Falls back to the user's own id, which
+    is the organization id for the sponsor user who created it.
+    """
+    return session.get("sponsor_id") or session["user_id"]
+
+
 @app.context_processor
 def inject_current_year():
     return {"current_year": datetime.now().year}
@@ -244,6 +254,64 @@ def send_rejection_email(email, first_name, reason=None):
         body += f"\n\nReason provided: {reason}"
 
     return send_email(email, "Your Drivers Advantage application", body)
+
+
+def send_sponsor_request_link(email, first_name, token):
+    apply_link = f"https://cpsc4910team10truckingproject.org/sponsor-apply/{token}"
+
+    body = (
+        f"Hi {first_name or ''},\n\n"
+        "Thanks for your interest in becoming a Drivers Advantage sponsor.\n\n"
+        "Use the link below to tell us about your organization. "
+        "An administrator will review your application and email you once "
+        "your account is ready.\n\n"
+        f"{apply_link}\n\n"
+        "If you didn't request this, you can ignore this email."
+    )
+
+    return send_email(email, "Your Drivers Advantage sponsor application link", body)
+
+
+def send_sponsor_approved_email(email, first_name, company_name, temp_password):
+    login_link = "https://cpsc4910team10truckingproject.org/login"
+
+    body = (
+        f"Hi {first_name or ''},\n\n"
+        f"Your sponsor account for {company_name} has been approved.\n\n"
+        f"Log in here: {login_link}\n"
+        f"Email: {email}\n"
+        f"Temporary password: {temp_password}\n\n"
+        "Please log in and change your password as soon as possible."
+    )
+
+    return send_email(email, "Your Drivers Advantage sponsor account is ready", body)
+
+
+def send_sponsor_rejected_email(email, first_name, reason=None):
+    body = (
+        f"Hi {first_name or ''},\n\n"
+        "Thank you for your interest in becoming a Drivers Advantage sponsor. "
+        "After review, we are unable to approve your application at this time."
+    )
+
+    if reason:
+        body += f"\n\nReason provided: {reason}"
+
+    return send_email(email, "Your Drivers Advantage sponsor application", body)
+
+
+def send_sponsor_team_invite(email, first_name, company_name, inviter_name, token):
+    join_link = f"https://cpsc4910team10truckingproject.org/sponsor-apply/{token}"
+
+    body = (
+        f"Hi {first_name or ''},\n\n"
+        f"{inviter_name} invited you to join {company_name} as a sponsor on Drivers Advantage.\n\n"
+        "Use the link below to set your password and create your account:\n"
+        f"{join_link}\n\n"
+        "If you weren't expecting this, you can ignore this email."
+    )
+
+    return send_email(email, f"Join {company_name} on Drivers Advantage", body)
 
 
 def send_application_invite(email, token):
@@ -371,6 +439,16 @@ def home():
 
                 pending_count = cursor.fetchone()["c"]
 
+                # Guarded so the dashboard still loads if the
+                # Sponsor_Requests table hasn't been created yet.
+                try:
+                    cursor.execute(
+                        "SELECT COUNT(*) AS c FROM Sponsor_Requests WHERE status = 'Submitted'"
+                    )
+                    sponsor_request_count = cursor.fetchone()["c"]
+                except Exception:
+                    sponsor_request_count = 0
+
         finally:
             conn.close()
 
@@ -378,7 +456,8 @@ def home():
             "admin/dashboard.html",
             first_name=session["first_name"],
             role=session["role"],
-            pending_count=pending_count
+            pending_count=pending_count,
+            sponsor_request_count=sponsor_request_count
         )
 
 
@@ -391,6 +470,24 @@ def home():
         first_name=session["first_name"],
         role=session["role"]
     )
+
+
+def get_sponsor_id_for_user(user_id):
+    """Look up which sponsor organization a sponsor user belongs to."""
+    try:
+        conn = get_db()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT sponsor_id FROM Sponsor_Users WHERE user_id = %s",
+                    (user_id,)
+                )
+                row = cursor.fetchone()
+                return row["sponsor_id"] if row else user_id
+        finally:
+            conn.close()
+    except Exception:
+        return user_id
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -437,6 +534,9 @@ def login():
             session["first_name"] = user["first_name"]
             session["last_name"] = user.get("last_name") or ""
             session["role"] = user["role"]
+
+            if user["role"] == "Sponsor":
+                session["sponsor_id"] = get_sponsor_id_for_user(user["user_id"])
 
             session.permanent = True
 
@@ -654,15 +754,21 @@ def apply(token):
                     """
                     INSERT INTO Notifications
                         (user_id, notification_type, subject, message)
-                    VALUES
-                        (%s, 'New Application', %s, %s)
+                    SELECT members.user_id, 'New Application', %s, %s
+                    FROM (
+                        -- Everyone on the sponsor's team, plus the org's founding user
+                        SELECT user_id FROM Sponsor_Users WHERE sponsor_id = %s
+                        UNION
+                        SELECT %s
+                    ) AS members
                     """,
                     (
-                        application["sponsor_id"],
                         "New application received",
-                        f"{first_name} {last_name} ({application['applicant_email']}) submitted an application."
+                        f"{first_name} {last_name} ({application['applicant_email']}) submitted an application.",
+                        application["sponsor_id"],
+                        application["sponsor_id"]
                     )
-                )    
+                )
 
                 conn.commit()
 
@@ -856,7 +962,7 @@ def sponsor_applications():
                         error="Please enter a driver's email address."
                     )
 
-                sponsor_id = session["user_id"]
+                sponsor_id = current_sponsor_id()
 
                 # Make sure the sponsor actually exists.
                 cursor.execute(
@@ -1007,7 +1113,7 @@ def sponsor_applications():
                 Driver_Applications.application_date END ASC,
                     Driver_Applications.application_date DESC
                 """,
-                (session["user_id"], status_filter, status_filter, sort_order)
+                (current_sponsor_id(), status_filter, status_filter, sort_order)
             )
 
             applications = cursor.fetchall()
@@ -1020,7 +1126,7 @@ def sponsor_applications():
                 WHERE sponsor_id = %s
                 GROUP BY status
                 """,
-                (session["user_id"],)
+                (current_sponsor_id(),)
             )
 
             counts = {"Pending": 0, "Submitted": 0, "Accepted": 0, "Rejected": 0}
@@ -1052,7 +1158,7 @@ def sponsor_applications():
                 WHERE sponsor_id = %s
                 ORDER BY display_order
                 """,
-                (session["user_id"],)
+                (current_sponsor_id(),)
             )
 
             questions = cursor.fetchall()
@@ -1078,7 +1184,7 @@ def sponsor_questions():
     if session["role"].lower() != "sponsor":
         return redirect(url_for("home"))
 
-    sponsor_id = session["user_id"]
+    sponsor_id = current_sponsor_id()
     question_text = request.form.get("question_text", "").strip()
     is_required = bool(request.form.get("is_required"))
 
@@ -1133,7 +1239,7 @@ def accept_application(application_id):
                 WHERE application_id = %s
                   AND sponsor_id = %s
                 """,
-                (application_id, session["user_id"])
+                (application_id, current_sponsor_id())
             )
 
             application = cursor.fetchone()
@@ -1151,7 +1257,7 @@ def accept_application(application_id):
                     SET sponsor_id = %s, status = 'Active'
                     WHERE driver_id = %s
                     """,
-                    (session["user_id"], existing_id)
+                    (current_sponsor_id(), existing_id)
                 )
 
                 cursor.execute(
@@ -1228,7 +1334,7 @@ def accept_application(application_id):
                 VALUES
                     (%s, 0, %s, 'Active')
                 """,
-                (user_id, session["user_id"])
+                (user_id, current_sponsor_id())
             )
 
             # Create the Driver_Profiles record.
@@ -1296,7 +1402,7 @@ def reject_application(application_id):
                 WHERE application_id = %s
                   AND sponsor_id = %s
                 """,
-                (application_id, session["user_id"])
+                (application_id, current_sponsor_id())
             )
 
             application = cursor.fetchone()
@@ -1349,7 +1455,7 @@ def delete_sponsor_question(question_id):
                 DELETE FROM Sponsor_Questions
                 WHERE question_id = %s AND sponsor_id = %s
                 """,
-                (question_id, session["user_id"])
+                (question_id, current_sponsor_id())
             )
         conn.commit()
     finally:
@@ -1470,7 +1576,7 @@ def sponsor_drivers():
                 ORDER BY {sort_options[sort_key]}
                 """,
                 (
-                    session["user_id"],
+                    current_sponsor_id(),
                     min_points, min_points,
                     max_points, max_points,
                     search,
@@ -1533,7 +1639,7 @@ def change_driver_points(driver_id):
                   AND sponsor_id = %s
                 FOR UPDATE
                 """,
-                (driver_id, session["user_id"])
+                (driver_id, current_sponsor_id())
             )
 
             driver = cursor.fetchone()
@@ -1563,7 +1669,7 @@ def change_driver_points(driver_id):
                 """,
                 (
                     driver_id,
-                    session["user_id"],
+                    current_sponsor_id(),
                     session["user_id"],
                     point_change,
                     reason
@@ -1735,7 +1841,7 @@ def sponsor_driver_profile(driver_id):
         conn.close()
 
     # A sponsor can only view their own drivers.
-    if not driver or driver["sponsor_id"] != session["user_id"]:
+    if not driver or driver["sponsor_id"] != current_sponsor_id():
         return redirect(url_for("sponsor_drivers"))
 
     return render_template(
@@ -1869,7 +1975,7 @@ def sponsor_edit_driver(driver_id):
             driver, answers = get_driver_profile_data(cursor, driver_id)
 
             # A sponsor can only edit their own drivers.
-            if not driver or driver["sponsor_id"] != session["user_id"]:
+            if not driver or driver["sponsor_id"] != current_sponsor_id():
                 return redirect(url_for("sponsor_drivers"))
 
             if request.method == "POST":
@@ -2044,7 +2150,7 @@ def sponsor_recurring():
                         SET is_active = 1 - is_active
                         WHERE recurring_id = %s AND sponsor_id = %s
                         """,
-                        (recurring_id, session["user_id"])
+                        (recurring_id, current_sponsor_id())
                     )
                     conn.commit()
                     return redirect(url_for("sponsor_recurring"))
@@ -2055,7 +2161,7 @@ def sponsor_recurring():
                         DELETE FROM Recurring_Points
                         WHERE recurring_id = %s AND sponsor_id = %s
                         """,
-                        (recurring_id, session["user_id"])
+                        (recurring_id, current_sponsor_id())
                     )
                     conn.commit()
                     return redirect(url_for("sponsor_recurring"))
@@ -2073,7 +2179,7 @@ def sponsor_recurring():
                     SELECT driver_id FROM Drivers
                     WHERE sponsor_id = %s AND status = 'Active'
                     """,
-                    (session["user_id"],)
+                    (current_sponsor_id(),)
                 )
                 own_ids = {row["driver_id"] for row in cursor.fetchall()}
                 picked_ids &= own_ids
@@ -2102,7 +2208,7 @@ def sponsor_recurring():
                              next_run, all_drivers)
                         VALUES (%s, %s, %s, %s, %s, %s)
                         """,
-                        (session["user_id"], points, reason, frequency,
+                        (current_sponsor_id(), points, reason, frequency,
                          start_date, 1 if all_drivers else 0)
                     )
                     new_id = cursor.lastrowid
@@ -2128,7 +2234,7 @@ def sponsor_recurring():
                 WHERE sponsor_id = %s
                 ORDER BY recurring_id DESC
                 """,
-                (session["user_id"],)
+                (current_sponsor_id(),)
             )
             rules = cursor.fetchall()
 
@@ -2145,7 +2251,7 @@ def sponsor_recurring():
                 WHERE Recurring_Points.sponsor_id = %s
                 ORDER BY Users.last_name, Users.first_name
                 """,
-                (session["user_id"],)
+                (current_sponsor_id(),)
             )
             names_by_rule = {}
             for row in cursor.fetchall():
@@ -2163,7 +2269,7 @@ def sponsor_recurring():
                 WHERE Drivers.sponsor_id = %s AND Drivers.status = 'Active'
                 ORDER BY Users.last_name, Users.first_name
                 """,
-                (session["user_id"],)
+                (current_sponsor_id(),)
             )
             drivers = cursor.fetchall()
 
@@ -2383,6 +2489,701 @@ def mark_notifications_read():
         conn.close()
 
     return "", 204
+
+# ==========================================
+# SPONSOR ACCESS REQUESTS
+#   1. /sponsor-request          - public form: name + email
+#   2. emailed /sponsor-apply/<token> - organization details
+#   3. /admin/sponsor-requests   - admin approves (creates the account) or rejects
+# ==========================================
+
+@app.route("/sponsor-request", methods=["GET", "POST"])
+def sponsor_request():
+
+    if "user_id" in session:
+        return redirect(url_for("home"))
+
+    if request.method == "GET":
+        return render_template("shared/sponsor_request.html")
+
+    first_name = request.form.get("first_name", "").strip()[:100]
+    last_name = request.form.get("last_name", "").strip()[:100]
+    email = request.form.get("email", "").strip().lower()[:255]
+
+    form = {"first_name": first_name, "last_name": last_name, "email": email}
+
+    if not first_name or not last_name or not email or "@" not in email:
+        return render_template(
+            "shared/sponsor_request.html",
+            form=form,
+            error="Please enter your first name, last name, and a valid email address."
+        )
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                "SELECT user_id FROM Users WHERE LOWER(email) = %s",
+                (email,)
+            )
+
+            if cursor.fetchone():
+                return render_template(
+                    "shared/sponsor_request.html",
+                    form=form,
+                    error="An account with this email already exists. Please log in instead."
+                )
+
+            # Reuse an open request instead of creating duplicates.
+            cursor.execute(
+                """
+                SELECT request_id, token, status
+                FROM Sponsor_Requests
+                WHERE LOWER(email) = %s
+                  AND status IN ('Started', 'Submitted')
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (email,)
+            )
+
+            existing = cursor.fetchone()
+
+            if existing and existing["status"] == "Submitted":
+                return render_template(
+                    "shared/sponsor_request.html",
+                    under_review=True
+                )
+
+            if existing:
+                token = existing["token"]
+            else:
+                token = secrets.token_urlsafe(32)
+
+                cursor.execute(
+                    """
+                    INSERT INTO Sponsor_Requests
+                        (email, first_name, last_name, token)
+                    VALUES
+                        (%s, %s, %s, %s)
+                    """,
+                    (email, first_name, last_name, token)
+                )
+
+                conn.commit()
+
+    finally:
+        conn.close()
+
+    send_sponsor_request_link(email, first_name, token)
+
+    return render_template(
+        "shared/sponsor_request.html",
+        sent_to=email
+    )
+
+
+@app.route("/sponsor-apply/<token>", methods=["GET", "POST"])
+def sponsor_apply(token):
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    request_id, email, first_name, last_name, status,
+                    request_type, target_sponsor_id, company_name
+                FROM Sponsor_Requests
+                WHERE token = %s
+                """,
+                (token,)
+            )
+
+            sponsor_req = cursor.fetchone()
+
+            if not sponsor_req or sponsor_req["status"] != "Started":
+                return render_template(
+                    "shared/sponsor_apply.html",
+                    sponsor_req=sponsor_req,
+                    closed=True
+                )
+
+            if sponsor_req.get("request_type") == "Join":
+                return accept_team_invite(conn, cursor, sponsor_req)
+
+            if request.method == "GET":
+                return render_template(
+                    "shared/sponsor_apply.html",
+                    sponsor_req=sponsor_req,
+                    form={}
+                )
+
+            company_name = request.form.get("company_name", "").strip()[:255]
+            phone = request.form.get("phone", "").strip()[:25]
+            message = request.form.get("message", "").strip()[:1000]
+
+            form = {"company_name": company_name, "phone": phone, "message": message}
+
+            if not company_name:
+                return render_template(
+                    "shared/sponsor_apply.html",
+                    sponsor_req=sponsor_req,
+                    form=form,
+                    error="Organization name is required."
+                )
+
+            cursor.execute(
+                "SELECT sponsor_id FROM Sponsors WHERE LOWER(company_name) = %s",
+                (company_name.lower(),)
+            )
+
+            if cursor.fetchone():
+                return render_template(
+                    "shared/sponsor_apply.html",
+                    sponsor_req=sponsor_req,
+                    form=form,
+                    error=(
+                        "An organization with this name already exists. "
+                        "Ask a sponsor there to invite you from their Team page."
+                    )
+                )
+
+            cursor.execute(
+                """
+                UPDATE Sponsor_Requests
+                SET
+                    request_type = 'New',
+                    company_name = %s,
+                    phone = %s,
+                    message = %s,
+                    status = 'Submitted',
+                    submitted_at = NOW()
+                WHERE request_id = %s
+                  AND status = 'Started'
+                """,
+                (
+                    company_name,
+                    phone or None,
+                    message or None,
+                    sponsor_req["request_id"]
+                )
+            )
+
+            conn.commit()
+
+            # Let admins know. A failure here should never block the application.
+            try:
+                cursor.execute("SELECT user_id FROM Users WHERE role = 'Admin'")
+                admins = cursor.fetchall()
+
+                for admin in admins:
+                    cursor.execute(
+                        """
+                        INSERT INTO Notifications
+                            (user_id, notification_type, subject, message)
+                        VALUES
+                            (%s, 'New Application', %s, %s)
+                        """,
+                        (
+                            admin["user_id"],
+                            "New sponsor request",
+                            f"{sponsor_req['first_name']} {sponsor_req['last_name']} "
+                            f"requested a sponsor account for {company_name}."
+                        )
+                    )
+
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                print(f"Failed to notify admins of sponsor request: {e}")
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "shared/sponsor_apply.html",
+        sponsor_req=sponsor_req,
+        submitted=True
+    )
+
+
+def accept_team_invite(conn, cursor, sponsor_req):
+    """
+    An existing sponsor invited this person to their organization, so there is
+    no admin review: they choose a password and the account is created.
+    """
+
+    if request.method == "GET":
+        return render_template(
+            "shared/sponsor_apply.html",
+            sponsor_req=sponsor_req,
+            form={},
+            joining=True
+        )
+
+    first_name = request.form.get("first_name", "").strip()[:100]
+    last_name = request.form.get("last_name", "").strip()[:100]
+    password = request.form.get("password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    form = {"first_name": first_name, "last_name": last_name}
+
+    error = None
+    if not first_name or not last_name:
+        error = "Please enter your first and last name."
+    elif len(password) < 8:
+        error = "Password must be at least 8 characters."
+    elif password != confirm_password:
+        error = "Passwords do not match."
+
+    if not error:
+        cursor.execute(
+            "SELECT user_id FROM Users WHERE LOWER(email) = %s",
+            (sponsor_req["email"].lower(),)
+        )
+        if cursor.fetchone():
+            error = "An account with this email already exists. Please log in instead."
+
+    if error:
+        return render_template(
+            "shared/sponsor_apply.html",
+            sponsor_req=sponsor_req,
+            form=form,
+            joining=True,
+            error=error
+        )
+
+    try:
+        cursor.execute(
+            """
+            INSERT INTO Users
+                (email, first_name, last_name, role)
+            VALUES
+                (%s, %s, %s, 'Sponsor')
+            """,
+            (sponsor_req["email"], first_name, last_name)
+        )
+
+        user_id = cursor.lastrowid
+
+        cursor.execute(
+            "INSERT INTO Password (user_id, password_hash) VALUES (%s, %s)",
+            (user_id, generate_password_hash(password, method="pbkdf2:sha256"))
+        )
+
+        cursor.execute(
+            "INSERT INTO Sponsor_Users (user_id, sponsor_id) VALUES (%s, %s)",
+            (user_id, sponsor_req["target_sponsor_id"])
+        )
+
+        cursor.execute(
+            """
+            UPDATE Sponsor_Requests
+            SET
+                status = 'Approved',
+                user_id = %s,
+                decision_date = NOW()
+            WHERE request_id = %s
+            """,
+            (user_id, sponsor_req["request_id"])
+        )
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Failed to accept team invite {sponsor_req['request_id']}: {e}")
+        return render_template(
+            "shared/sponsor_apply.html",
+            sponsor_req=sponsor_req,
+            form=form,
+            joining=True,
+            error="Something went wrong creating your account. Please try again."
+        )
+
+    return render_template(
+        "shared/sponsor_apply.html",
+        sponsor_req=sponsor_req,
+        joined=True
+    )
+
+
+@app.route("/sponsor/team", methods=["GET", "POST"])
+def sponsor_team():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    sponsor_id = current_sponsor_id()
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            if request.method == "POST":
+                action = request.form.get("action")
+
+                if action == "invite":
+                    first_name = request.form.get("first_name", "").strip()[:100]
+                    last_name = request.form.get("last_name", "").strip()[:100]
+                    email = request.form.get("email", "").strip().lower()[:255]
+
+                    if not first_name or not last_name or "@" not in email:
+                        flash("Please enter a first name, last name, and valid email.", "error")
+                        return redirect(url_for("sponsor_team"))
+
+                    cursor.execute(
+                        "SELECT user_id FROM Users WHERE LOWER(email) = %s",
+                        (email,)
+                    )
+                    if cursor.fetchone():
+                        flash(f"{email} already has an account.", "error")
+                        return redirect(url_for("sponsor_team"))
+
+                    cursor.execute(
+                        """
+                        SELECT request_id
+                        FROM Sponsor_Requests
+                        WHERE LOWER(email) = %s
+                          AND status IN ('Started', 'Submitted')
+                        """,
+                        (email,)
+                    )
+                    if cursor.fetchone():
+                        flash(f"{email} already has an open invite or application.", "error")
+                        return redirect(url_for("sponsor_team"))
+
+                    cursor.execute(
+                        "SELECT company_name FROM Sponsors WHERE sponsor_id = %s",
+                        (sponsor_id,)
+                    )
+                    sponsor = cursor.fetchone()
+                    company_name = sponsor["company_name"] if sponsor else "your organization"
+
+                    token = secrets.token_urlsafe(32)
+
+                    # decision_by_user_id records who sent the invite.
+                    cursor.execute(
+                        """
+                        INSERT INTO Sponsor_Requests
+                            (email, first_name, last_name, token, request_type,
+                             target_sponsor_id, company_name, decision_by_user_id)
+                        VALUES
+                            (%s, %s, %s, %s, 'Join', %s, %s, %s)
+                        """,
+                        (email, first_name, last_name, token,
+                         sponsor_id, company_name, session["user_id"])
+                    )
+
+                    conn.commit()
+
+                    inviter = f"{session.get('first_name', '')} {session.get('last_name', '')}".strip()
+                    send_sponsor_team_invite(email, first_name, company_name, inviter, token)
+
+                    flash(f"Invite sent to {email}.", "success")
+                    return redirect(url_for("sponsor_team"))
+
+                if action == "cancel":
+                    cursor.execute(
+                        """
+                        UPDATE Sponsor_Requests
+                        SET
+                            status = 'Rejected',
+                            reason = 'Invite cancelled',
+                            decision_date = NOW()
+                        WHERE request_id = %s
+                          AND target_sponsor_id = %s
+                          AND request_type = 'Join'
+                          AND status = 'Started'
+                        """,
+                        (request.form.get("request_id"), sponsor_id)
+                    )
+                    conn.commit()
+
+                    flash("Invite cancelled.", "success")
+                    return redirect(url_for("sponsor_team"))
+
+            cursor.execute(
+                """
+                SELECT
+                    Users.user_id, Users.first_name, Users.last_name, Users.email,
+                    Sponsor_Users.created_at
+                FROM Users
+                LEFT JOIN Sponsor_Users
+                    ON Sponsor_Users.user_id = Users.user_id
+                WHERE Users.role = 'Sponsor'
+                  AND (Sponsor_Users.sponsor_id = %s OR Users.user_id = %s)
+                ORDER BY Users.first_name, Users.last_name
+                """,
+                (sponsor_id, sponsor_id)
+            )
+            members = cursor.fetchall()
+
+            cursor.execute(
+                """
+                SELECT request_id, email, first_name, last_name, created_at
+                FROM Sponsor_Requests
+                WHERE target_sponsor_id = %s
+                  AND request_type = 'Join'
+                  AND status = 'Started'
+                ORDER BY created_at DESC
+                """,
+                (sponsor_id,)
+            )
+            invites = cursor.fetchall()
+
+            cursor.execute(
+                "SELECT company_name FROM Sponsors WHERE sponsor_id = %s",
+                (sponsor_id,)
+            )
+            sponsor = cursor.fetchone()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "sponsor/team.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        members=members,
+        invites=invites,
+        company_name=sponsor["company_name"] if sponsor else None
+    )
+
+
+@app.route("/admin/sponsor-requests")
+def admin_sponsor_requests():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "admin":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    request_id, email, first_name, last_name,
+                    request_type, company_name, phone, message, submitted_at
+                FROM Sponsor_Requests
+                WHERE status = 'Submitted'
+                ORDER BY submitted_at ASC
+                """
+            )
+            pending = cursor.fetchall()
+
+            cursor.execute(
+                """
+                SELECT
+                    request_id, email, first_name, last_name,
+                    company_name, status, reason, decision_date
+                FROM Sponsor_Requests
+                WHERE status IN ('Approved', 'Rejected')
+                  AND request_type = 'New'
+                ORDER BY decision_date DESC
+                LIMIT 20
+                """
+            )
+            decided = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "admin/sponsor_requests.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        pending=pending,
+        decided=decided
+    )
+
+
+@app.route("/admin/sponsor-requests/<int:request_id>/approve", methods=["POST"])
+def approve_sponsor_request(request_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "admin":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT request_id, email, first_name, last_name, company_name, phone
+                FROM Sponsor_Requests
+                WHERE request_id = %s
+                  AND status = 'Submitted'
+                FOR UPDATE
+                """,
+                (request_id,)
+            )
+
+            sponsor_req = cursor.fetchone()
+
+            if not sponsor_req:
+                flash("That request was not found or has already been handled.", "error")
+                return redirect(url_for("admin_sponsor_requests"))
+
+            cursor.execute(
+                "SELECT user_id FROM Users WHERE LOWER(email) = %s",
+                (sponsor_req["email"].lower(),)
+            )
+
+            if cursor.fetchone():
+                flash(f"An account with {sponsor_req['email']} already exists.", "error")
+                return redirect(url_for("admin_sponsor_requests"))
+
+            cursor.execute(
+                """
+                INSERT INTO Users
+                    (email, first_name, last_name, role)
+                VALUES
+                    (%s, %s, %s, 'Sponsor')
+                """,
+                (sponsor_req["email"], sponsor_req["first_name"], sponsor_req["last_name"])
+            )
+
+            user_id = cursor.lastrowid
+
+            temp_password = secrets.token_urlsafe(9)
+
+            cursor.execute(
+                "INSERT INTO Password (user_id, password_hash) VALUES (%s, %s)",
+                (user_id, generate_password_hash(temp_password, method="pbkdf2:sha256"))
+            )
+
+            # Same shape as /register: the sponsor's org id is its first user's id.
+            cursor.execute(
+                """
+                INSERT INTO Sponsors
+                    (sponsor_id, company_name, email, phone)
+                VALUES
+                    (%s, %s, %s, %s)
+                """,
+                (user_id, sponsor_req["company_name"], sponsor_req["email"], sponsor_req["phone"])
+            )
+
+            cursor.execute(
+                "INSERT INTO Sponsor_Users (user_id, sponsor_id) VALUES (%s, %s)",
+                (user_id, user_id)
+            )
+
+            cursor.execute(
+                """
+                UPDATE Sponsor_Requests
+                SET
+                    status = 'Approved',
+                    user_id = %s,
+                    decision_date = NOW(),
+                    decision_by_user_id = %s
+                WHERE request_id = %s
+                """,
+                (user_id, session["user_id"], request_id)
+            )
+
+            conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Failed to approve sponsor request {request_id}: {e}")
+        flash("Something went wrong creating that sponsor account.", "error")
+        return redirect(url_for("admin_sponsor_requests"))
+
+    finally:
+        conn.close()
+
+    send_sponsor_approved_email(
+        sponsor_req["email"],
+        sponsor_req["first_name"],
+        sponsor_req["company_name"],
+        temp_password
+    )
+
+    flash(
+        f"Approved {sponsor_req['company_name']}. Login details were emailed to {sponsor_req['email']}.",
+        "success"
+    )
+    return redirect(url_for("admin_sponsor_requests"))
+
+
+@app.route("/admin/sponsor-requests/<int:request_id>/reject", methods=["POST"])
+def reject_sponsor_request(request_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "admin":
+        return redirect(url_for("home"))
+
+    reason = request.form.get("reason", "").strip()[:1000]
+
+    if not reason:
+        flash("Please give a reason for rejecting the request.", "error")
+        return redirect(url_for("admin_sponsor_requests"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT email, first_name, company_name
+                FROM Sponsor_Requests
+                WHERE request_id = %s
+                  AND status = 'Submitted'
+                """,
+                (request_id,)
+            )
+
+            sponsor_req = cursor.fetchone()
+
+            if not sponsor_req:
+                flash("That request was not found or has already been handled.", "error")
+                return redirect(url_for("admin_sponsor_requests"))
+
+            cursor.execute(
+                """
+                UPDATE Sponsor_Requests
+                SET
+                    status = 'Rejected',
+                    reason = %s,
+                    decision_date = NOW(),
+                    decision_by_user_id = %s
+                WHERE request_id = %s
+                """,
+                (reason, session["user_id"], request_id)
+            )
+
+            conn.commit()
+
+    finally:
+        conn.close()
+
+    send_sponsor_rejected_email(sponsor_req["email"], sponsor_req["first_name"], reason)
+
+    flash(f"Rejected the request for {sponsor_req['company_name']}.", "success")
+    return redirect(url_for("admin_sponsor_requests"))
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():

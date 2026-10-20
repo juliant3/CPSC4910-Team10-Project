@@ -19,6 +19,10 @@
             <div class="stat-label">Applications Awaiting Decision</div>
             <div class="stat-value">{{ pending_count }}</div>
         </div>
+        <div class="stat-tile">
+            <div class="stat-label">Sponsor Requests to Review</div>
+            <div class="stat-value">{{ sponsor_request_count or 0 }}</div>
+        </div>
     </div>
 
     <div class="action-grid">
@@ -27,6 +31,12 @@
             <h3>Pending Applications</h3>
             <p>{{ pending_count }} application{{ 's' if pending_count != 1 }} waiting on a decision across all sponsors.</p>
             <span class="tile-link">Review applications →</span>
+        </a>
+
+        <a href="{{ url_for('admin_sponsor_requests') }}" class="action-tile">
+            <h3>Sponsor Requests</h3>
+            <p>{{ sponsor_request_count or 0 }} organization{{ 's' if sponsor_request_count != 1 }} waiting to be approved as a sponsor.</p>
+            <span class="tile-link">Review requests →</span>
         </a>
 
         <a href="{{ url_for('about') }}" class="action-tile">

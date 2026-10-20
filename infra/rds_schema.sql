@@ -316,3 +316,49 @@ CREATE TABLE Recurring_Point_Drivers (
         REFERENCES Drivers(driver_id)
         ON DELETE CASCADE
 );
+
+
+-- Sponsor access requests (2026-10-20)
+-- A prospective sponsor requests access from the login page, gets an emailed
+-- link, applies for a new organization, and an admin approves or rejects it.
+-- request_type 'Join' / target_sponsor_id are reserved for joining an
+-- existing organization later.
+CREATE TABLE Sponsor_Requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    token VARCHAR(64) NOT NULL UNIQUE,
+    request_type ENUM('New', 'Join') NOT NULL DEFAULT 'New',
+    company_name VARCHAR(255) NULL,
+    phone VARCHAR(25) NULL,
+    message VARCHAR(1000) NULL,
+    target_sponsor_id INT NULL,
+    status ENUM(
+        'Started',
+        'Submitted',
+        'Approved',
+        'Rejected'
+    ) NOT NULL DEFAULT 'Started',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    submitted_at TIMESTAMP NULL,
+    decision_date TIMESTAMP NULL,
+    decision_by_user_id INT NULL,
+    reason VARCHAR(1000) NULL,
+    user_id INT NULL,
+    FOREIGN KEY (target_sponsor_id)
+        REFERENCES Sponsors(sponsor_id)
+        ON DELETE SET NULL,
+    FOREIGN KEY (decision_by_user_id)
+        REFERENCES Users(user_id)
+        ON DELETE SET NULL,
+    FOREIGN KEY (user_id)
+        REFERENCES Users(user_id)
+        ON DELETE SET NULL
+);
+
+CREATE INDEX idx_sponsor_requests_status
+    ON Sponsor_Requests(status);
+
+CREATE INDEX idx_sponsor_requests_email
+    ON Sponsor_Requests(email);

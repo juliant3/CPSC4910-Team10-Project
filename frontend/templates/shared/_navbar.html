@@ -7,7 +7,7 @@
 
 {% if role_key == 'sponsor' %}
     {% set nav_items = [
-        ('Dashboard', 'sponsor_dashboard', ['home']),
+        ('Dashboard', 'sponsor_dashboard', ['home', 'sponsor_team']),
         ('Drivers', 'sponsor_drivers', ['sponsor_driver_profile', 'sponsor_edit_driver', 'sponsor_recurring']),
         ('Applications', 'sponsor_applications', []),
     ] %}
@@ -21,7 +21,8 @@
 {% elif role_key == 'admin' %}
     {% set nav_items = [
         ('Dashboard', 'home', []),
-        ('Pending Applications', 'admin_pending_applications', []),
+        ('Driver Applications', 'admin_pending_applications', []),
+        ('Sponsor Requests', 'admin_sponsor_requests', []),
     ] %}
 {% else %}
     {% set nav_items = [] %}

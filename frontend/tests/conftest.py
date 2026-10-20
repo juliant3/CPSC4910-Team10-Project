@@ -3,6 +3,7 @@
 # 2 - Run the test suite: python -m pytest
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -78,6 +79,10 @@ def app(monkeypatch):
     # automated suite never touches XAMPP or AWS RDS by accident.
     monkeypatch.setattr(site, "get_login_stats", lambda: (0, 0))
 
+    # The recurring-points job runs before every GET and would consume the
+    # first scripted row from fake_db, so keep it out of route tests.
+    monkeypatch.setattr(site, "process_recurring_points", lambda: None)
+
     yield site.app
 
 
@@ -118,5 +123,7 @@ def set_session(client):
             sess["user_id"] = user_id
             sess["first_name"] = first_name
             sess["role"] = role
+            # Without this the session-timeout check logs the test user out.
+            sess["last_activity"] = datetime.now(timezone.utc).isoformat()
 
     return _set

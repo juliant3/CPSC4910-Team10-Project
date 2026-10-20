@@ -1,0 +1,129 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Sponsor Application{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="auth-center">
+<div class="login-container">
+
+    {% if submitted %}
+
+        <h1>Application Submitted</h1>
+        <p class="motto">Thanks, {{ sponsor_req.first_name }}</p>
+
+        <div class="success-box">
+            Your application has been sent to an administrator.
+        </div>
+
+        <p>
+            We'll email <strong>{{ sponsor_req.email }}</strong> with your login
+            details once your sponsor account has been approved.
+        </p>
+
+    {% elif joined %}
+
+        <h1>You're All Set</h1>
+        <p class="motto">Welcome to {{ sponsor_req.company_name }}</p>
+
+        <div class="success-box">
+            Your sponsor account has been created.
+        </div>
+
+        <button type="button" onclick="window.location='{{ url_for('login') }}'">Log In</button>
+
+    {% elif joining %}
+
+        <h1>Join {{ sponsor_req.company_name }}</h1>
+        <p class="motto">Create your sponsor account &middot; {{ sponsor_req.email }}</p>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST">
+
+            <div class="name-row">
+                <div>
+                    <label for="first_name">First Name</label>
+                    <input type="text" id="first_name" name="first_name" maxlength="100"
+                           value="{{ form.first_name or sponsor_req.first_name }}" required>
+                </div>
+                <div>
+                    <label for="last_name">Last Name</label>
+                    <input type="text" id="last_name" name="last_name" maxlength="100"
+                           value="{{ form.last_name or sponsor_req.last_name }}" required>
+                </div>
+            </div>
+
+            <label for="password">Password <span class="optional">(at least 8 characters)</span></label>
+            <input type="password" id="password" name="password" minlength="8" required>
+
+            <label for="confirm_password">Confirm Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" minlength="8" required>
+
+            <button type="submit">Create Account</button>
+        </form>
+
+    {% elif closed %}
+
+        {% if not sponsor_req %}
+            <h1>Link Not Valid</h1>
+            <p>This application link is invalid. Please request a new one.</p>
+            <p class="auth-note"><a href="{{ url_for('sponsor_request') }}">Request a new link</a></p>
+        {% elif sponsor_req.status == 'Submitted' %}
+            <h1>Under Review</h1>
+            <p>This application has already been submitted. An administrator will email you once it has been reviewed.</p>
+        {% elif sponsor_req.status == 'Approved' %}
+            <h1>Already Set Up</h1>
+            <p>Your sponsor account is ready.</p>
+            <p class="auth-note"><a href="{{ url_for('login') }}">Log in</a></p>
+        {% elif sponsor_req.request_type == 'Join' %}
+            <h1>Invite No Longer Valid</h1>
+            <p>This invite was cancelled. Ask your organization's sponsor to send a new one.</p>
+        {% else %}
+            <h1>Application Closed</h1>
+            <p>This application was not approved. Please contact an administrator if you have questions.</p>
+        {% endif %}
+
+    {% else %}
+
+        <h1>Sponsor Application</h1>
+        <p class="motto">{{ sponsor_req.first_name }} {{ sponsor_req.last_name }} &middot; {{ sponsor_req.email }}</p>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST">
+
+            <label for="company_name">Organization Name</label>
+            <input type="text" id="company_name" name="company_name" maxlength="255"
+                   value="{{ form.company_name or '' }}" required>
+
+            <label for="phone">Phone <span class="optional">(optional)</span></label>
+            <input type="text" id="phone" name="phone" maxlength="25"
+                   value="{{ form.phone or '' }}" placeholder="(555) 555-0100">
+
+            <label for="message">About your organization <span class="optional">(optional)</span></label>
+            <textarea id="message" name="message" maxlength="1000"
+                      placeholder="Fleet size, what you're hoping to get out of the program, etc.">{{ form.message or '' }}</textarea>
+
+            <button type="submit">Submit Application</button>
+        </form>
+
+        <p class="auth-note" style="font-size: 13px;">
+            Joining an organization that's already a sponsor?
+            Ask someone there to invite you from their Team page.
+        </p>
+
+    {% endif %}
+
+</div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Become a Sponsor{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="auth-center">
+<div class="login-container">
+
+    {% if sent_to %}
+
+        <h1>Check Your Email</h1>
+        <p class="motto">One more step</p>
+
+        <div class="success-box">
+            We sent a link to <strong>{{ sent_to }}</strong>.
+        </div>
+
+        <p>
+            Open the link to tell us about your organization. An administrator
+            will review your application and email you once your sponsor
+            account is ready.
+        </p>
+
+    {% elif under_review %}
+
+        <h1>Already Submitted</h1>
+        <p class="motto">Your application is under review</p>
+
+        <p>
+            We already have an application for this email address. An administrator
+            will email you as soon as it has been reviewed.
+        </p>
+
+    {% else %}
+
+        <h1>Become a Sponsor</h1>
+        <p class="motto">Request access for your organization</p>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('sponsor_request') }}">
+
+            <div class="name-row">
+                <div>
+                    <label for="first_name">First Name</label>
+                    <input type="text" id="first_name" name="first_name" maxlength="100"
+                           value="{{ form.first_name if form else '' }}" required>
+                </div>
+                <div>
+                    <label for="last_name">Last Name</label>
+                    <input type="text" id="last_name" name="last_name" maxlength="100"
+                           value="{{ form.last_name if form else '' }}" required>
+                </div>
+            </div>
+
+            <label for="email">Work Email</label>
+            <input type="email" id="email" name="email" maxlength="255"
+                   value="{{ form.email if form else '' }}" placeholder="you@company.com" required>
+
+            <button type="submit">Email Me an Application Link</button>
+        </form>
+
+        <p class="auth-note" style="font-size: 13px;">
+            Joining an organization that's already a sponsor?
+            Ask someone there to invite you from their Team page.
+        </p>
+
+    {% endif %}
+
+    <p class="auth-note">
+        <a href="{{ url_for('login') }}">Back to Log In</a>
+    </p>
+
+</div>
+</div>
+
+{% endblock %}
