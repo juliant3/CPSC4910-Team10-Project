@@ -6,10 +6,9 @@
 
 <title>{% block title %}Flask App{% endblock %}</title>
 {% block head %}{% endblock %}
-</head>
 <link rel="stylesheet"
       href="{{ url_for('static', filename='css/session-timeout.css') }}">
-
+</head>
 <body>
     {% if session.get('user_id') %}
     <a href="{{ url_for('notifications') }}"
