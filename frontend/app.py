@@ -85,6 +85,31 @@ def session_keep_alive():
     return {"success": True}
 
 
+@app.route("/api/ebay/notifications", methods=["GET", "POST"])
+def ebay_notifications():
+
+    if request.method == "GET":
+        challenge_code = request.args.get("challenge_code")
+
+        if not challenge_code:
+            return jsonify({"error": "Missing challenge code"}), 400
+
+        verification_token = os.environ["EBAY_VERIFICATION_TOKEN"]
+        endpoint = os.environ["EBAY_NOTIFICATION_ENDPOINT"]
+
+        combined = challenge_code + verification_token + endpoint
+
+        response_hash = hashlib.sha256(
+            combined.encode("utf-8")
+        ).hexdigest()
+
+        return jsonify({"challengeResponse": response_hash}), 200
+
+    if request.method == "POST":
+        # Notification signature verification and account deletion
+        # processing will be implemented next.
+        return jsonify({"error": "Not implemented yet"}), 501
+
 # ==========================================
 # DATABASE CONNECTION
 # ==========================================
