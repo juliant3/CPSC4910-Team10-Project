@@ -2,156 +2,60 @@
 
 {% block title %}Driver Dashboard{% endblock %}
 
-{% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-{% endblock %}
-
 {% block content %}
 
-<nav class="navbar">
-<a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
-    Good Driver Program
-</a>
+<div class="page">
 
-<div class="nav-links">
-
-    <a href="{{ url_for('home') }}">
-        Home
-    </a>
-
-    <a href="{{ url_for('driver_profile') }}">
-        My Profile
-    </a>
-
-    <a href="{{ url_for('driver_points') }}">
-        My Points
-    </a>
-
-    <a href="#">
-        Catalog
-    </a>
-    
-    <a href="{{ url_for('driver_sponsors') }}">
-        Sponsors
-    </a>
-
-    <a href="{{ url_for('about') }}">
-        About
-    </a>
-
-</div>
-
-<a href="{{ url_for('logout') }}"
-   class="logout-btn"
-   onclick="return confirm('Are you sure you want to log out?');">
-    Logout
-</a>
-
-</nav> <div class="dashboard-wrapper">
-<div class="dashboard-header">
-
-    <span class="role-badge">
-        Driver
-    </span>
-
-    <h1>
-        Welcome, {{ first_name }}!
-    </h1>
-
-    <p>
-        Welcome to the Good Driver Program.
-    </p>
-
-</div>
-
-
-<div class="dashboard-grid">
-    <div class="dashboard-card">
-
-    <div class="card-icon">S</div>
-
-    <h2>Available Sponsors</h2>
-
-    <p>
-        Browse available sponsors and find a sponsor
-        to join.
-    </p>
-
-    <a
-        href="{{ url_for('driver_sponsors') }}"
-        class="dashboard-button"
-    >
-        View Sponsors
-    </a>
-
-</div>
-
-    <div class="dashboard-card">
-
-        <div class="card-icon">
-            ★
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">Driver Dashboard</span>
+            <h1>Welcome back, {{ first_name }}</h1>
+            <p>Here's a summary of your Good Driver Program account.</p>
         </div>
-
-        <h2>
-            Your Sponsor
-        </h2>
-
-        {% if driver.sponsor_name %}
-
-            <p>
-                {{ driver.sponsor_name }}
-            </p>
-
-        {% else %}
-
-            <p>
-                No sponsor assigned.
-            </p>
-
-        {% endif %}
-
     </div>
 
-    <div class="dashboard-card">
+    {% set status = (driver.status or '')|lower %}
 
-        <div class="card-icon">
-            ★
+    <div class="stat-grid" style="margin-bottom: 24px;">
+        <div class="stat-tile">
+            <div class="stat-label">Points Balance</div>
+            <div class="stat-value">{{ driver.points_balance or 0 }}</div>
         </div>
+        <div class="stat-tile">
+            <div class="stat-label">Sponsor</div>
+            <div class="stat-value text">{{ driver.sponsor_name or 'Not assigned' }}</div>
+        </div>
+        <div class="stat-tile">
+            <div class="stat-label">Account Status</div>
+            <div class="stat-value text">
+                <span class="badge {{ 'badge-success' if status == 'active' else 'badge-warn' if status == 'pending' else 'badge-neutral' }}">
+                    {{ driver.status }}
+                </span>
+            </div>
+        </div>
+    </div>
 
-        <h2>
-            My Points
-        </h2>
+    <div class="action-grid">
 
-        <p>
-            You currently have
-            <strong>{{ driver.points_balance }}</strong>
-            points.
-        </p>
+        <a href="{{ url_for('driver_points') }}" class="action-tile">
+            <h3>My Points</h3>
+            <p>See your balance and the full history of points earned and deducted.</p>
+            <span class="tile-link">View points →</span>
+        </a>
 
-        <a href="{{ url_for('driver_points') }}"
-           class="dashboard-button">
-            View Points
+        <a href="{{ url_for('driver_sponsors') }}" class="action-tile">
+            <h3>Available Sponsors</h3>
+            <p>Browse participating sponsors and find one to join.</p>
+            <span class="tile-link">View sponsors →</span>
+        </a>
+
+        <a href="{{ url_for('driver_profile') }}" class="action-tile">
+            <h3>My Profile</h3>
+            <p>Review and update your personal information.</p>
+            <span class="tile-link">View profile →</span>
         </a>
 
     </div>
-
-    <div class="dashboard-card">
-
-        <div class="card-icon">
-            ✓
-        </div>
-
-        <h2>
-            Account Status
-        </h2>
-
-        <p>
-            {{ driver.status }}
-        </p>
-
-    </div>
-
-</div>
 
 </div>
 

@@ -4,29 +4,43 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>{% block title %}Flask App{% endblock %}</title>
+<title>{% block title %}Good Driver Program{% endblock %} · Good Driver Program</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
 {% block head %}{% endblock %}
 <link rel="stylesheet"
       href="{{ url_for('static', filename='css/session-timeout.css') }}">
 </head>
 <body>
-    {% if session.get('user_id') %}
-    <a href="{{ url_for('notifications') }}"
-       title="Notifications"
-       style="position: absolute; top: 19px; right: 150px; z-index: 1000; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; text-decoration: none;">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-        </svg>
-        {% if unread_count and unread_count > 0 %}
-        <span style="position: absolute; top: -2px; right: -4px; background: #fff; color: #6a3093; border-radius: 10px; min-width: 18px; height: 18px; padding: 0 4px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{ unread_count }}</span>
-        {% endif %}
-    </a>
-    {% endif %}
 
-    {% block content %}{% endblock %}
-    <!-- Automatically log out after 5 minutes of inactivity -->
+    {% include "shared/_navbar.html" %}
+
+    <main class="site-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <span>&copy; {{ current_year }} Good Driver Program &middot; CPSC 4910 Team 10</span>
+            <nav class="site-footer-links">
+                <a href="{{ url_for('about') }}">About</a>
+                {% if session.get('user_id') %}
+                    <a href="{{ url_for('home') }}">Dashboard</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Log In</a>
+                {% endif %}
+            </nav>
+        </div>
+    </footer>
+
     {% if session.get('user_id') %}
+        <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+        <!-- Automatically log out after 5 minutes of inactivity -->
         <script src="{{ url_for('static', filename='js/session-timeout.js') }}"></script>
     {% endif %}
 </body>

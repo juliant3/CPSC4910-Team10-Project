@@ -135,9 +135,17 @@ def get_login_stats():
     return driver_count, sponsor_count
 
 @app.context_processor
-def inject_unread_count():
+def inject_current_year():
+    return {"current_year": datetime.now().year}
+
+
+@app.context_processor
+def inject_notifications():
+    """Unread count + latest notifications for the navbar dropdown on every page."""
+    empty = {"unread_count": 0, "recent_notifications": []}
+
     if "user_id" not in session:
-        return {"unread_count": 0}
+        return empty
 
     try:
         conn = get_db()
@@ -152,11 +160,26 @@ def inject_unread_count():
                     """,
                     (session["user_id"],)
                 )
-                return {"unread_count": cursor.fetchone()["c"]}
+                unread_count = cursor.fetchone()["c"]
+
+                cursor.execute(
+                    """
+                    SELECT notification_id, subject, message, is_read, created_at
+                    FROM Notifications
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC, notification_id DESC
+                    LIMIT 15
+                    """,
+                    (session["user_id"],)
+                )
+                recent = cursor.fetchall()
+
+                return {"unread_count": unread_count, "recent_notifications": recent}
         finally:
             conn.close()
     except Exception:
-        return {"unread_count": 0}
+        return empty
+
 
 def send_email(to_email, subject, body):
     smtp_host = os.environ.get("SMTP_HOST")
@@ -388,6 +411,7 @@ def login():
                     SELECT
                         Users.user_id,
                         Users.first_name,
+                        Users.last_name,
                         Users.role,
                         Password.password_hash
                     FROM Users
@@ -411,6 +435,7 @@ def login():
 
             session["user_id"] = user["user_id"]
             session["first_name"] = user["first_name"]
+            session["last_name"] = user.get("last_name") or ""
             session["role"] = user["role"]
 
             session.permanent = True
@@ -1798,6 +1823,7 @@ def driver_edit_profile():
                 if not error:
                     conn.commit()
                     session["first_name"] = request.form.get("first_name", "").strip()[:100]
+                    session["last_name"] = request.form.get("last_name", "").strip()[:100]
                     return redirect(url_for("driver_profile"))
 
                 posted_form = request.form
@@ -2332,28 +2358,17 @@ def driver_points():
     )
 
 
-@app.route("/notifications")
-def notifications():
+@app.route("/notifications/read", methods=["POST"])
+def mark_notifications_read():
+    """Called by the navbar dropdown when it is opened."""
 
     if "user_id" not in session:
-        return redirect(url_for("login"))
+        return "", 401
 
     conn = get_db()
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT notification_id, subject, message, is_read, created_at
-                FROM Notifications
-                WHERE user_id = %s
-                ORDER BY created_at DESC, notification_id DESC
-                LIMIT 100
-                """,
-                (session["user_id"],)
-            )
-            items = cursor.fetchall()
-
             cursor.execute(
                 """
                 UPDATE Notifications
@@ -2367,12 +2382,7 @@ def notifications():
     finally:
         conn.close()
 
-    return render_template(
-        "shared/notifications.html",
-        first_name=session["first_name"],
-        role=session["role"],
-        notifications=items
-    )
+    return "", 204
 
 @app.route("/register", methods=["GET", "POST"])
 def register():

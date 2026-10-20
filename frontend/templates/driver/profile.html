@@ -2,77 +2,99 @@
 
 {% block title %}{% if sponsor_view %}Driver Profile{% else %}My Profile{% endif %}{% endblock %}
 
-{% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-{% endblock %}
-
 {% block content %}
 
-<nav class="navbar">
-    <a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
-        Good Driver Program
-    </a>
+{% set status = (driver.status or '')|lower %}
 
-    <div class="nav-links">
-        <a href="{{ url_for('home') }}">Home</a>
+<div class="page page-narrow">
 
-        {% if sponsor_view %}
-            <a href="{{ url_for('sponsor_applications') }}">Applications</a>
-            <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
-        {% else %}
-            <a href="{{ url_for('driver_profile') }}">My Profile</a>
-            <a href="{{ url_for('driver_points') }}">My Points</a>
-            <a href="{{ url_for('driver_sponsors') }}">Sponsors</a>
-        {% endif %}
+    {% if sponsor_view %}
+        <a href="{{ url_for('sponsor_drivers') }}" class="breadcrumb">← Back to Drivers</a>
+    {% endif %}
 
-        <a href="{{ url_for('about') }}">About</a>
+    <div class="page-header">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <span class="avatar" style="width: 56px; height: 56px; font-size: 20px;">
+                {{ (driver.first_name or '?')[:1]|upper }}{{ (driver.last_name or '')[:1]|upper }}
+            </span>
+            <div>
+                <span class="eyebrow">{% if sponsor_view %}Driver Profile{% else %}My Profile{% endif %}</span>
+                <h1>{{ driver.first_name }} {{ driver.last_name }}</h1>
+                <p>{{ driver.email }}</p>
+            </div>
+        </div>
+        <div class="page-actions">
+            {% if sponsor_view %}
+                <a href="{{ url_for('sponsor_edit_driver', driver_id=driver.driver_id) }}" class="btn btn-primary">Edit Driver</a>
+            {% else %}
+                <a href="{{ url_for('driver_edit_profile') }}" class="btn btn-primary">Edit Profile</a>
+            {% endif %}
+        </div>
     </div>
 
-    <a href="{{ url_for('logout') }}"
-       class="logout-btn"
-       onclick="return confirm('Are you sure you want to log out?');">
-        Logout
-    </a>
-</nav>
-
-<div class="hero" style="max-width: 780px;">
-    <span class="role-badge">{% if sponsor_view %}Driver{% else %}My Profile{% endif %}</span>
-
-    <h1>{{ driver.first_name }} {{ driver.last_name }}</h1>
-
-    <p>{{ driver.email }}</p>
-
-    <div style="margin-top: 18px;">
-        {% if sponsor_view %}
-        <a href="{{ url_for('sponsor_edit_driver', driver_id=driver.driver_id) }}" class="dashboard-button">
-            Edit Driver
-        </a>
-        {% else %}
-        <a href="{{ url_for('driver_edit_profile') }}" class="dashboard-button">
-            Edit Profile
-        </a>
-        {% endif %}
+    <div class="stat-grid" style="margin-bottom: 20px;">
+        <div class="stat-tile">
+            <div class="stat-label">Points Balance</div>
+            <div class="stat-value">{{ driver.points_balance or 0 }}</div>
+        </div>
+        <div class="stat-tile">
+            <div class="stat-label">Status</div>
+            <div class="stat-value text">
+                <span class="badge {{ 'badge-success' if status == 'active' else 'badge-warn' if status == 'pending' else 'badge-neutral' }}">
+                    {{ driver.status }}
+                </span>
+            </div>
+        </div>
+        <div class="stat-tile">
+            <div class="stat-label">Sponsor</div>
+            <div class="stat-value text">{{ driver.sponsor_name or 'Not assigned' }}</div>
+        </div>
     </div>
+
+    <div class="stack">
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Details</h2>
+            </div>
+            <dl class="detail-list">
+                <div class="detail-row">
+                    <dt>Full Name</dt>
+                    <dd>{{ driver.first_name }} {{ driver.last_name }}</dd>
+                </div>
+                <div class="detail-row">
+                    <dt>Email</dt>
+                    <dd>{{ driver.email }}</dd>
+                </div>
+                <div class="detail-row">
+                    <dt>Date of Birth</dt>
+                    <dd>{{ driver.date_of_birth or 'Not provided' }}</dd>
+                </div>
+                <div class="detail-row">
+                    <dt>Address</dt>
+                    <dd>{{ driver.address or 'Not provided' }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        {% if answers %}
+        <div class="card">
+            <div class="card-header">
+                <h2>Application Answers</h2>
+            </div>
+            <dl class="detail-list">
+                {% for a in answers %}
+                <div class="detail-row">
+                    <dt>{{ a.question_text }}</dt>
+                    <dd>{{ a.answer_text }}</dd>
+                </div>
+                {% endfor %}
+            </dl>
+        </div>
+        {% endif %}
+
+    </div>
+
 </div>
-
-<div class="hero" style="max-width: 780px; text-align: left;">
-    <h1 style="text-align: center;">Details</h1>
-
-    <p><strong>Date of Birth:</strong> {{ driver.date_of_birth or 'Not provided' }}</p>
-    <p><strong>Address:</strong> {{ driver.address or 'Not provided' }}</p>
-    <p><strong>Sponsor:</strong> {{ driver.sponsor_name or 'No sponsor assigned' }}</p>
-    <p><strong>Points:</strong> {{ driver.points_balance or 0 }}</p>
-    <p><strong>Status:</strong> {{ driver.status }}</p>
-</div>
-
-{% if answers %}
-<div class="hero" style="max-width: 780px; text-align: left;">
-    <h1 style="text-align: center;">Application Answers</h1>
-
-    {% for a in answers %}
-    <p><strong>{{ a.question_text }}</strong> &mdash; {{ a.answer_text }}</p>
-    {% endfor %}
-</div>
-{% endif %}
 
 {% endblock %}

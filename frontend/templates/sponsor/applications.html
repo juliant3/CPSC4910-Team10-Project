@@ -2,246 +2,212 @@
 
 {% block title %}Applications{% endblock %}
 
-{% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-{% endblock %}
-
 {% block content %}
 
-<nav class="navbar">
-<a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
-    Good Driver Program
-</a>
+<div class="page">
 
-
-<div class="nav-links">
-<a href="{{ url_for('home') }}">Home</a>
-<a href="{{ url_for('sponsor_applications') }}">Applications</a>
-<a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
-<a href="{{ url_for('about') }}">About</a>
-</div>
-
-<a href="{{ url_for('logout') }}"
-class="logout-btn"
-onclick="return confirm('Are you sure you want to log out?');">
-    Logout
-</a>
-
-</nav> <div class="hero">
-<span class="role-badge">Sponsor</span>
-
-<h1>Send an Application</h1>
-
-<p>
-    Enter the email address of the driver you would like
-    to invite to your Good Driver Program.
-</p>
-
-{% if error %}
-<div class="form-error">
-        {{ error }}
-</div>
-{% endif %}
-
-{% if success %}
-<div class="form-success">
-        {{ success }}
-</div>
-{% endif %}
-
-<form method="POST"
-action="{{ url_for('sponsor_applications') }}"
-class="application-form">
-
-<div class="form-group">
-
-<label for="driver_email">
-            Driver Email
-</label>
-
-<input
-type="email"
-id="driver_email"
-name="driver_email"
-placeholder="driver@example.com"
-required
->
-
-</div>
-
-<button type="submit"
-class="dashboard-button">
-        Send Application
-</button>
-
-</form>
-
-</div>
-
-<div class="hero">
-<h1>Your Applications</h1>
-
-{% if counts %}
-<div style="display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin: 22px 0 6px;">
-    {% for key, label in [('Submitted', 'NEW'), ('Pending', 'PENDING'), ('Accepted', 'ACCEPTED'), ('Rejected', 'REJECTED'), ('Total', 'TOTAL')] %}
-    <div style="text-align: center;"><strong style="font-size: 30px; color: #D9662C;">{{ counts[key] }}</strong><br><span style="font-size: 12px; color: #6B6478;">{{ label }}</span></div>
-    {% endfor %}
-</div>
-{% if counts['Submitted'] > 0 %}
-<div style="background: #FBF1DE; color: #9A6B2E; border-left: 3px solid #9A6B2E; padding: 10px 14px; font-size: 14px; text-align: left; margin: 14px 0;">
-    {{ counts['Submitted'] }} new application{{ 's' if counts['Submitted'] != 1 }} waiting for your review.
-</div>
-{% endif %}
-{% set current = status_filter or 'all' %}
-<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px 0 10px;">
-    {% for key, label in [('all', 'All'), ('Submitted', 'New'), ('Pending', 'Pending'), ('Accepted', 'Accepted'), ('Rejected', 'Rejected')] %}
-    <a href="{{ url_for('sponsor_applications', status=key) }}"
-       style="padding: 6px 14px; border: 1px solid #E3DEEC; border-radius: 4px; font-size: 13px; text-decoration: none; {% if current == key %}background: #4C2A85; color: #fff;{% else %}background: #fff; color: #2E1A4D;{% endif %}">
-        {{ label }} ({{ counts['Total'] if key == 'all' else counts[key] }})
-    </a>
-    {% endfor %}
-</div>
-
-{% set current_sort = request.args.get('sort', 'newest') %}
-<div style="font-size: 13px; color: #6B6478; margin-bottom: 16px;">
-    Sort by date:
-    <a href="{{ url_for('sponsor_applications', status=current, sort='newest') }}"{% if current_sort == 'newest' %} style="font-weight: 700;"{% endif %}>Newest first</a>
-    |
-    <a href="{{ url_for('sponsor_applications', status=current, sort='oldest') }}"{% if current_sort == 'oldest' %} style="font-weight: 700;"{% endif %}>Oldest first</a>
-</div>
-{% endif %}
-
-
-{% if applications %}
-
-    {% for application in applications %}
-
-<div class="application-card" style="flex-direction: column; align-items: stretch; text-align: left;">
-
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3>
-            {% if application.driver_first_name %}
-                {{ application.driver_first_name }} {{ application.driver_last_name }}
-            {% elif application.applicant_first_name %}
-                {{ application.applicant_first_name }} {{ application.applicant_last_name }}
-            {% else %}
-                {{ application.applicant_email }}
-            {% endif %}
-        </h3>
-            <span class="role-badge">{{ 'New' if application.status == 'Submitted' else application.status }}</span>
-    </div>
-
-    <p>{{ application.driver_email or application.applicant_email }}</p>
-
-    {% if application.application_date %}
-    <p style="font-size: 13px; color: #6B6478;"><strong>Applied:</strong> {{ application.application_date.strftime('%b %d, %Y') }}</p>
-    {% endif %}
-
-    {% if application.applicant_dob or application.applicant_address %}
-    <p style="font-size: 13px; color: #6B6478; margin-top: 8px;">
-        {% if application.applicant_dob %}<strong>DOB:</strong> {{ application.applicant_dob }}<br>{% endif %}
-        {% if application.applicant_address %}<strong>Address:</strong> {{ application.applicant_address }}{% endif %}
-    </p>
-    {% endif %}
-
-    {% if application.answers %}
-    <div style="border-top: 1px dashed #E3DEEC; margin-top: 12px; padding-top: 12px;">
-        {% for a in application.answers %}
-            <p style="font-size: 13px; margin: 4px 0;"><strong>{{ a.question_text }}</strong> — {{ a.answer_text }}</p>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    {% if application.status == "Rejected" and application.reason %}
-    <p style="font-size: 13px; color: #A3413A; margin-top: 8px;">
-        <strong>Rejection reason:</strong> {{ application.reason }}
-    </p>
-    {% endif %}
-
-    {% if application.status == "Submitted" %}
-    <div style="display: flex; gap: 10px; margin-top: 14px;">
-        <form method="POST" action="{{ url_for('accept_application', application_id=application.application_id) }}" style="flex: 1;">
-            <button type="submit" class="dashboard-button" style="width: 100%; background: #2F7D5C;">Accept</button>
-        </form>
-        <form method="POST" action="{{ url_for('reject_application', application_id=application.application_id) }}" style="flex: 1;">
-            <input type="text" name="reason" placeholder="Reason for rejection (required)" maxlength="500" required style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 8px;">
-            <button type="submit" class="dashboard-button" style="width: 100%; background: #A3413A;">Reject</button>
-        </form>
-    </div>
-    {% endif %}
-
-</div>
-
-    {% endfor %}
-
-{% else %}
-
-<p>
-        {% if status_filter and status_filter != 'all' %}No applications match this filter.{% else %}You have not sent any applications yet.{% endif %}
-</p>
-
-{% endif %}
-
-</div>
-
-<div class="hero">
-<h1>Application Questions</h1>
-
-<p>
-    These questions will be shown to drivers when they apply,
-    in addition to name, date of birth, and address, which are
-    always required.
-</p>
-
-<form method="POST"
-action="{{ url_for('sponsor_questions') }}"
-class="application-form">
-
-<div class="form-group">
-<label for="question_text">New Question</label>
-<input
-type="text"
-id="question_text"
-name="question_text"
-placeholder="e.g. What state is your CDL issued in?"
-required
->
-</div>
-
-<label style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 14px;">
-<input type="checkbox" name="is_required" style="width: auto;">
-    Required question
-</label>
-
-<button type="submit" class="dashboard-button">
-    Add Question
-</button>
-
-</form>
-
-{% if questions %}
-    <div class="application-list" style="margin-top: 24px;">
-        {% for q in questions %}
-        <div class="application-card">
-            <div>
-                <h3>{{ q.question_text }}</h3>
-                <p>{{ "Required" if q.is_required else "Optional" }}</p>
-            </div>
-            <form method="POST"
-                  action="{{ url_for('delete_sponsor_question', question_id=q.question_id) }}"
-                  onsubmit="return confirm('Delete this question?');">
-                <button type="submit" class="dashboard-button" style="background: #A3413A;">
-                    Delete
-                </button>
-            </form>
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">Sponsor</span>
+            <h1>Applications</h1>
+            <p>Invite drivers, review their applications, and manage your application questions.</p>
         </div>
-        {% endfor %}
     </div>
-{% else %}
-    <p style="margin-top: 20px;">
-        You haven't added any custom questions yet.
-    </p>
-{% endif %}
+
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    {% if success %}
+    <div class="alert alert-success">{{ success }}</div>
+    {% endif %}
+
+    <div class="stack">
+
+        <!-- Send an application -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Invite a Driver</h2>
+                    <p>We'll email the driver a link to apply to your program.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('sponsor_applications') }}" class="toolbar">
+                    <div class="form-group" style="flex: 1; min-width: 240px;">
+                        <label for="driver_email">Driver Email</label>
+                        <input type="email" id="driver_email" name="driver_email" placeholder="driver@example.com" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="height: 40px;">Send Application</button>
+                </form>
+            </div>
+        </div>
+
+        {% if counts %}
+        <div class="stat-grid">
+            {% for key, label in [('Submitted', 'New'), ('Pending', 'Pending'), ('Accepted', 'Accepted'), ('Rejected', 'Rejected'), ('Total', 'Total')] %}
+            <div class="stat-tile">
+                <div class="stat-label">{{ label }}</div>
+                <div class="stat-value">{{ counts[key] }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if counts['Submitted'] > 0 %}
+        <div class="alert alert-warn" style="margin-bottom: 0;">
+            {{ counts['Submitted'] }} new application{{ 's' if counts['Submitted'] != 1 }} waiting for your review.
+        </div>
+        {% endif %}
+        {% endif %}
+
+        <!-- Applications list -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Your Applications</h2>
+
+                {% if counts %}
+                {% set current = status_filter or 'all' %}
+                {% set current_sort = request.args.get('sort', 'newest') %}
+                <div class="toolbar" style="align-items: center;">
+                    <nav class="segmented" aria-label="Filter by status">
+                        {% for key, label in [('all', 'All'), ('Submitted', 'New'), ('Pending', 'Pending'), ('Accepted', 'Accepted'), ('Rejected', 'Rejected')] %}
+                        <a href="{{ url_for('sponsor_applications', status=key, sort=current_sort) }}"
+                           class="{{ 'active' if current == key }}">
+                            {{ label }} ({{ counts['Total'] if key == 'all' else counts[key] }})
+                        </a>
+                        {% endfor %}
+                    </nav>
+                    <nav class="segmented" aria-label="Sort by date">
+                        <a href="{{ url_for('sponsor_applications', status=current, sort='newest') }}"
+                           class="{{ 'active' if current_sort == 'newest' }}">Newest</a>
+                        <a href="{{ url_for('sponsor_applications', status=current, sort='oldest') }}"
+                           class="{{ 'active' if current_sort == 'oldest' }}">Oldest</a>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if applications %}
+            <ul class="row-list">
+                {% for application in applications %}
+                {% set name %}{% if application.driver_first_name %}{{ application.driver_first_name }} {{ application.driver_last_name }}{% elif application.applicant_first_name %}{{ application.applicant_first_name }} {{ application.applicant_last_name }}{% else %}{{ application.applicant_email }}{% endif %}{% endset %}
+                {% set st = application.status %}
+                <li class="row-item {{ 'row-unread' if st == 'Submitted' }}">
+
+                    <div class="row-main">
+                        <div class="row-link">
+                            <span class="avatar">{{ name[:1]|upper }}</span>
+                            <span class="row-text">
+                                <p class="row-title">{{ name }}</p>
+                                <p class="row-sub">{{ application.driver_email or application.applicant_email }}</p>
+                            </span>
+                        </div>
+
+                        {% if application.application_date %}
+                        <div class="row-meta">
+                            <span class="row-meta-label">Applied</span>
+                            <span class="row-meta-value" style="font-size: 14px;">{{ application.application_date.strftime('%b %d, %Y') }}</span>
+                        </div>
+                        {% endif %}
+
+                        <span class="badge {{ 'badge-accent' if st == 'Submitted' else 'badge-warn' if st == 'Pending' else 'badge-success' if st == 'Accepted' else 'badge-danger' if st == 'Rejected' else 'badge-neutral' }}">
+                            {{ 'New' if st == 'Submitted' else st }}
+                        </span>
+                    </div>
+
+                    {% if application.applicant_dob or application.applicant_address or application.answers or (st == 'Rejected' and application.reason) or st == 'Submitted' %}
+                    <div class="row-detail">
+
+                        {% if application.applicant_dob %}<p><strong>DOB:</strong> {{ application.applicant_dob }}</p>{% endif %}
+                        {% if application.applicant_address %}<p><strong>Address:</strong> {{ application.applicant_address }}</p>{% endif %}
+
+                        {% for a in application.answers or [] %}
+                            <p><strong>{{ a.question_text }}</strong> — {{ a.answer_text }}</p>
+                        {% endfor %}
+
+                        {% if st == 'Rejected' and application.reason %}
+                            <p style="color: var(--bad);"><strong>Rejection reason:</strong> {{ application.reason }}</p>
+                        {% endif %}
+
+                        {% if st == 'Submitted' %}
+                        <div class="toolbar" style="margin-top: 12px;">
+                            <form method="POST" action="{{ url_for('accept_application', application_id=application.application_id) }}">
+                                <button type="submit" class="btn btn-success">Accept</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('reject_application', application_id=application.application_id) }}"
+                                  class="toolbar" style="flex: 1;">
+                                <input type="text" name="reason" class="input" placeholder="Reason for rejection (required)"
+                                       maxlength="500" required style="flex: 1; min-width: 200px;" aria-label="Reason for rejection">
+                                <button type="submit" class="btn btn-danger">Reject</button>
+                            </form>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                    {% endif %}
+
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <p>{% if status_filter and status_filter != 'all' %}No applications match this filter.{% else %}You have not sent any applications yet.{% endif %}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Application questions -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Application Questions</h2>
+                    <p>Shown to drivers when they apply, in addition to name, date of birth, and address (always required).</p>
+                </div>
+            </div>
+
+            <div class="card-body" style="border-bottom: 1px solid var(--line);">
+                <form method="POST" action="{{ url_for('sponsor_questions') }}" class="toolbar">
+                    <div class="form-group" style="flex: 1; min-width: 240px;">
+                        <label for="question_text">New Question</label>
+                        <input type="text" id="question_text" name="question_text"
+                               placeholder="e.g. What state is your CDL issued in?" required>
+                    </div>
+                    <label class="check-row" style="height: 40px; margin: 0;">
+                        <input type="checkbox" name="is_required">
+                        Required
+                    </label>
+                    <button type="submit" class="btn btn-primary" style="height: 40px;">Add Question</button>
+                </form>
+            </div>
+
+            {% if questions %}
+            <ul class="row-list">
+                {% for q in questions %}
+                <li class="row-item">
+                    <div class="row-main">
+                        <div class="row-text" style="flex: 1;">
+                            <p class="row-title">{{ q.question_text }}</p>
+                        </div>
+                        <span class="badge {{ 'badge-accent' if q.is_required else 'badge-neutral' }}">
+                            {{ "Required" if q.is_required else "Optional" }}
+                        </span>
+                        <form method="POST"
+                              action="{{ url_for('delete_sponsor_question', question_id=q.question_id) }}"
+                              onsubmit="return confirm('Delete this question?');">
+                            <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <p>You haven't added any custom questions yet.</p>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
 
 </div>
 

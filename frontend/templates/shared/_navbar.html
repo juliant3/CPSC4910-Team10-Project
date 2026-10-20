@@ -1,0 +1,134 @@
+{#
+    One navbar for every page. Links depend only on the logged-in role,
+    so they stay the same no matter which page you're on.
+    Each link is (label, endpoint, [other endpoints that should highlight it]).
+#}
+{% set role_key = (session.get('role') or '')|lower %}
+
+{% if role_key == 'sponsor' %}
+    {% set nav_items = [
+        ('Dashboard', 'sponsor_dashboard', ['home']),
+        ('Drivers', 'sponsor_drivers', ['sponsor_driver_profile', 'sponsor_edit_driver', 'sponsor_recurring']),
+        ('Applications', 'sponsor_applications', []),
+    ] %}
+{% elif role_key == 'driver' %}
+    {% set nav_items = [
+        ('Dashboard', 'driver_dashboard', ['home']),
+        ('My Points', 'driver_points', []),
+        ('Sponsors', 'driver_sponsors', []),
+        ('My Profile', 'driver_profile', ['driver_edit_profile']),
+    ] %}
+{% elif role_key == 'admin' %}
+    {% set nav_items = [
+        ('Dashboard', 'home', []),
+        ('Pending Applications', 'admin_pending_applications', []),
+    ] %}
+{% else %}
+    {% set nav_items = [] %}
+{% endif %}
+
+{% if session.get('user_id') %}
+
+<header class="site-header">
+    <div class="site-header-inner">
+
+        <a href="{{ url_for('home') }}" class="brand">
+            <span class="brand-mark">GD</span>
+            <span class="brand-name">Good Driver Program</span>
+        </a>
+
+        <nav class="primary-nav" aria-label="Main">
+            {% for label, endpoint, also in nav_items %}
+                <a href="{{ url_for(endpoint) }}"
+                   class="{{ 'active' if request.endpoint == endpoint or request.endpoint in also }}">
+                    {{ label }}
+                </a>
+            {% endfor %}
+            <a href="{{ url_for('about') }}"
+               class="{{ 'active' if request.endpoint == 'about' }}">
+                About
+            </a>
+        </nav>
+
+        <div class="header-actions">
+
+            <div class="notif-menu" id="notif-menu">
+                <button type="button"
+                        class="icon-button"
+                        id="notif-toggle"
+                        title="Notifications"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        aria-controls="notif-panel"
+                        aria-label="Notifications{% if unread_count %} ({{ unread_count }} unread){% endif %}"
+                        data-unread="{{ unread_count or 0 }}"
+                        data-mark-read-url="{{ url_for('mark_notifications_read') }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                    {% if unread_count and unread_count > 0 %}
+                        <span class="notif-count">{{ unread_count if unread_count < 100 else '99+' }}</span>
+                    {% endif %}
+                </button>
+
+                <div class="notif-panel" id="notif-panel" role="region" aria-label="Notifications" hidden>
+                    <div class="notif-panel-header">
+                        <span>Notifications</span>
+                        {% if unread_count %}<span class="badge badge-accent">{{ unread_count }} new</span>{% endif %}
+                    </div>
+
+                    {% if recent_notifications %}
+                    <ul class="notif-list">
+                        {% for n in recent_notifications %}
+                        <li class="notif-item {{ 'unread' if not n.is_read }}">
+                            <p class="notif-subject">{{ n.subject }}</p>
+                            <p class="notif-message">{{ n.message }}</p>
+                            <p class="notif-time">{{ n.created_at.strftime('%b %d, %Y · %I:%M %p') if n.created_at else '' }}</p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="notif-empty">You're all caught up.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="user-chip">
+                <span class="user-avatar">
+                    {{ (session.get('first_name') or '?')[:1]|upper }}{{ (session.get('last_name') or '')[:1]|upper }}
+                </span>
+                <span class="user-meta">
+                    <span class="user-name">
+                        {{ session.get('first_name') }} {{ session.get('last_name') or '' }}
+                    </span>
+                    <span class="user-role">{{ session.get('role') }}</span>
+                </span>
+            </div>
+
+            <a href="{{ url_for('logout') }}"
+               class="logout-link"
+               onclick="return confirm('Are you sure you want to log out?');">
+                Log Out
+            </a>
+
+        </div>
+
+    </div>
+</header>
+
+{% elif request.endpoint == 'about' %}
+
+<header class="site-header">
+    <div class="site-header-inner">
+        <a href="{{ url_for('login') }}" class="brand">
+            <span class="brand-mark">GD</span>
+            <span class="brand-name">Good Driver Program</span>
+        </a>
+        <div class="header-actions">
+            <a href="{{ url_for('login') }}" class="logout-link">Log In</a>
+        </div>
+    </div>
+</header>
+
+{% endif %}

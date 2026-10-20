@@ -2,142 +2,56 @@
 
 {% block title %}Available Sponsors{% endblock %}
 
-{% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-{% endblock %}
-
 {% block content %}
 
-<div class="sponsors-page">
+<div class="page">
 
-    <!-- Page Header -->
-    <div class="sponsors-header">
-
-        <span class="role-badge">
-            DRIVER
-        </span>
-
-        <h1>Available Sponsors</h1>
-
-        <p>
-            Browse participating sponsors and find the
-            organization that's right for you.
-        </p>
-
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">Driver</span>
+            <h1>Available Sponsors</h1>
+            <p>Browse participating sponsors and find the organization that's right for you.</p>
+        </div>
     </div>
 
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ sponsors|length }} sponsor{{ 's' if sponsors|length != 1 }}</h2>
+        </div>
 
-    {% if sponsors %}
-
-        <div class="sponsor-list">
-
+        {% if sponsors %}
+        <ul class="row-list">
             {% for sponsor in sponsors %}
-
-                <div class="sponsor-card">
-
-                    <!-- Sponsor Icon -->
-                    <div class="sponsor-icon">
-                        {{ sponsor.company_name[0]|upper }}
+            <li class="row-item">
+                <div class="row-main">
+                    <div class="row-link">
+                        <span class="avatar">{{ sponsor.company_name[0]|upper }}</span>
+                        <span class="row-text">
+                            <p class="row-title">{{ sponsor.company_name }}</p>
+                            <p class="row-sub">
+                                {{ sponsor.email or '' }}{% if sponsor.email and sponsor.phone %} &middot; {% endif %}{{ sponsor.phone or '' }}
+                            </p>
+                        </span>
                     </div>
 
-                    <!-- Company Name -->
-                    <h2>
-                        {{ sponsor.company_name }}
-                    </h2>
-
-                    <div class="sponsor-divider"></div>
-
-
-                    <!-- Sponsor Information -->
-                    <div class="sponsor-info">
-
-                        {% if sponsor.email %}
-
-                            <div class="sponsor-info-row">
-                                <span class="sponsor-label">
-                                    Email
-                                </span>
-
-                                <span class="sponsor-value">
-                                    {{ sponsor.email }}
-                                </span>
-                            </div>
-
-                        {% endif %}
-
-
-                        {% if sponsor.phone %}
-
-                            <div class="sponsor-info-row">
-                                <span class="sponsor-label">
-                                    Phone
-                                </span>
-
-                                <span class="sponsor-value">
-                                    {{ sponsor.phone }}
-                                </span>
-                            </div>
-
-                        {% endif %}
-
-
-                        <div class="sponsor-info-row">
-                            <span class="sponsor-label">
-                                Point Value
-                            </span>
-
-                            <span class="sponsor-value point-value">
-                                ${{ "%.4f"|format(sponsor.point_value) }}
-                            </span>
-                        </div>
-
+                    <div class="row-meta">
+                        <span class="row-meta-label">Point Value</span>
+                        <span class="row-meta-value">${{ "%.4f"|format(sponsor.point_value) }}</span>
                     </div>
 
-
-                    <!-- Future Apply Button -->
-                    <button
-                        class="sponsor-apply-button"
-                        type="button"
-                        disabled
-                    >
-                        Apply Coming Soon
-                    </button>
-
+                    <div class="row-actions">
+                        <button class="btn btn-secondary btn-sm" type="button" disabled>Apply Coming Soon</button>
+                    </div>
                 </div>
-
+            </li>
             {% endfor %}
-
+        </ul>
+        {% else %}
+        <div class="empty-state">
+            <h3>No sponsors available</h3>
+            <p>There are currently no active sponsors. Please check again later.</p>
         </div>
-
-
-    {% else %}
-
-        <div class="no-sponsors">
-
-            <div class="no-sponsors-icon">
-                S
-            </div>
-
-            <h2>No Sponsors Available</h2>
-
-            <p>
-                There are currently no active sponsors
-                available. Please check again later.
-            </p>
-
-        </div>
-
-    {% endif %}
-
-
-    <!-- Back Button -->
-    <div class="sponsors-footer">
-
-        <a href="{{ url_for('home') }}"
-           class="back-button">
-            ← Back to Home
-        </a>
-
+        {% endif %}
     </div>
 
 </div>

@@ -16,7 +16,8 @@ body {
 }
 
 .login-page-wrapper {
-    min-height: 100vh;
+    /* Fill the space above the site footer instead of the full viewport */
+    flex: 1 0 auto;
     display: flex;
     background: var(--purple-900);
 }

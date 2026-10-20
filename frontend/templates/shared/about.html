@@ -4,65 +4,12 @@
 
 {% block head %}
 
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/about.css') }}">
 {% endblock %}
 
 {% block content %} 
 
-<nav class="navbar">
-
-    <a href="{{ url_for('home') }}"
-       class="logo"
-       style="text-decoration: none;">
-        Good Driver Program
-    </a>
-
-    <div class="nav-links">
-
-        <a href="{{ url_for('home') }}">
-            Home
-        </a>
-
-        {% if session.get('role', '').lower() == 'sponsor' %}
-
-            <a href="{{ url_for('sponsor_applications') }}">
-                Applications
-            </a>
-
-            <a href="{{ url_for('sponsor_drivers') }}">
-                My Drivers
-            </a>
-
-        {% elif session.get('role', '').lower() == 'driver' %}
-
-            <a href="{{ url_for('driver_profile') }}">
-                My Profile
-            </a>
-
-            <a href="#">
-                My Points
-            </a>
-
-            <a href="#">
-                Catalog
-            </a>
-
-        {% endif %}
-
-        <a href="{{ url_for('about') }}">
-            About
-        </a>
-
-    </div>
-
-    <a href="{{ url_for('logout') }}"
-       class="logout-btn"
-       onclick="return confirm('Are you sure you want to log out?');">
-        Logout
-    </a>
-
-</nav>
+<div class="page">
 
 <div class="about-hero">
     <span class="version-badge">{{ metadata.sprint_version }}</span>
@@ -120,5 +67,7 @@
 
 </div>
 
+
+</div>
 
 {% endblock %}

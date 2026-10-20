@@ -1,84 +1,67 @@
 {% extends "shared/base.html" %}
 
-{% block title %}Edit Profile{% endblock %}
-
-{% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-{% endblock %}
+{% block title %}{% if sponsor_view %}Edit Driver{% else %}Edit Profile{% endif %}{% endblock %}
 
 {% block content %}
 
-<nav class="navbar">
-    <a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
-        Good Driver Program
-    </a>
+<div class="page page-narrow">
 
-    <div class="nav-links">
-        <a href="{{ url_for('home') }}">Home</a>
+    <a href="{{ back_url }}" class="breadcrumb">← Back to Profile</a>
 
-        {% if sponsor_view %}
-            <a href="{{ url_for('sponsor_applications') }}">Applications</a>
-            <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
-        {% else %}
-            <a href="{{ url_for('driver_profile') }}">My Profile</a>
-            <a href="#">My Points</a>
-            <a href="#">Catalog</a>
-        {% endif %}
-
-        <a href="{{ url_for('about') }}">About</a>
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">{% if sponsor_view %}Edit Driver{% else %}Edit Profile{% endif %}</span>
+            <h1>{{ driver.first_name }} {{ driver.last_name }}</h1>
+            <p>{% if sponsor_view %}Update this driver's information.{% else %}Update your personal information.{% endif %}</p>
+        </div>
     </div>
 
-    <a href="{{ url_for('logout') }}"
-       class="logout-btn"
-       onclick="return confirm('Are you sure you want to log out?');">
-        Logout
-    </a>
-</nav>
-
-<div class="hero">
-    <span class="role-badge">{% if sponsor_view %}Edit Driver{% else %}Edit Profile{% endif %}</span>
-
-    <h1>{{ driver.first_name }} {{ driver.last_name }}</h1>
-
-    <p>
-        {% if sponsor_view %}Update this driver's information.{% else %}Update your personal information.{% endif %}
-    </p>
-
     {% if error %}
-    <div class="form-error">{{ error }}</div>
+    <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
-    <form method="POST" action="{{ form_action }}" class="application-form">
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" action="{{ form_action }}">
 
-        <div class="form-group">
-            <label for="first_name">First Name</label>
-            <input type="text" id="first_name" name="first_name" value="{{ form.first_name or '' }}" maxlength="100" required>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="first_name">First Name</label>
+                        <input type="text" id="first_name" name="first_name" value="{{ form.first_name or '' }}" maxlength="100" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" name="last_name" value="{{ form.last_name or '' }}" maxlength="100" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="text" id="email" value="{{ driver.email }}" disabled>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="date_of_birth">Date of Birth</label>
+                        <input type="date" id="date_of_birth" name="date_of_birth" value="{{ form.date_of_birth or '' }}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="address">Address</label>
+                        <input type="text" id="address" name="address" value="{{ form.address or '' }}" maxlength="500" required>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <a href="{{ back_url }}" class="btn btn-secondary">Cancel</a>
+                </div>
+
+            </form>
         </div>
+    </div>
 
-        <div class="form-group">
-            <label for="last_name">Last Name</label>
-            <input type="text" id="last_name" name="last_name" value="{{ form.last_name or '' }}" maxlength="100" required>
-        </div>
-
-        <div class="form-group">
-            <label for="email">Email</label>
-            <input type="text" id="email" value="{{ driver.email }}" disabled>
-        </div>
-
-        <div class="form-group">
-            <label for="date_of_birth">Date of Birth</label>
-            <input type="date" id="date_of_birth" name="date_of_birth" value="{{ form.date_of_birth or '' }}" required>
-        </div>
-
-        <div class="form-group">
-            <label for="address">Address</label>
-            <input type="text" id="address" name="address" value="{{ form.address or '' }}" maxlength="500" required>
-        </div>
-
-        <button type="submit" class="dashboard-button">Save Changes</button>
-        <a href="{{ back_url }}" style="margin-left: 16px; font-size: 14px; color: #4C2A85;">Cancel</a>
-
-    </form>
 </div>
 
 {% endblock %}

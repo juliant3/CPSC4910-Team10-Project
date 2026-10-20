@@ -1,78 +1,84 @@
 {% extends "shared/base.html" %}
 
-{% block title %}{% if sponsor_view %}Driver Profile{% else %}My Profile{% endif %}{% endblock %}
-
-{% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-{% endblock %}
+{% block title %}My Points{% endblock %}
 
 {% block content %}
 
-<nav class="navbar">
-    <a href="{{ url_for('home') }}" class="logo" style="text-decoration: none;">
-        Good Driver Program
-    </a>
+<div class="page">
 
-    <div class="nav-links">
-        <a href="{{ url_for('home') }}">Home</a>
-
-        {% if sponsor_view %}
-            <a href="{{ url_for('sponsor_applications') }}">Applications</a>
-            <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
-        {% else %}
-            <a href="{{ url_for('driver_profile') }}">My Profile</a>
-            <a href="{{ url_for('driver_points') }}">My Points</a>
-            <a href="{{ url_for('driver_sponsors') }}">Sponsors</a>
-        {% endif %}
-
-        <a href="{{ url_for('about') }}">About</a>
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">Driver</span>
+            <h1>My Points</h1>
+            <p>Your current balance and recent point activity.</p>
+        </div>
     </div>
 
-    <a href="{{ url_for('logout') }}"
-       class="logout-btn"
-       onclick="return confirm('Are you sure you want to log out?');">
-        Logout
-    </a>
-</nav>
+    <div class="stat-grid" style="margin-bottom: 24px;">
+        <div class="stat-tile">
+            <div class="stat-label">Current Balance</div>
+            <div class="stat-value">{{ driver.points_balance or 0 }}</div>
+        </div>
+        <div class="stat-tile">
+            <div class="stat-label">Total Earned</div>
+            <div class="stat-value good">+{{ totals.earned if totals else 0 }}</div>
+        </div>
+        <div class="stat-tile">
+            <div class="stat-label">Total Deducted</div>
+            <div class="stat-value bad">&minus;{{ totals.deducted if totals else 0 }}</div>
+        </div>
+    </div>
 
-<div class="hero" style="max-width: 780px;">
-    <span class="role-badge">{% if sponsor_view %}Driver{% else %}My Profile{% endif %}</span>
+    {% if recent_deductions %}
+    <div class="alert alert-warn">
+        <strong>Recent deductions:</strong>
+        {% for d in recent_deductions %}
+            {{ d.point_change }} &mdash; {{ d.reason }}{% if d.created_at %} ({{ d.created_at.strftime('%b %d') }}){% endif %}{{ ';' if not loop.last }}
+        {% endfor %}
+    </div>
+    {% endif %}
 
-    <h1>{{ driver.first_name }} {{ driver.last_name }}</h1>
+    <div class="card">
+        <div class="card-header">
+            <h2>Point History</h2>
+            <p>Showing up to your 50 most recent transactions.</p>
+        </div>
 
-    <p>{{ driver.email }}</p>
-
-    <div style="margin-top: 18px;">
-        {% if sponsor_view %}
-        <a href="{{ url_for('sponsor_edit_driver', driver_id=driver.driver_id) }}" class="dashboard-button">
-            Edit Driver
-        </a>
+        {% if history %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Reason</th>
+                        <th>Sponsor</th>
+                        <th>Changed By</th>
+                        <th class="num">Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in history %}
+                    <tr>
+                        <td style="white-space: nowrap;">{{ t.created_at.strftime('%b %d, %Y') if t.created_at else '' }}</td>
+                        <td>{{ t.reason }}</td>
+                        <td>{{ t.sponsor_name or '—' }}</td>
+                        <td>{{ t.changed_by_name or 'System' }}</td>
+                        <td class="num {{ 'positive' if t.point_change > 0 else 'negative' }}">
+                            {{ '+' if t.point_change > 0 }}{{ t.point_change }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
-        <a href="{{ url_for('driver_edit_profile') }}" class="dashboard-button">
-            Edit Profile
-        </a>
+        <div class="empty-state">
+            <h3>No point activity yet</h3>
+            <p>Points your sponsor awards or deducts will show up here.</p>
+        </div>
         {% endif %}
     </div>
+
 </div>
-
-<div class="hero" style="max-width: 780px; text-align: left;">
-    <h1 style="text-align: center;">Details</h1>
-
-    <p><strong>Date of Birth:</strong> {{ driver.date_of_birth or 'Not provided' }}</p>
-    <p><strong>Address:</strong> {{ driver.address or 'Not provided' }}</p>
-    <p><strong>Sponsor:</strong> {{ driver.sponsor_name or 'No sponsor assigned' }}</p>
-    <p><strong>Points:</strong> {{ driver.points_balance or 0 }}</p>
-    <p><strong>Status:</strong> {{ driver.status }}</p>
-</div>
-
-{% if answers %}
-<div class="hero" style="max-width: 780px; text-align: left;">
-    <h1 style="text-align: center;">Application Answers</h1>
-
-    {% for a in answers %}
-    <p><strong>{{ a.question_text }}</strong> &mdash; {{ a.answer_text }}</p>
-    {% endfor %}
-</div>
-{% endif %}
 
 {% endblock %}
