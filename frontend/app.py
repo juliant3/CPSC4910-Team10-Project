@@ -95,8 +95,8 @@ def ebay_notifications():
         if not challenge_code:
             return jsonify({"error": "Missing challenge code"}), 400
 
-        verification_token = os.environ["EBAY_VERIFICATION_TOKEN"]
-        endpoint = os.environ["EBAY_NOTIFICATION_ENDPOINT"]
+        verification_token = "W22lV0Gc7RJVlbZBO4vSqWR2wVgR0lCHa2hU5NRNcNUtjgUg"   
+        endpoint = "https://cpsc4910team10truckingproject.org/api/ebay/notifications"
 
         combined = challenge_code + verification_token + endpoint
 
