@@ -65,7 +65,7 @@
                         </span>
                         <div class="row-text" style="flex: 1;">
                             <p class="row-title" style="font-weight: 500;">{{ t.reason }}</p>
-                            <p class="row-sub">{{ t.created_at.strftime('%b %d, %Y') if t.created_at else '' }}</p>
+                            <p class="row-sub">{{ (t.created_at|local).strftime('%b %d, %Y') if t.created_at else '' }}</p>
                         </div>
                         <span class="{{ 'positive' if t.point_change > 0 else 'negative' }}">{{ '+' if t.point_change > 0 }}{{ t.point_change }}</span>
                     </div>

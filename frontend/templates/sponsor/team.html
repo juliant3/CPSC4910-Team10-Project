@@ -70,7 +70,7 @@
                         {% if m.created_at %}
                         <div class="row-meta">
                             <span class="row-meta-label">Joined</span>
-                            <span class="row-meta-value" style="font-size: 14px;">{{ m.created_at.strftime('%b %d, %Y') }}</span>
+                            <span class="row-meta-value" style="font-size: 14px;">{{ (m.created_at|local).strftime('%b %d, %Y') }}</span>
                         </div>
                         {% endif %}
                     </div>
@@ -95,7 +95,7 @@
                                 <p class="row-sub">{{ inv.email }}</p>
                             </span>
                         </div>
-                        <span class="badge badge-warn">Invited{% if inv.created_at %} {{ inv.created_at.strftime('%b %d') }}{% endif %}</span>
+                        <span class="badge badge-warn">Invited{% if inv.created_at %} {{ (inv.created_at|local).strftime('%b %d') }}{% endif %}</span>
                         <form method="POST" onsubmit="return confirm('Cancel this invite?');">
                             <input type="hidden" name="action" value="cancel">
                             <input type="hidden" name="request_id" value="{{ inv.request_id }}">

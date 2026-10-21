@@ -106,7 +106,7 @@
                         {% if application.application_date %}
                         <div class="row-meta">
                             <span class="row-meta-label">Applied</span>
-                            <span class="row-meta-value" style="font-size: 14px;">{{ application.application_date.strftime('%b %d, %Y') }}</span>
+                            <span class="row-meta-value" style="font-size: 14px;">{{ (application.application_date|local).strftime('%b %d, %Y') }}</span>
                         </div>
                         {% endif %}
 

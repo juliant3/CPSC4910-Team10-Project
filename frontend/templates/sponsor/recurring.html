@@ -107,7 +107,7 @@
                             </p>
                             <p class="row-sub">
                                 {% if r.is_active %}Next: {{ r.next_run.strftime('%b %d, %Y') }}{% else %}Paused{% endif %}
-                                {% if r.last_run %} &middot; Last: {{ r.last_run.strftime('%b %d, %Y') }}{% endif %}
+                                {% if r.last_run %} &middot; Last: {{ (r.last_run|local).strftime('%b %d, %Y') }}{% endif %}
                             </p>
                         </div>
                         <span class="badge {{ 'badge-success' if r.is_active else 'badge-neutral' }}">

@@ -42,7 +42,7 @@
                                 {{ 'New' if a.status == 'Submitted' else a.status }}
                             </span>
                         </td>
-                        <td style="white-space: nowrap;">{{ a.application_date.strftime('%b %d, %Y') if a.application_date else '' }}</td>
+                        <td style="white-space: nowrap;">{{ (a.application_date|local).strftime('%b %d, %Y') if a.application_date else '' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

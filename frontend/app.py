@@ -7,6 +7,7 @@ import secrets
 from datetime import timedelta, datetime, timezone
 from email.message import EmailMessage
 from markupsafe import Markup
+from zoneinfo import ZoneInfo
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
@@ -16,6 +17,26 @@ app.secret_key = os.environ.get(
     "change_this_to_a_secure_random_value"
 )
 app.permanent_session_lifetime = timedelta(minutes = 5) 
+
+# The server and database run on UTC; dates are shown in the program's local time.
+try:
+    LOCAL_TZ = ZoneInfo(os.environ.get("APP_TIMEZONE", "America/New_York"))
+except Exception:
+    LOCAL_TZ = timezone(timedelta(hours=-5))
+
+
+def local_now():
+    return datetime.now(LOCAL_TZ)
+
+
+@app.template_filter("local")
+def to_local_time(value):
+    """Convert a UTC timestamp from the database to local time for display."""
+    if not isinstance(value, datetime):
+        return value
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(LOCAL_TZ)
 
 DB_CONFIG = {
     "host": "cpsc4910-f26.cobd8enwsupz.us-east-1.rds.amazonaws.com",
@@ -203,7 +224,7 @@ def inject_driver_sponsorships():
 
 @app.context_processor
 def inject_current_year():
-    return {"current_year": datetime.now().year}
+    return {"current_year": local_now().year}
 
 
 @app.context_processor
@@ -456,8 +477,9 @@ def send_reset_code(email):
 # ==========================================
 
 def month_start():
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    """Midnight on the 1st of this month (local time), as a UTC timestamp for queries."""
+    start = local_now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return start.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 @app.template_filter("waiting")
@@ -660,7 +682,7 @@ def render_sponsor_dashboard():
         first_name=session["first_name"],
         role=session["role"],
         company_name=sponsor["company_name"] if sponsor else None,
-        today=datetime.now(),
+        today=local_now(),
         **data
     )
 
@@ -702,7 +724,7 @@ def home():
             "admin/dashboard.html",
             first_name=session["first_name"],
             role=session["role"],
-            today=datetime.now(),
+            today=local_now(),
             **data
         )
 
@@ -2653,7 +2675,7 @@ def driver_dashboard():
         driver=driver,
         sponsorships=sponsorships,
         recent_activity=recent_activity,
-        today=datetime.now()
+        today=local_now()
     )
 @app.route("/driver/sponsors")
 def driver_sponsors(): 
