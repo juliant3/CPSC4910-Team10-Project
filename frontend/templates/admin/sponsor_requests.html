@@ -44,7 +44,7 @@
                         {% if r.submitted_at %}
                         <div class="row-meta">
                             <span class="row-meta-label">Submitted</span>
-                            <span class="row-meta-value" style="font-size: 14px;">{{ r.submitted_at.strftime('%b %d, %Y') }}</span>
+                            <span class="row-meta-value" style="font-size: 14px;">{{ (r.submitted_at|local).strftime('%b %d, %Y') }}</span>
                         </div>
                         {% endif %}
 
@@ -105,7 +105,7 @@
                                 <span class="badge {{ 'badge-success' if r.status == 'Approved' else 'badge-danger' }}">{{ r.status }}</span>
                                 {% if r.status == 'Rejected' and r.reason %}<div class="muted small" style="margin-top: 4px;">{{ r.reason }}</div>{% endif %}
                             </td>
-                            <td style="white-space: nowrap;">{{ r.decision_date.strftime('%b %d, %Y') if r.decision_date else '' }}</td>
+                            <td style="white-space: nowrap;">{{ (r.decision_date|local).strftime('%b %d, %Y') if r.decision_date else '' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

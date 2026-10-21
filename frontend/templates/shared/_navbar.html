@@ -85,7 +85,7 @@
                         <li class="notif-item {{ 'unread' if not n.is_read }}">
                             <p class="notif-subject">{{ n.subject }}</p>
                             <p class="notif-message">{{ n.message }}</p>
-                            <p class="notif-time">{{ n.created_at.strftime('%b %d, %Y · %I:%M %p') if n.created_at else '' }}</p>
+                            <p class="notif-time">{{ (n.created_at|local).strftime('%b %d, %Y · %I:%M %p') if n.created_at else '' }}</p>
                         </li>
                         {% endfor %}
                     </ul>

@@ -81,3 +81,12 @@ def test_driver_home_redirects_to_driver_dashboard(client, set_session):
     response = client.get("/", follow_redirects=False)
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/driver/dashboard")
+
+
+def test_database_times_are_shown_in_eastern_time(app_module):
+    from datetime import datetime
+
+    # 00:12 UTC on Oct 21 is still Tuesday evening, Oct 20, in Clemson.
+    shown = app_module.to_local_time(datetime(2026, 10, 21, 0, 12))
+    assert (shown.month, shown.day, shown.hour) == (10, 20, 20)
+    assert shown.strftime("%A") == "Tuesday"

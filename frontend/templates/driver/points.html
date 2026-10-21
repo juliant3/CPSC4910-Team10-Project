@@ -36,7 +36,7 @@
     <div class="alert alert-warn">
         <strong>Recent deductions:</strong>
         {% for d in recent_deductions %}
-            {{ d.point_change }} &mdash; {{ d.reason }}{% if d.created_at %} ({{ d.created_at.strftime('%b %d') }}){% endif %}{{ ';' if not loop.last }}
+            {{ d.point_change }} &mdash; {{ d.reason }}{% if d.created_at %} ({{ (d.created_at|local).strftime('%b %d') }}){% endif %}{{ ';' if not loop.last }}
         {% endfor %}
     </div>
     {% endif %}
@@ -62,7 +62,7 @@
                 <tbody>
                     {% for t in history %}
                     <tr>
-                        <td style="white-space: nowrap;">{{ t.created_at.strftime('%b %d, %Y') if t.created_at else '' }}</td>
+                        <td style="white-space: nowrap;">{{ (t.created_at|local).strftime('%b %d, %Y') if t.created_at else '' }}</td>
                         <td>{{ t.reason }}</td>
                         <td>{{ t.sponsor_name or '—' }}</td>
                         <td>{{ t.changed_by_name or 'System' }}</td>
