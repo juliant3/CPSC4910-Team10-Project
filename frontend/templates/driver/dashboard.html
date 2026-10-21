@@ -23,7 +23,7 @@
         </div>
         <div class="balance-figure">
             <span class="balance-value">{{ "{:,}".format((driver.points_balance or 0)|int) }}</span>
-            <span class="balance-label">points available</span>
+            <span class="balance-label">points{% if driver.sponsor_name %} with {{ driver.sponsor_name }}{% else %} available{% endif %}</span>
         </div>
     </section>
 
@@ -31,7 +31,7 @@
         <div class="stat-tile has-icon">
             <span class="stat-icon">{{ icon('building') }}</span>
             <div>
-                <div class="stat-label">Sponsor</div>
+                <div class="stat-label">Viewing Sponsor</div>
                 <div class="stat-value text">{{ driver.sponsor_name or 'Not assigned' }}</div>
             </div>
         </div>
@@ -81,6 +81,38 @@
         </div>
 
         <div>
+            {% if sponsorships %}
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="card-header">
+                    <h2>Points by sponsor</h2>
+                </div>
+                <ul class="row-list">
+                    {% for sp in sponsorships %}
+                    {% set viewing = driver_sponsorship and sp.sponsor_id == driver_sponsorship.sponsor_id %}
+                    <li class="row-item {{ 'row-unread' if viewing }}">
+                        <div class="row-main">
+                            <div class="row-text" style="flex: 1;">
+                                <p class="row-title">{{ sp.company_name }}</p>
+                                <p class="row-sub">
+                                    {% if sp.status != 'Active' %}<span class="badge badge-neutral">{{ sp.status }}</span>{% endif %}
+                                    {{ "{:,}".format(sp.points_balance) }} points
+                                </p>
+                            </div>
+                            {% if viewing %}
+                                <span class="badge badge-accent">Viewing</span>
+                            {% else %}
+                                <form method="POST" action="{{ url_for('switch_driver_sponsor') }}">
+                                    <input type="hidden" name="sponsor_id" value="{{ sp.sponsor_id }}">
+                                    <button type="submit" class="btn btn-secondary btn-sm">View</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
             <h2 class="section-title">Quick links</h2>
             <div class="quick-links" style="grid-template-columns: 1fr;">
                 <a href="{{ url_for('driver_points') }}" class="quick-link">

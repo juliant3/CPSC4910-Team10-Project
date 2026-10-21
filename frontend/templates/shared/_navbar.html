@@ -118,6 +118,24 @@
     </div>
 </header>
 
+{# Drivers with more than one sponsor choose whose points/history they see. #}
+{% if role_key == 'driver' and driver_sponsorships and driver_sponsorships|length > 1 %}
+<div class="context-bar">
+    <form method="POST" action="{{ url_for('switch_driver_sponsor') }}" class="context-bar-inner">
+        <label for="sponsor-switch">Viewing sponsor</label>
+        <select id="sponsor-switch" name="sponsor_id" class="input" onchange="this.form.submit()">
+            {% for sp in driver_sponsorships %}
+            <option value="{{ sp.sponsor_id }}" {{ 'selected' if driver_sponsorship and sp.sponsor_id == driver_sponsorship.sponsor_id }}>
+                {{ sp.company_name }} ({{ "{:,}".format(sp.points_balance) }} pts)
+            </option>
+            {% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn btn-secondary btn-sm">Switch</button></noscript>
+        <span class="context-bar-note">Points are kept separately for each sponsor.</span>
+    </form>
+</div>
+{% endif %}
+
 {% elif request.endpoint == 'about' %}
 
 <header class="site-header">

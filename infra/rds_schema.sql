@@ -362,3 +362,47 @@ CREATE INDEX idx_sponsor_requests_status
 
 CREATE INDEX idx_sponsor_requests_email
     ON Sponsor_Requests(email);
+
+
+-- Multiple sponsors per driver (Requirements Change #2, 2026-10-20)
+-- Each row is one driver's membership in one sponsor's program, with its own
+-- status and its own point balance (points never mix between sponsors).
+-- Drivers.sponsor_id and Drivers.points_balance are no longer used by the app;
+-- they are left in place so nothing that still reads them breaks.
+CREATE TABLE Driver_Sponsors (
+    driver_id INT NOT NULL,
+    sponsor_id INT NOT NULL,
+    status ENUM(
+        'Applicant',
+        'Active',
+        'Rejected',
+        'Dropped',
+        'Inactive'
+    ) NOT NULL DEFAULT 'Active',
+    points_balance INT NOT NULL DEFAULT 0,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (driver_id, sponsor_id),
+    FOREIGN KEY (driver_id)
+        REFERENCES Drivers(driver_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (sponsor_id)
+        REFERENCES Sponsors(sponsor_id)
+        ON DELETE CASCADE,
+    CHECK (points_balance >= 0)
+);
+
+CREATE INDEX idx_driver_sponsors_sponsor
+    ON Driver_Sponsors(sponsor_id, status);
+
+-- Copy every existing driver/sponsor link and balance into the new table.
+-- Safe to re-run: it refreshes rows that already exist, so run it again right
+-- before deploying if points changed after the first run.
+INSERT INTO Driver_Sponsors (driver_id, sponsor_id, status, points_balance)
+SELECT * FROM (
+    SELECT driver_id, sponsor_id, status, COALESCE(points_balance, 0) AS points_balance
+    FROM Drivers
+    WHERE sponsor_id IS NOT NULL
+) AS src
+ON DUPLICATE KEY UPDATE
+    status = src.status,
+    points_balance = src.points_balance;

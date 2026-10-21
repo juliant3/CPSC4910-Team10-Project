@@ -240,7 +240,7 @@ def test_sponsor_pages_use_organization_id_not_user_id(client, fake_db):
     client.get("/sponsor/drivers")
 
     query, params = next(
-        (q, p) for q, p in conn.cursor().executed if "FROM Drivers" in q
+        (q, p) for q, p in conn.cursor().executed if "FROM Driver_Sponsors" in q
     )
     assert params[0] == 7
 

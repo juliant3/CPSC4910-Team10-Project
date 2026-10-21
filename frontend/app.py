@@ -145,6 +145,62 @@ def current_sponsor_id():
     return session.get("sponsor_id") or session["user_id"]
 
 
+def get_driver_sponsorships(cursor, driver_id):
+    """Every sponsor a driver belongs to, with that sponsor's point balance."""
+    cursor.execute(
+        """
+        SELECT
+            Driver_Sponsors.sponsor_id,
+            Driver_Sponsors.status,
+            Driver_Sponsors.points_balance,
+            Sponsors.company_name,
+            Sponsors.point_value
+        FROM Driver_Sponsors
+        JOIN Sponsors
+            ON Driver_Sponsors.sponsor_id = Sponsors.sponsor_id
+        WHERE Driver_Sponsors.driver_id = %s
+        ORDER BY (Driver_Sponsors.status = 'Active') DESC, Sponsors.company_name
+        """,
+        (driver_id,)
+    )
+    return cursor.fetchall()
+
+
+def pick_driver_sponsorship(sponsorships):
+    """The sponsor the driver is currently viewing (switchable in the header)."""
+    if not sponsorships:
+        return None
+
+    chosen = session.get("driver_sponsor_id")
+    for sponsorship in sponsorships:
+        if sponsorship["sponsor_id"] == chosen:
+            return sponsorship
+
+    return sponsorships[0]
+
+
+@app.context_processor
+def inject_driver_sponsorships():
+    """Sponsor switcher data for the navbar when a driver is logged in."""
+    if "user_id" not in session or (session.get("role") or "").lower() != "driver":
+        return {}
+
+    try:
+        conn = get_db()
+        try:
+            with conn.cursor() as cursor:
+                sponsorships = get_driver_sponsorships(cursor, session["user_id"])
+        finally:
+            conn.close()
+    except Exception:
+        return {}
+
+    return {
+        "driver_sponsorships": sponsorships,
+        "driver_sponsorship": pick_driver_sponsorship(sponsorships),
+    }
+
+
 @app.context_processor
 def inject_current_year():
     return {"current_year": datetime.now().year}
@@ -435,7 +491,9 @@ def get_admin_dashboard_data(cursor):
     )
     pending_count = cursor.fetchone()["c"]
 
-    cursor.execute("SELECT COUNT(*) AS c FROM Drivers WHERE status = 'Active'")
+    cursor.execute(
+        "SELECT COUNT(DISTINCT driver_id) AS c FROM Driver_Sponsors WHERE status = 'Active'"
+    )
     active_drivers = cursor.fetchone()["c"]
 
     cursor.execute("SELECT COUNT(*) AS c FROM Sponsors WHERE is_active = 1")
@@ -511,7 +569,7 @@ def get_sponsor_dashboard_data(cursor, sponsor_id):
         SELECT
             COALESCE(SUM(status = 'Active'), 0) AS active_drivers,
             COALESCE(SUM(CASE WHEN status = 'Active' THEN points_balance END), 0) AS points_held
-        FROM Drivers
+        FROM Driver_Sponsors
         WHERE sponsor_id = %s
         """,
         (sponsor_id,)
@@ -1187,6 +1245,27 @@ def sponsor_applications():
 
                 existing_driver = cursor.fetchone()
 
+                if existing_driver:
+                    cursor.execute(
+                        """
+                        SELECT 1
+                        FROM Driver_Sponsors
+                        WHERE driver_id = %s
+                          AND sponsor_id = %s
+                          AND status = 'Active'
+                        """,
+                        (existing_driver["driver_id"], sponsor_id)
+                    )
+
+                    if cursor.fetchone():
+                        return render_template(
+                            "sponsor/applications.html",
+                            first_name=session["first_name"],
+                            role=session["role"],
+                            applications=[],
+                            error="That driver is already in your program."
+                        )
+
                 # Prevent duplicate pending applications.
                 cursor.execute(
                     """
@@ -1436,16 +1515,24 @@ def accept_application(application_id):
                 return redirect(url_for("sponsor_applications"))
 
             if application["driver_id"]:
-                # Driver already has an account: link them to this sponsor.
+                # Driver already has an account: add this sponsor to it.
+                # Their other sponsors and point balances are untouched.
                 existing_id = application["driver_id"]
 
                 cursor.execute(
                     """
-                    UPDATE Drivers
-                    SET sponsor_id = %s, status = 'Active'
-                    WHERE driver_id = %s
+                    INSERT INTO Driver_Sponsors
+                        (driver_id, sponsor_id, status)
+                    VALUES
+                        (%s, %s, 'Active')
+                    ON DUPLICATE KEY UPDATE status = 'Active'
                     """,
-                    (current_sponsor_id(), existing_id)
+                    (existing_id, current_sponsor_id())
+                )
+
+                cursor.execute(
+                    "UPDATE Drivers SET status = 'Active' WHERE driver_id = %s",
+                    (existing_id,)
                 )
 
                 cursor.execute(
@@ -1514,13 +1601,23 @@ def accept_application(application_id):
                 (user_id, password_hash)
             )
 
-            # Create the Drivers record.
+            # Create the Drivers record and their first sponsorship.
             cursor.execute(
                 """
                 INSERT INTO Drivers
                     (driver_id, points_balance, sponsor_id, status)
                 VALUES
                     (%s, 0, %s, 'Active')
+                """,
+                (user_id, current_sponsor_id())
+            )
+
+            cursor.execute(
+                """
+                INSERT INTO Driver_Sponsors
+                    (driver_id, sponsor_id, status)
+                VALUES
+                    (%s, %s, 'Active')
                 """,
                 (user_id, current_sponsor_id())
             )
@@ -1711,8 +1808,8 @@ def sponsor_drivers():
 
     sort_options = {
         "name": "Users.last_name, Users.first_name",
-        "points_high": "COALESCE(Drivers.points_balance, 0) DESC, Users.last_name",
-        "points_low": "COALESCE(Drivers.points_balance, 0) ASC, Users.last_name"
+        "points_high": "Driver_Sponsors.points_balance DESC, Users.last_name",
+        "points_low": "Driver_Sponsors.points_balance ASC, Users.last_name"
     }
 
     sort_key = request.args.get("sort", "name")
@@ -1739,22 +1836,23 @@ def sponsor_drivers():
             cursor.execute(
                 f"""
                 SELECT
-                    Drivers.driver_id,
-                    Drivers.points_balance,
-                    Drivers.status,
+                    Driver_Sponsors.driver_id,
+                    Driver_Sponsors.points_balance,
+                    Driver_Sponsors.status,
 
                     Users.first_name,
                     Users.last_name,
                     Users.email
 
-                FROM Drivers
+                FROM Driver_Sponsors
 
                 JOIN Users
-                    ON Drivers.driver_id = Users.user_id
+                    ON Driver_Sponsors.driver_id = Users.user_id
 
-                WHERE Drivers.sponsor_id = %s
-                    AND (%s IS NULL OR COALESCE(Drivers.points_balance, 0) >= %s)
-                    AND (%s IS NULL OR COALESCE(Drivers.points_balance, 0) <= %s)
+                -- Only this sponsor's membership row: other sponsors stay invisible.
+                WHERE Driver_Sponsors.sponsor_id = %s
+                    AND (%s IS NULL OR Driver_Sponsors.points_balance >= %s)
+                    AND (%s IS NULL OR Driver_Sponsors.points_balance <= %s)
                     AND (
                         %s = ''
                         OR Users.first_name LIKE %s
@@ -1822,7 +1920,7 @@ def change_driver_points(driver_id):
             cursor.execute(
                 """
                 SELECT points_balance
-                FROM Drivers
+                FROM Driver_Sponsors
                 WHERE driver_id = %s
                   AND sponsor_id = %s
                 FOR UPDATE
@@ -1841,12 +1939,20 @@ def change_driver_points(driver_id):
 
             cursor.execute(
                 """
-                UPDATE Drivers
-                SET points_balance = COALESCE(points_balance, 0) + %s
+                UPDATE Driver_Sponsors
+                SET points_balance = points_balance + %s
                 WHERE driver_id = %s
+                  AND sponsor_id = %s
                 """,
-                (point_change, driver_id)
+                (point_change, driver_id, current_sponsor_id())
             )
+
+            cursor.execute(
+                "SELECT company_name FROM Sponsors WHERE sponsor_id = %s",
+                (current_sponsor_id(),)
+            )
+            sponsor = cursor.fetchone()
+            sponsor_name = sponsor["company_name"] if sponsor else "Your sponsor"
 
             cursor.execute(
                 """
@@ -1866,10 +1972,10 @@ def change_driver_points(driver_id):
 
             if action == "add":
                 note_subject = f"{amount} points added"
-                note_message = f"Your sponsor added {amount} points to your account. Reason: {reason}"
+                note_message = f"{sponsor_name} added {amount} points to your account. Reason: {reason}"
             else:
                 note_subject = f"{amount} points removed"
-                note_message = f"Your sponsor deducted {amount} points from your account. Reason: {reason}"
+                note_message = f"{sponsor_name} deducted {amount} points from your account. Reason: {reason}"
 
             cursor.execute(
                 """
@@ -1907,15 +2013,26 @@ def sponsor_dashboard():
 
     return render_sponsor_dashboard()
 
-def get_driver_profile_data(cursor, driver_id):
+def get_driver_profile_data(cursor, driver_id, sponsor_id=None):
+    """
+    A driver's profile plus their membership with ONE sponsor.
+
+    Sponsors pass their own id so they only ever see their own points,
+    status, and application answers. Drivers omit it and get the sponsor
+    they're currently viewing.
+    """
+
+    if sponsor_id is None:
+        chosen = pick_driver_sponsorship(get_driver_sponsorships(cursor, driver_id))
+        sponsor_id = chosen["sponsor_id"] if chosen else None
 
     cursor.execute(
         """
         SELECT
             Drivers.driver_id,
-            Drivers.sponsor_id,
-            Drivers.points_balance,
-            Drivers.status,
+            Driver_Sponsors.sponsor_id,
+            COALESCE(Driver_Sponsors.points_balance, 0) AS points_balance,
+            COALESCE(Driver_Sponsors.status, Drivers.status) AS status,
 
             Users.first_name,
             Users.last_name,
@@ -1935,12 +2052,16 @@ def get_driver_profile_data(cursor, driver_id):
         LEFT JOIN Driver_Profiles
             ON Drivers.driver_id = Driver_Profiles.driver_id
 
+        LEFT JOIN Driver_Sponsors
+            ON Driver_Sponsors.driver_id = Drivers.driver_id
+           AND Driver_Sponsors.sponsor_id = %s
+
         LEFT JOIN Sponsors
-            ON Drivers.sponsor_id = Sponsors.sponsor_id
+            ON Driver_Sponsors.sponsor_id = Sponsors.sponsor_id
 
         WHERE Drivers.driver_id = %s
         """,
-        (driver_id,)
+        (sponsor_id, driver_id)
     )
 
     driver = cursor.fetchone()
@@ -1962,11 +2083,12 @@ def get_driver_profile_data(cursor, driver_id):
                Sponsor_Questions.question_id
 
         WHERE Driver_Applications.driver_id = %s
+          AND Driver_Applications.sponsor_id = %s
           AND Driver_Applications.status = 'Accepted'
 
         ORDER BY Sponsor_Questions.display_order
         """,
-        (driver_id,)
+        (driver_id, sponsor_id)
     )
 
     answers = cursor.fetchall()
@@ -2020,7 +2142,7 @@ def sponsor_driver_profile(driver_id):
 
     try:
         with conn.cursor() as cursor:
-            driver, answers = get_driver_profile_data(cursor, driver_id)
+            driver, answers = get_driver_profile_data(cursor, driver_id, current_sponsor_id())
     finally:
         conn.close()
 
@@ -2156,7 +2278,7 @@ def sponsor_edit_driver(driver_id):
     try:
         with conn.cursor() as cursor:
 
-            driver, answers = get_driver_profile_data(cursor, driver_id)
+            driver, answers = get_driver_profile_data(cursor, driver_id, current_sponsor_id())
 
             # A sponsor can only edit their own drivers.
             if not driver or driver["sponsor_id"] != current_sponsor_id():
@@ -2245,7 +2367,7 @@ def process_recurring_points():
 
                 cursor.execute(
                     """
-                    SELECT driver_id FROM Drivers
+                    SELECT driver_id FROM Driver_Sponsors
                     WHERE sponsor_id = %s AND status = 'Active'
                       AND (%s = 1 OR driver_id IN (
                           SELECT driver_id FROM Recurring_Point_Drivers
@@ -2260,11 +2382,12 @@ def process_recurring_points():
 
                     cursor.execute(
                         """
-                        UPDATE Drivers
+                        UPDATE Driver_Sponsors
                         SET points_balance = points_balance + %s
                         WHERE driver_id = %s
+                          AND sponsor_id = %s
                         """,
-                        (rule["point_change"], d["driver_id"])
+                        (rule["point_change"], d["driver_id"], rule["sponsor_id"])
                     )
 
                     cursor.execute(
@@ -2360,7 +2483,7 @@ def sponsor_recurring():
                 # Only keep drivers that actually belong to this sponsor.
                 cursor.execute(
                     """
-                    SELECT driver_id FROM Drivers
+                    SELECT driver_id FROM Driver_Sponsors
                     WHERE sponsor_id = %s AND status = 'Active'
                     """,
                     (current_sponsor_id(),)
@@ -2447,10 +2570,10 @@ def sponsor_recurring():
 
             cursor.execute(
                 """
-                SELECT Drivers.driver_id, Users.first_name, Users.last_name
-                FROM Drivers
-                JOIN Users ON Drivers.driver_id = Users.user_id
-                WHERE Drivers.sponsor_id = %s AND Drivers.status = 'Active'
+                SELECT Driver_Sponsors.driver_id, Users.first_name, Users.last_name
+                FROM Driver_Sponsors
+                JOIN Users ON Driver_Sponsors.driver_id = Users.user_id
+                WHERE Driver_Sponsors.sponsor_id = %s AND Driver_Sponsors.status = 'Active'
                 ORDER BY Users.last_name, Users.first_name
                 """,
                 (current_sponsor_id(),)
@@ -2485,35 +2608,34 @@ def driver_dashboard():
         with conn.cursor() as cursor:
 
             cursor.execute(
-                """
-                SELECT
-                    Drivers.driver_id,
-                    Drivers.points_balance,
-                    Drivers.status,
-                    Sponsors.company_name AS sponsor_name,
-                    Sponsors.email AS sponsor_email
-
-                FROM Drivers
-
-                LEFT JOIN Sponsors
-                    ON Drivers.sponsor_id = Sponsors.sponsor_id
-
-                WHERE Drivers.driver_id = %s
-                """,
+                "SELECT driver_id, status FROM Drivers WHERE driver_id = %s",
                 (session["user_id"],)
             )
+            account = cursor.fetchone()
 
-            driver = cursor.fetchone()
+            sponsorships = get_driver_sponsorships(cursor, session["user_id"])
+            current = pick_driver_sponsorship(sponsorships)
 
+            driver = None
+            if account:
+                driver = {
+                    "driver_id": account["driver_id"],
+                    "points_balance": current["points_balance"] if current else 0,
+                    "status": current["status"] if current else account["status"],
+                    "sponsor_name": current["company_name"] if current else None,
+                }
+
+            # Only the activity for the sponsor being viewed.
             cursor.execute(
                 """
                 SELECT point_change, reason, created_at
                 FROM Point_Transactions
                 WHERE driver_id = %s
+                  AND sponsor_id = %s
                 ORDER BY created_at DESC, transaction_id DESC
                 LIMIT 5
                 """,
-                (session["user_id"],)
+                (session["user_id"], current["sponsor_id"] if current else None)
             )
 
             recent_activity = cursor.fetchall()
@@ -2529,6 +2651,7 @@ def driver_dashboard():
         first_name=session["first_name"],
         role=session["role"],
         driver=driver,
+        sponsorships=sponsorships,
         recent_activity=recent_activity,
         today=datetime.now()
     )
@@ -2580,14 +2703,23 @@ def driver_points():
         with conn.cursor() as cursor:
 
             cursor.execute(
-                """
-                SELECT points_balance
-                FROM Drivers
-                WHERE driver_id = %s
-                """,
+                "SELECT driver_id FROM Drivers WHERE driver_id = %s",
                 (session["user_id"],)
             )
-            driver = cursor.fetchone()
+            account = cursor.fetchone()
+
+            # Points never mix between sponsors: everything on this page is
+            # for the one sponsor the driver is currently viewing.
+            sponsorships = get_driver_sponsorships(cursor, session["user_id"])
+            current = pick_driver_sponsorship(sponsorships)
+            viewing_sponsor_id = current["sponsor_id"] if current else None
+
+            driver = None
+            if account:
+                driver = {
+                    "points_balance": current["points_balance"] if current else 0,
+                    "sponsor_name": current["company_name"] if current else None,
+                }
 
             cursor.execute(
                 """
@@ -2596,8 +2728,9 @@ def driver_points():
                     COALESCE(SUM(CASE WHEN point_change < 0 THEN -point_change END), 0) AS deducted
                 FROM Point_Transactions
                 WHERE driver_id = %s
+                  AND sponsor_id = %s
                 """,
-                (session["user_id"],)
+                (session["user_id"], viewing_sponsor_id)
             )
             totals = cursor.fetchone()
 
@@ -2615,11 +2748,12 @@ def driver_points():
                 LEFT JOIN Users
                     ON Point_Transactions.changed_by_user_id = Users.user_id
                 WHERE Point_Transactions.driver_id = %s
+                  AND Point_Transactions.sponsor_id = %s
                 ORDER BY Point_Transactions.created_at DESC,
                          Point_Transactions.transaction_id DESC
                 LIMIT 50
                 """,
-                (session["user_id"],)
+                (session["user_id"], viewing_sponsor_id)
             )
             history = cursor.fetchall()
 
@@ -2637,12 +2771,13 @@ def driver_points():
                 LEFT JOIN Users
                     ON Point_Transactions.changed_by_user_id = Users.user_id
                 WHERE Point_Transactions.driver_id = %s
+                  AND Point_Transactions.sponsor_id = %s
                   AND Point_Transactions.point_change < 0
                 ORDER BY Point_Transactions.created_at DESC,
                          Point_Transactions.transaction_id DESC
                 LIMIT 5
                 """,
-                (session["user_id"],)
+                (session["user_id"], viewing_sponsor_id)
             )
             recent_deductions = cursor.fetchall()
 
@@ -2657,10 +2792,36 @@ def driver_points():
         first_name=session["first_name"],
         role=session["role"],
         driver=driver,
+        sponsorships=sponsorships,
         totals=totals,
         history=history,
         recent_deductions=recent_deductions
     )
+
+
+@app.route("/driver/switch-sponsor", methods=["POST"])
+def switch_driver_sponsor():
+    """Choose which sponsor's points, history, and catalog the driver sees."""
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "driver":
+        return redirect(url_for("home"))
+
+    try:
+        # Validated on use: pick_driver_sponsorship ignores ids the driver
+        # doesn't actually belong to.
+        session["driver_sponsor_id"] = int(request.form.get("sponsor_id", ""))
+    except ValueError:
+        pass
+
+    # Go back to the page they were on, but never off-site.
+    back = request.referrer or ""
+    if not back.startswith(request.host_url):
+        back = url_for("driver_dashboard")
+
+    return redirect(back)
 
 
 @app.route("/notifications/read", methods=["POST"])
