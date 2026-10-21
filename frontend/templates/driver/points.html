@@ -9,8 +9,11 @@
     <div class="page-header">
         <div>
             <span class="eyebrow">Driver</span>
-            <h1>My Points</h1>
-            <p>Your current balance and recent point activity.</p>
+            <h1>My Points{% if driver.sponsor_name %} &middot; {{ driver.sponsor_name }}{% endif %}</h1>
+            <p>
+                Points are kept separately for each sponsor and can only be used in that sponsor's catalog.
+                {% if sponsorships and sponsorships|length > 1 %}Use the sponsor menu at the top to switch.{% endif %}
+            </p>
         </div>
     </div>
 

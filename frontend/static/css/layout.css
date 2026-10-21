@@ -191,6 +191,57 @@ h1, h2, h3 {
     text-align: center;
 }
 
+/* Driver sponsor switcher (bar under the header) */
+
+.context-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+
+.context-bar-inner {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 8px 24px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+}
+
+.context-bar label {
+    color: var(--slate);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.context-bar select.input {
+    width: auto;
+    min-width: 220px;
+    height: 34px;
+    font-weight: 600;
+    color: var(--purple-900);
+}
+
+.context-bar-note {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+@media (max-width: 600px) {
+    .context-bar-inner {
+        padding: 8px 16px;
+    }
+
+    .context-bar select.input {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .context-bar-note {
+        display: none;
+    }
+}
+
 /* Notifications dropdown */
 
 .notif-menu {
