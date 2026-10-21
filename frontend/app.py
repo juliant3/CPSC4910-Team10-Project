@@ -6,6 +6,7 @@ import smtplib
 import secrets
 from datetime import timedelta, datetime, timezone
 from email.message import EmailMessage
+from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
@@ -394,6 +395,218 @@ def send_reset_code(email):
         return False
 
 
+# ==========================================
+# DASHBOARD DATA
+# ==========================================
+
+def month_start():
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+@app.template_filter("waiting")
+def waiting_filter(when):
+    """'waiting 3 days' style label for how long something has been pending."""
+    if not when:
+        return ""
+
+    delta = datetime.now(timezone.utc).replace(tzinfo=None) - when
+    days = delta.days
+
+    if days >= 1:
+        css = "waiting long" if days >= 3 else "waiting"
+        text = f"waiting {days} day{'s' if days != 1 else ''}"
+    else:
+        hours = max(delta.seconds // 3600, 0)
+        css = "waiting"
+        text = f"waiting {hours} hr{'s' if hours != 1 else ''}" if hours else "just now"
+
+    return Markup(f'<span class="{css}">{text}</span>')
+
+
+def get_admin_dashboard_data(cursor):
+
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS c
+        FROM Driver_Applications
+        WHERE status IN ('Pending', 'Submitted')
+        """
+    )
+    pending_count = cursor.fetchone()["c"]
+
+    cursor.execute("SELECT COUNT(*) AS c FROM Drivers WHERE status = 'Active'")
+    active_drivers = cursor.fetchone()["c"]
+
+    cursor.execute("SELECT COUNT(*) AS c FROM Sponsors WHERE is_active = 1")
+    active_sponsors = cursor.fetchone()["c"]
+
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(point_change), 0) AS c
+        FROM Point_Transactions
+        WHERE point_change > 0
+          AND created_at >= %s
+        """,
+        (month_start(),)
+    )
+    points_this_month = cursor.fetchone()["c"]
+
+    cursor.execute("SELECT COUNT(*) AS c FROM Orders")
+    rewards_redeemed = cursor.fetchone()["c"]
+
+    cursor.execute(
+        """
+        SELECT
+            Driver_Applications.application_id,
+            COALESCE(Driver_Applications.applicant_first_name, Users.first_name) AS applicant_first_name,
+            COALESCE(Driver_Applications.applicant_last_name, Users.last_name) AS applicant_last_name,
+            COALESCE(Driver_Applications.applicant_email, Users.email) AS applicant_email,
+            Driver_Applications.application_date,
+            Driver_Applications.status,
+            Sponsors.company_name AS sponsor_name
+        FROM Driver_Applications
+        LEFT JOIN Sponsors
+            ON Driver_Applications.sponsor_id = Sponsors.sponsor_id
+        -- Invites to existing drivers store driver_id instead of applicant details
+        LEFT JOIN Users
+            ON Driver_Applications.driver_id = Users.user_id
+        WHERE Driver_Applications.status IN ('Pending', 'Submitted')
+        ORDER BY Driver_Applications.application_date ASC
+        LIMIT 5
+        """
+    )
+    waiting_applications = cursor.fetchall()
+
+    # Guarded so the dashboard still loads if Sponsor_Requests doesn't exist.
+    try:
+        cursor.execute(
+            """
+            SELECT request_id, first_name, last_name, email, company_name, submitted_at
+            FROM Sponsor_Requests
+            WHERE status = 'Submitted'
+            ORDER BY submitted_at ASC
+            """
+        )
+        waiting_sponsor_requests = cursor.fetchall()
+    except Exception:
+        waiting_sponsor_requests = []
+
+    return {
+        "pending_count": pending_count,
+        "sponsor_request_count": len(waiting_sponsor_requests),
+        "active_drivers": active_drivers,
+        "active_sponsors": active_sponsors,
+        "points_this_month": points_this_month,
+        "rewards_redeemed": rewards_redeemed,
+        "waiting_applications": waiting_applications,
+        "waiting_sponsor_requests": waiting_sponsor_requests[:5],
+    }
+
+
+def get_sponsor_dashboard_data(cursor, sponsor_id):
+
+    cursor.execute(
+        """
+        SELECT
+            COALESCE(SUM(status = 'Active'), 0) AS active_drivers,
+            COALESCE(SUM(CASE WHEN status = 'Active' THEN points_balance END), 0) AS points_held
+        FROM Drivers
+        WHERE sponsor_id = %s
+        """,
+        (sponsor_id,)
+    )
+    driver_totals = cursor.fetchone() or {}
+
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(point_change), 0) AS c
+        FROM Point_Transactions
+        WHERE sponsor_id = %s
+          AND point_change > 0
+          AND created_at >= %s
+        """,
+        (sponsor_id, month_start())
+    )
+    points_this_month = cursor.fetchone()["c"]
+
+    cursor.execute(
+        """
+        SELECT
+            Driver_Applications.application_id,
+            COALESCE(Driver_Applications.applicant_first_name, Users.first_name) AS applicant_first_name,
+            COALESCE(Driver_Applications.applicant_last_name, Users.last_name) AS applicant_last_name,
+            COALESCE(Driver_Applications.applicant_email, Users.email) AS applicant_email,
+            Driver_Applications.application_date
+        FROM Driver_Applications
+        -- Invites to existing drivers store driver_id instead of applicant details
+        LEFT JOIN Users
+            ON Driver_Applications.driver_id = Users.user_id
+        WHERE Driver_Applications.sponsor_id = %s
+          AND Driver_Applications.status = 'Submitted'
+        ORDER BY Driver_Applications.application_date ASC
+        """,
+        (sponsor_id,)
+    )
+    new_applications = cursor.fetchall()
+
+    cursor.execute(
+        """
+        SELECT
+            Point_Transactions.point_change,
+            Point_Transactions.reason,
+            Point_Transactions.created_at,
+            Users.first_name,
+            Users.last_name,
+            Point_Transactions.driver_id
+        FROM Point_Transactions
+        JOIN Users
+            ON Point_Transactions.driver_id = Users.user_id
+        WHERE Point_Transactions.sponsor_id = %s
+        ORDER BY Point_Transactions.created_at DESC,
+                 Point_Transactions.transaction_id DESC
+        LIMIT 6
+        """,
+        (sponsor_id,)
+    )
+    recent_activity = cursor.fetchall()
+
+    return {
+        "active_drivers": int(driver_totals.get("active_drivers") or 0),
+        "points_held": int(driver_totals.get("points_held") or 0),
+        "points_this_month": points_this_month,
+        "new_application_count": len(new_applications),
+        "new_applications": new_applications[:5],
+        "recent_activity": recent_activity,
+    }
+
+
+def render_sponsor_dashboard():
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            data = get_sponsor_dashboard_data(cursor, current_sponsor_id())
+
+            cursor.execute(
+                "SELECT company_name FROM Sponsors WHERE sponsor_id = %s",
+                (current_sponsor_id(),)
+            )
+            sponsor = cursor.fetchone()
+    finally:
+        conn.close()
+
+    return render_template(
+        "sponsor/dashboard.html",
+        first_name=session["first_name"],
+        role=session["role"],
+        company_name=sponsor["company_name"] if sponsor else None,
+        today=datetime.now(),
+        **data
+    )
+
+
 @app.route("/")
 def home():
 
@@ -406,12 +619,7 @@ def home():
     # Sponsor home page
     # -----------------------------------------
     if role == "sponsor":
-
-        return render_template(
-            "sponsor/dashboard.html",
-            first_name=session["first_name"],
-            role=session["role"]
-        )
+        return render_sponsor_dashboard()
 
         # -----------------------------------------
     # Driver home page
@@ -428,27 +636,7 @@ def home():
 
         try:
             with conn.cursor() as cursor:
-
-                cursor.execute(
-                    """
-                    SELECT COUNT(*) AS c
-                    FROM Driver_Applications
-                    WHERE status IN ('Pending', 'Submitted')
-                    """
-                )
-
-                pending_count = cursor.fetchone()["c"]
-
-                # Guarded so the dashboard still loads if the
-                # Sponsor_Requests table hasn't been created yet.
-                try:
-                    cursor.execute(
-                        "SELECT COUNT(*) AS c FROM Sponsor_Requests WHERE status = 'Submitted'"
-                    )
-                    sponsor_request_count = cursor.fetchone()["c"]
-                except Exception:
-                    sponsor_request_count = 0
-
+                data = get_admin_dashboard_data(cursor)
         finally:
             conn.close()
 
@@ -456,8 +644,8 @@ def home():
             "admin/dashboard.html",
             first_name=session["first_name"],
             role=session["role"],
-            pending_count=pending_count,
-            sponsor_request_count=sponsor_request_count
+            today=datetime.now(),
+            **data
         )
 
 
@@ -1717,11 +1905,7 @@ def sponsor_dashboard():
     if session["role"].lower() != "sponsor":
         return redirect(url_for("home"))
 
-    return render_template(
-        "sponsor/dashboard.html",
-        first_name=session["first_name"],
-        role=session["role"]
-    )
+    return render_sponsor_dashboard()
 
 def get_driver_profile_data(cursor, driver_id):
 
@@ -2321,6 +2505,19 @@ def driver_dashboard():
 
             driver = cursor.fetchone()
 
+            cursor.execute(
+                """
+                SELECT point_change, reason, created_at
+                FROM Point_Transactions
+                WHERE driver_id = %s
+                ORDER BY created_at DESC, transaction_id DESC
+                LIMIT 5
+                """,
+                (session["user_id"],)
+            )
+
+            recent_activity = cursor.fetchall()
+
     finally:
         conn.close()
 
@@ -2331,7 +2528,9 @@ def driver_dashboard():
         "driver/dashboard.html",
         first_name=session["first_name"],
         role=session["role"],
-        driver=driver
+        driver=driver,
+        recent_activity=recent_activity,
+        today=datetime.now()
     )
 @app.route("/driver/sponsors")
 def driver_sponsors(): 
@@ -3187,251 +3386,10 @@ def reject_sponsor_request(request_id):
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-
-    if request.method == "POST":
-
-        role = request.form["role"]
-        first_name = request.form["first_name"].strip()
-        last_name = request.form["last_name"].strip()
-        email = request.form["email"].strip().lower()
-
-        password = request.form["password"]
-        confirm_password = request.form["confirm_password"]
-
-        company_name = request.form.get("company_name", "").strip()
-        phone = request.form.get("phone", "").strip()
-        invite_code = request.form.get("invite_code", "").strip()
-
-
-        # ----------------------------
-        # Validate account type
-        # ----------------------------
-
-        if role not in ["Driver", "Sponsor"]:
-            return render_template(
-                "shared/register.html",
-                error="Please select a valid account type."
-            )
-
-
-        # ----------------------------
-        # Validate passwords
-        # ----------------------------
-
-        if password != confirm_password:
-            return render_template(
-                "shared/register.html",
-                error="Passwords do not match."
-            )
-
-
-        # ----------------------------
-        # Password requirements
-        # ----------------------------
-
-        if len(password) < 8:
-            return render_template(
-                "shared/register.html",
-                error="Password must be at least 8 characters."
-            )
-
-
-        # ----------------------------
-        # Sponsor needs company name
-        # ----------------------------
-
-        if role == "Sponsor" and not company_name:
-            return render_template(
-                "shared/register.html",
-                error="Company name is required for Sponsor accounts."
-            )
-
-
-        conn = get_db()
-
-        try:
-
-            with conn.cursor() as cursor:
-                #-----------------------------
-                # Validate driver invite code
-                #-----------------------------
-                sponsor = None
-                if role == "Driver": 
-                    if not invite_code: 
-                        return render_template(
-                            "shared/register.html",
-                             error="A Sponsor invite code is required for Driver accounts."
-                        )
-                    cursor.execute(
-                        """
-                        SELECT sponsor_id
-                        FROM Sponsors
-                        WHERE invite_code = %s
-                        AND is_active = True
-                        """, 
-                        (invite_code,)
-                    )
-                    sponsor = cursor.fetchone()
-                    if not sponsor: 
-                        return render_template(
-                            "shared/register.html", 
-                            error = "Invalid sponsor invite code."
-                        )
-
-                # ----------------------------
-                # Check if email already exists
-                # ----------------------------
-
-                cursor.execute(
-                    """
-                    SELECT user_id
-                    FROM Users
-                    WHERE email = %s
-                    """,
-                    (email,)
-                )
-
-                existing_user = cursor.fetchone()
-
-                if existing_user:
-
-                    return render_template(
-                        "shared/register.html",
-                        error="An account with this email already exists."
-                    )
-
-
-                # ----------------------------
-                # Create Users record
-                # ----------------------------
-
-                cursor.execute(
-                    """
-                    INSERT INTO Users
-                        (email, first_name, last_name, role)
-                    VALUES
-                        (%s, %s, %s, %s)
-                    """,
-                    (
-                        email,
-                        first_name,
-                        last_name,
-                        role
-                    )
-                )
-
-
-                # Get the new user ID
-                user_id = cursor.lastrowid
-
-
-                # ----------------------------
-                # Hash and store password
-                # ----------------------------
-
-                password_hash = generate_password_hash(password, method="pbkdf2:sha256")
-
-                cursor.execute(
-                    """
-                    INSERT INTO Password
-                        (user_id, password_hash)
-                    VALUES
-                        (%s, %s)
-                    """,
-                    (
-                        user_id,
-                        password_hash
-                    )
-                )
-
-
-                # ============================
-                # DRIVER ACCOUNT
-                # ============================
-
-                if role == "Driver":
-
-                    cursor.execute(
-                        """
-                        INSERT INTO Drivers
-                            (driver_id, sponsor_id)
-                        VALUES
-                            (%s, %s)
-                        """,
-                        (user_id,
-                        sponsor["sponsor_id"])
-                    )
-
-
-                # ============================
-                # SPONSOR ACCOUNT
-                # ============================
-
-                elif role == "Sponsor":
-
-                    cursor.execute(
-                        """
-                        INSERT INTO Sponsors
-                            (
-                                sponsor_id,
-                                company_name,
-                                email,
-                                phone
-                            )
-                        VALUES
-                            (%s, %s, %s, %s)
-                        """,
-                        (
-                            user_id,
-                            company_name,
-                            email,
-                            phone if phone else None
-                        )
-                    )
-
-
-                    # Link the user to the sponsor
-                    cursor.execute(
-                        """
-                        INSERT INTO Sponsor_Users
-                            (user_id, sponsor_id)
-                        VALUES
-                            (%s, %s)
-                        """,
-                        (
-                            user_id,
-                            user_id
-                        )
-                    )
-
-
-            # Everything worked
-            conn.commit()
-
-
-        except Exception as e:
-
-            conn.rollback()
-
-            print("Registration error:", e)
-
-            return render_template(
-                "shared/register.html",
-                error="There was a problem creating your account."
-            )
-
-
-        finally:
-
-            conn.close()
-
-
-        # Account successfully created
-        return redirect(url_for("login"))
-
-
-    # GET request
-    return render_template("shared/register.html")
+    # Public sign-up is closed. Drivers join through a sponsor's emailed
+    # invitation, sponsors request access and are approved by an admin,
+    # and sponsor teammates are invited from the Team page.
+    return redirect(url_for("sponsor_request"))
 
 if __name__ == "__main__":
     app.run(debug=True)

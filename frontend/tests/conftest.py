@@ -83,6 +83,13 @@ def app(monkeypatch):
     # first scripted row from fake_db, so keep it out of route tests.
     monkeypatch.setattr(site, "process_recurring_points", lambda: None)
 
+    # Never let a test reach the real database. Tests that need data install
+    # a fake with the fake_db fixture, which replaces this.
+    def no_real_database():
+        raise RuntimeError("Tests must use the fake_db fixture for database access.")
+
+    monkeypatch.setattr(site, "get_db", no_real_database)
+
     yield site.app
 
 

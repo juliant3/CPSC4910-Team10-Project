@@ -1,49 +1,132 @@
 {% extends "shared/base.html" %}
+{% from "shared/_icons.html" import icon %}
 
 {% block title %}Admin Dashboard{% endblock %}
 
 {% block content %}
 
+{% set needs_review = pending_count + sponsor_request_count %}
+
 <div class="page">
 
-    <div class="page-header">
+    <section class="welcome-banner">
         <div>
-            <span class="eyebrow">Admin Dashboard</span>
+            <span class="welcome-date">{{ today.strftime('%A, %B') }} {{ today.day }}</span>
             <h1>Welcome back, {{ first_name }}</h1>
-            <p>Monitor application activity across all sponsors.</p>
+            <p>
+                {% if needs_review %}
+                    You have <strong>{{ needs_review }} item{{ 's' if needs_review != 1 }}</strong> waiting across the program.
+                {% else %}
+                    Everything has been reviewed. Nice work.
+                {% endif %}
+            </p>
         </div>
-    </div>
+        <div class="welcome-actions">
+            <a href="{{ url_for('admin_sponsor_requests') }}" class="btn btn-light">Sponsor Requests</a>
+            <a href="{{ url_for('admin_pending_applications') }}" class="btn btn-outline-light">Driver Applications</a>
+        </div>
+    </section>
 
     <div class="stat-grid" style="margin-bottom: 24px;">
-        <div class="stat-tile">
-            <div class="stat-label">Applications Awaiting Decision</div>
-            <div class="stat-value">{{ pending_count }}</div>
+        <div class="stat-tile has-icon {{ 'attention' if pending_count }}">
+            <span class="stat-icon orange">{{ icon('clipboard') }}</span>
+            <div>
+                <div class="stat-label">Driver Apps</div>
+                <div class="stat-value">{{ pending_count }}</div>
+                <div class="stat-hint">awaiting a decision</div>
+            </div>
         </div>
-        <div class="stat-tile">
-            <div class="stat-label">Sponsor Requests to Review</div>
-            <div class="stat-value">{{ sponsor_request_count or 0 }}</div>
+        <div class="stat-tile has-icon {{ 'attention' if sponsor_request_count }}">
+            <span class="stat-icon orange">{{ icon('building') }}</span>
+            <div>
+                <div class="stat-label">Sponsor Requests</div>
+                <div class="stat-value">{{ sponsor_request_count }}</div>
+                <div class="stat-hint">to review</div>
+            </div>
+        </div>
+        <div class="stat-tile has-icon">
+            <span class="stat-icon">{{ icon('users') }}</span>
+            <div>
+                <div class="stat-label">Active Drivers</div>
+                <div class="stat-value">{{ active_drivers }}</div>
+                <div class="stat-hint">across {{ active_sponsors }} sponsor{{ 's' if active_sponsors != 1 }}</div>
+            </div>
+        </div>
+        <div class="stat-tile has-icon">
+            <span class="stat-icon green">{{ icon('trending') }}</span>
+            <div>
+                <div class="stat-label">Points Awarded</div>
+                <div class="stat-value">{{ "{:,}".format(points_this_month|int) }}</div>
+                <div class="stat-hint">this month</div>
+            </div>
         </div>
     </div>
 
-    <div class="action-grid">
+    <div class="dash-grid">
 
-        <a href="{{ url_for('admin_pending_applications') }}" class="action-tile">
-            <h3>Pending Applications</h3>
-            <p>{{ pending_count }} application{{ 's' if pending_count != 1 }} waiting on a decision across all sponsors.</p>
-            <span class="tile-link">Review applications →</span>
-        </a>
+        <div class="card">
+            <div class="card-header">
+                <h2>Driver applications waiting</h2>
+                <a href="{{ url_for('admin_pending_applications') }}" class="btn btn-secondary btn-sm">View all</a>
+            </div>
+            {% if waiting_applications %}
+            <ul class="row-list">
+                {% for a in waiting_applications %}
+                {% set name = (a.applicant_first_name ~ ' ' ~ (a.applicant_last_name or '')) if a.applicant_first_name else (a.applicant_email or 'Unknown applicant') %}
+                <li class="row-item">
+                    <div class="row-main">
+                        <div class="row-link">
+                            <span class="avatar">{{ name[:1]|upper }}</span>
+                            <span class="row-text">
+                                <p class="row-title">{{ name }}</p>
+                                <p class="row-sub">{{ a.sponsor_name or 'Unknown sponsor' }}</p>
+                            </span>
+                        </div>
+                        <span class="badge {{ 'badge-accent' if a.status == 'Submitted' else 'badge-warn' }}">
+                            {{ 'Needs sponsor review' if a.status == 'Submitted' else 'Invite sent' }}
+                        </span>
+                        {{ a.application_date|waiting }}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <h3>All caught up</h3>
+                <p>No driver applications are waiting.</p>
+            </div>
+            {% endif %}
+        </div>
 
-        <a href="{{ url_for('admin_sponsor_requests') }}" class="action-tile">
-            <h3>Sponsor Requests</h3>
-            <p>{{ sponsor_request_count or 0 }} organization{{ 's' if sponsor_request_count != 1 }} waiting to be approved as a sponsor.</p>
-            <span class="tile-link">Review requests →</span>
-        </a>
-
-        <a href="{{ url_for('about') }}" class="action-tile">
-            <h3>About</h3>
-            <p>Project details, the team, and live program stats.</p>
-            <span class="tile-link">View about →</span>
-        </a>
+        <div class="card">
+            <div class="card-header">
+                <h2>Sponsor requests</h2>
+                <a href="{{ url_for('admin_sponsor_requests') }}" class="btn btn-secondary btn-sm">Review</a>
+            </div>
+            {% if waiting_sponsor_requests %}
+            <ul class="row-list">
+                {% for r in waiting_sponsor_requests %}
+                <li class="row-item is-clickable">
+                    <div class="row-main">
+                        <a href="{{ url_for('admin_sponsor_requests') }}" class="row-link">
+                            <span class="avatar">{{ (r.company_name or '?')[:1]|upper }}</span>
+                            <span class="row-text">
+                                <p class="row-title">{{ r.company_name }}</p>
+                                <p class="row-sub">{{ r.first_name }} {{ r.last_name }}</p>
+                            </span>
+                        </a>
+                        {{ r.submitted_at|waiting }}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <h3>No new requests</h3>
+                <p>New sponsor applications will show up here.</p>
+            </div>
+            {% endif %}
+        </div>
 
     </div>
 

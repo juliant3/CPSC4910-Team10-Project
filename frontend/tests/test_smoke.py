@@ -4,10 +4,24 @@ def test_login_page_loads(client):
     assert b"Log In" in response.data
 
 
-def test_register_page_loads(client):
-    response = client.get("/register")
-    assert response.status_code == 200
-    assert b"Create Account" in response.data
+def test_public_registration_is_closed(client, fake_db):
+    conn = fake_db()
+
+    get_response = client.get("/register", follow_redirects=False)
+    post_response = client.post("/register", data={
+        "role": "Sponsor",
+        "first_name": "Sneaky",
+        "last_name": "Sponsor",
+        "email": "sneaky@example.com",
+        "password": "password123",
+        "confirm_password": "password123",
+        "company_name": "Sneaky Co",
+    }, follow_redirects=False)
+
+    for response in (get_response, post_response):
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/sponsor-request")
+    assert conn.cursor().executed == []
 
 
 def test_forgot_password_page_loads(client):
@@ -43,11 +57,23 @@ def test_core_routes_are_registered(app):
     assert expected <= endpoints
 
 
-def test_sponsor_home_renders_dashboard(client, set_session):
+def test_sponsor_home_renders_dashboard(client, set_session, fake_db):
     set_session(role="Sponsor", user_id=12, first_name="Sam")
+    fake_db(
+        fetchone_values=[
+            {"active_drivers": 3, "points_held": 1200},
+            {"c": 250},
+            {"company_name": "Acme Freight"},
+        ],
+        fetchall_values=[[], []],
+    )
+
     response = client.get("/")
+
     assert response.status_code == 200
-    assert b"Manage your drivers and applications" in response.data
+    assert b"Welcome back, Sam" in response.data
+    assert b"Acme Freight" in response.data
+    assert b"Manage your drivers, applications, and rewards" in response.data
 
 
 def test_driver_home_redirects_to_driver_dashboard(client, set_session):

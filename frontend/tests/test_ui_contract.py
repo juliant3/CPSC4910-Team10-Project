@@ -16,19 +16,10 @@ def test_login_has_show_hide_password_control():
     assert "Hide" in html
 
 
-def test_register_contains_core_account_fields():
-    html = read_template("shared/register.html")
-    for field in (
-        'name="role"',
-        'name="first_name"',
-        'name="last_name"',
-        'name="email"',
-        'name="password"',
-        'name="confirm_password"',
-        'name="invite_code"',
-        'name="company_name"',
-    ):
-        assert field in html
+def test_login_does_not_offer_public_sign_up():
+    html = read_template("shared/login.html")
+    assert "url_for('register')" not in html
+    assert "url_for('sponsor_request')" in html
 
 
 def test_driver_dashboard_links_to_profile():

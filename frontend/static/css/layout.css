@@ -1198,3 +1198,255 @@ h1, h2, h3 {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================================
+   Dashboards
+   ========================================================== */
+
+.welcome-banner {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px 32px;
+    margin-bottom: 24px;
+    padding: 30px 32px;
+    border-radius: 12px;
+    background: linear-gradient(120deg, var(--purple-900) 0%, var(--purple-700) 100%);
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(46, 26, 77, 0.18);
+}
+
+/* Dashed "route" accent, echoing the login page */
+.welcome-banner::after {
+    content: "";
+    position: absolute;
+    right: -60px;
+    top: -80px;
+    width: 340px;
+    height: 340px;
+    border: 3px dashed rgba(217, 102, 44, 0.45);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.welcome-banner > * {
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-date {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.welcome-banner h1 {
+    margin: 4px 0 6px;
+    color: #fff;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+}
+
+.welcome-banner p {
+    margin: 0;
+    max-width: 560px;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.welcome-banner strong {
+    color: #fff;
+}
+
+.welcome-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.btn-light {
+    background: #fff;
+    color: var(--purple-900);
+}
+
+.btn-light:hover {
+    background: var(--purple-50);
+}
+
+.btn-outline-light {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+}
+
+.btn-outline-light:hover {
+    border-color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.balance-figure {
+    text-align: right;
+}
+
+.balance-figure .balance-value {
+    display: block;
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+.balance-figure .balance-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Stat tiles with icons */
+
+.stat-tile.has-icon {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.stat-icon {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: var(--purple-50);
+    color: var(--purple-700);
+}
+
+.stat-icon.green  { background: var(--good-bg); color: var(--good); }
+.stat-icon.orange { background: #FCE9DE; color: var(--orange-600); }
+.stat-icon.gold   { background: var(--warn-bg); color: var(--warn); }
+
+.stat-tile.attention {
+    border-color: #F2C3A6;
+    box-shadow: inset 3px 0 0 var(--orange-600), var(--shadow-sm);
+}
+
+.stat-tile.attention .stat-value {
+    color: var(--orange-600);
+}
+
+.stat-hint {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+/* Quick links */
+
+.quick-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.quick-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--purple-900);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.quick-link:hover {
+    border-color: var(--purple-500);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.quick-link .stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+}
+
+.quick-link .arrow {
+    margin-left: auto;
+    color: var(--muted);
+}
+
+.section-title {
+    margin: 0 0 12px;
+    color: var(--slate);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.dash-grid {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .dash-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .balance-figure {
+        text-align: left;
+    }
+}
+
+@media (max-width: 600px) {
+    .welcome-banner {
+        padding: 24px 20px;
+    }
+
+    .welcome-banner h1 {
+        font-size: 24px;
+    }
+}
+
+/* Small "time waiting" text in attention lists */
+
+.waiting {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.waiting.long {
+    color: var(--orange-600);
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .stat-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .stat-tile.has-icon {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 16px;
+    }
+
+    .stat-icon {
+        width: 36px;
+        height: 36px;
+    }
+}

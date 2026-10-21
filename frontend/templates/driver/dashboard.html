@@ -1,59 +1,102 @@
 {% extends "shared/base.html" %}
+{% from "shared/_icons.html" import icon %}
 
 {% block title %}Driver Dashboard{% endblock %}
 
 {% block content %}
 
+{% set status = (driver.status or '')|lower %}
+
 <div class="page">
 
-    <div class="page-header">
+    <section class="welcome-banner">
         <div>
-            <span class="eyebrow">Driver Dashboard</span>
+            <span class="welcome-date">{{ today.strftime('%A, %B') }} {{ today.day }}</span>
             <h1>Welcome back, {{ first_name }}</h1>
-            <p>Here's a summary of your Good Driver Program account.</p>
+            <p>
+                {% if driver.sponsor_name %}
+                    You're driving with <strong>{{ driver.sponsor_name }}</strong>. Keep it safe and keep earning.
+                {% else %}
+                    You're not with a sponsor yet. Browse sponsors to get started.
+                {% endif %}
+            </p>
         </div>
-    </div>
-
-    {% set status = (driver.status or '')|lower %}
+        <div class="balance-figure">
+            <span class="balance-value">{{ "{:,}".format((driver.points_balance or 0)|int) }}</span>
+            <span class="balance-label">points available</span>
+        </div>
+    </section>
 
     <div class="stat-grid" style="margin-bottom: 24px;">
-        <div class="stat-tile">
-            <div class="stat-label">Points Balance</div>
-            <div class="stat-value">{{ driver.points_balance or 0 }}</div>
+        <div class="stat-tile has-icon">
+            <span class="stat-icon">{{ icon('building') }}</span>
+            <div>
+                <div class="stat-label">Sponsor</div>
+                <div class="stat-value text">{{ driver.sponsor_name or 'Not assigned' }}</div>
+            </div>
         </div>
-        <div class="stat-tile">
-            <div class="stat-label">Sponsor</div>
-            <div class="stat-value text">{{ driver.sponsor_name or 'Not assigned' }}</div>
-        </div>
-        <div class="stat-tile">
-            <div class="stat-label">Account Status</div>
-            <div class="stat-value text">
-                <span class="badge {{ 'badge-success' if status == 'active' else 'badge-warn' if status == 'pending' else 'badge-neutral' }}">
-                    {{ driver.status }}
-                </span>
+        <div class="stat-tile has-icon">
+            <span class="stat-icon {{ 'green' if status == 'active' else 'orange' }}">{{ icon('shield') }}</span>
+            <div>
+                <div class="stat-label">Account Status</div>
+                <div class="stat-value text">
+                    <span class="badge {{ 'badge-success' if status == 'active' else 'badge-warn' if status in ('pending', 'applicant') else 'badge-neutral' }}">
+                        {{ driver.status }}
+                    </span>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="action-grid">
+    <div class="dash-grid" style="margin-bottom: 28px;">
 
-        <a href="{{ url_for('driver_points') }}" class="action-tile">
-            <h3>My Points</h3>
-            <p>See your balance and the full history of points earned and deducted.</p>
-            <span class="tile-link">View points →</span>
-        </a>
+        <div class="card">
+            <div class="card-header">
+                <h2>Recent point activity</h2>
+                <a href="{{ url_for('driver_points') }}" class="btn btn-secondary btn-sm">Full history</a>
+            </div>
+            {% if recent_activity %}
+            <ul class="row-list">
+                {% for t in recent_activity %}
+                <li class="row-item">
+                    <div class="row-main">
+                        <span class="stat-icon {{ 'green' if t.point_change > 0 else 'orange' }}" style="width: 34px; height: 34px;">
+                            {{ icon('trending' if t.point_change > 0 else 'info', 16) }}
+                        </span>
+                        <div class="row-text" style="flex: 1;">
+                            <p class="row-title" style="font-weight: 500;">{{ t.reason }}</p>
+                            <p class="row-sub">{{ t.created_at.strftime('%b %d, %Y') if t.created_at else '' }}</p>
+                        </div>
+                        <span class="{{ 'positive' if t.point_change > 0 else 'negative' }}">{{ '+' if t.point_change > 0 }}{{ t.point_change }}</span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <h3>No activity yet</h3>
+                <p>Points your sponsor awards will show up here.</p>
+            </div>
+            {% endif %}
+        </div>
 
-        <a href="{{ url_for('driver_sponsors') }}" class="action-tile">
-            <h3>Available Sponsors</h3>
-            <p>Browse participating sponsors and find one to join.</p>
-            <span class="tile-link">View sponsors →</span>
-        </a>
-
-        <a href="{{ url_for('driver_profile') }}" class="action-tile">
-            <h3>My Profile</h3>
-            <p>Review and update your personal information.</p>
-            <span class="tile-link">View profile →</span>
-        </a>
+        <div>
+            <h2 class="section-title">Quick links</h2>
+            <div class="quick-links" style="grid-template-columns: 1fr;">
+                <a href="{{ url_for('driver_points') }}" class="quick-link">
+                    <span class="stat-icon gold">{{ icon('star', 18) }}</span> My Points
+                    <span class="arrow">{{ icon('arrow', 16) }}</span>
+                </a>
+                <a href="{{ url_for('driver_sponsors') }}" class="quick-link">
+                    <span class="stat-icon">{{ icon('building', 18) }}</span> Available Sponsors
+                    <span class="arrow">{{ icon('arrow', 16) }}</span>
+                </a>
+                <a href="{{ url_for('driver_profile') }}" class="quick-link">
+                    <span class="stat-icon">{{ icon('user', 18) }}</span> My Profile
+                    <span class="arrow">{{ icon('arrow', 16) }}</span>
+                </a>
+            </div>
+        </div>
 
     </div>
 

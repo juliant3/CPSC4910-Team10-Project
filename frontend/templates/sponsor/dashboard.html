@@ -1,4 +1,5 @@
 {% extends "shared/base.html" %}
+{% from "shared/_icons.html" import icon %}
 
 {% block title %}Sponsor Dashboard{% endblock %}
 
@@ -6,43 +7,138 @@
 
 <div class="page">
 
-    <div class="page-header">
+    <section class="welcome-banner">
         <div>
-            <span class="eyebrow">Sponsor Dashboard</span>
+            <span class="welcome-date">{{ today.strftime('%A, %B') }} {{ today.day }}{% if company_name %} &middot; {{ company_name }}{% endif %}</span>
             <h1>Welcome back, {{ first_name }}</h1>
-            <p>Manage your drivers and applications for the Good Driver Program.</p>
+            <p>
+                {% if new_application_count %}
+                    You have <strong>{{ new_application_count }} new application{{ 's' if new_application_count != 1 }}</strong> waiting for your review.
+                {% else %}
+                    Manage your drivers, applications, and rewards for the Good Driver Program.
+                {% endif %}
+            </p>
         </div>
-        <div class="page-actions">
-            <a href="{{ url_for('sponsor_applications') }}" class="btn btn-primary">Invite a Driver</a>
+        <div class="welcome-actions">
+            <a href="{{ url_for('sponsor_applications') }}" class="btn btn-light">Invite a Driver</a>
+            <a href="{{ url_for('sponsor_drivers') }}" class="btn btn-outline-light">View Drivers</a>
+        </div>
+    </section>
+
+    <div class="stat-grid" style="margin-bottom: 24px;">
+        <div class="stat-tile has-icon">
+            <span class="stat-icon">{{ icon('users') }}</span>
+            <div>
+                <div class="stat-label">Active Drivers</div>
+                <div class="stat-value">{{ active_drivers }}</div>
+            </div>
+        </div>
+        <div class="stat-tile has-icon {{ 'attention' if new_application_count }}">
+            <span class="stat-icon orange">{{ icon('clipboard') }}</span>
+            <div>
+                <div class="stat-label">New Applications</div>
+                <div class="stat-value">{{ new_application_count }}</div>
+                <div class="stat-hint">ready to review</div>
+            </div>
+        </div>
+        <div class="stat-tile has-icon">
+            <span class="stat-icon green">{{ icon('trending') }}</span>
+            <div>
+                <div class="stat-label">Points Awarded</div>
+                <div class="stat-value">{{ "{:,}".format(points_this_month|int) }}</div>
+                <div class="stat-hint">this month</div>
+            </div>
+        </div>
+        <div class="stat-tile has-icon">
+            <span class="stat-icon gold">{{ icon('star') }}</span>
+            <div>
+                <div class="stat-label">Points Held by Drivers</div>
+                <div class="stat-value">{{ "{:,}".format(points_held|int) }}</div>
+            </div>
         </div>
     </div>
 
-    <div class="action-grid">
+    <div class="dash-grid" style="margin-bottom: 28px;">
 
-        <a href="{{ url_for('sponsor_drivers') }}" class="action-tile">
-            <h3>My Drivers</h3>
-            <p>View your drivers, adjust their points, and open their profiles.</p>
-            <span class="tile-link">View drivers →</span>
+        <div class="card">
+            <div class="card-header">
+                <h2>Applications to review</h2>
+                <a href="{{ url_for('sponsor_applications', status='Submitted') }}" class="btn btn-secondary btn-sm">View all</a>
+            </div>
+            {% if new_applications %}
+            <ul class="row-list">
+                {% for a in new_applications %}
+                {% set name = (a.applicant_first_name ~ ' ' ~ (a.applicant_last_name or '')) if a.applicant_first_name else (a.applicant_email or 'Unknown applicant') %}
+                <li class="row-item is-clickable">
+                    <div class="row-main">
+                        <a href="{{ url_for('sponsor_applications', status='Submitted') }}" class="row-link">
+                            <span class="avatar">{{ name[:1]|upper }}</span>
+                            <span class="row-text">
+                                <p class="row-title">{{ name }}</p>
+                                <p class="row-sub">{{ a.applicant_email }}</p>
+                            </span>
+                        </a>
+                        {{ a.application_date|waiting }}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <h3>All caught up</h3>
+                <p>New driver applications will show up here.</p>
+                <a href="{{ url_for('sponsor_applications') }}" class="btn btn-primary">Invite a Driver</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Recent point activity</h2>
+            </div>
+            {% if recent_activity %}
+            <ul class="row-list">
+                {% for t in recent_activity %}
+                <li class="row-item is-clickable">
+                    <div class="row-main">
+                        <a href="{{ url_for('sponsor_driver_profile', driver_id=t.driver_id) }}" class="row-link">
+                            <span class="row-text">
+                                <p class="row-title">{{ t.first_name }} {{ t.last_name }}</p>
+                                <p class="row-sub">{{ t.reason }}</p>
+                            </span>
+                        </a>
+                        <span class="{{ 'positive' if t.point_change > 0 else 'negative' }}">{{ '+' if t.point_change > 0 }}{{ t.point_change }}</span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <p>Points you award or deduct will show up here.</p>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <h2 class="section-title">Quick links</h2>
+    <div class="quick-links">
+        <a href="{{ url_for('sponsor_drivers') }}" class="quick-link">
+            <span class="stat-icon">{{ icon('users', 18) }}</span> My Drivers
+            <span class="arrow">{{ icon('arrow', 16) }}</span>
         </a>
-
-        <a href="{{ url_for('sponsor_applications') }}" class="action-tile">
-            <h3>Applications</h3>
-            <p>Invite drivers by email and review the applications you've received.</p>
-            <span class="tile-link">View applications →</span>
+        <a href="{{ url_for('sponsor_applications') }}" class="quick-link">
+            <span class="stat-icon orange">{{ icon('user-plus', 18) }}</span> Applications
+            <span class="arrow">{{ icon('arrow', 16) }}</span>
         </a>
-
-        <a href="{{ url_for('sponsor_team') }}" class="action-tile">
-            <h3>Team</h3>
-            <p>Invite other people from your organization to help manage your drivers.</p>
-            <span class="tile-link">Manage team →</span>
+        <a href="{{ url_for('sponsor_team') }}" class="quick-link">
+            <span class="stat-icon">{{ icon('building', 18) }}</span> Team
+            <span class="arrow">{{ icon('arrow', 16) }}</span>
         </a>
-
-        <a href="{{ url_for('sponsor_recurring') }}" class="action-tile">
-            <h3>Recurring Points</h3>
-            <p>Automatically award points to your drivers on a daily, weekly, or monthly schedule.</p>
-            <span class="tile-link">Manage schedules →</span>
+        <a href="{{ url_for('sponsor_recurring') }}" class="quick-link">
+            <span class="stat-icon green">{{ icon('repeat', 18) }}</span> Recurring Points
+            <span class="arrow">{{ icon('arrow', 16) }}</span>
         </a>
-
     </div>
 
 </div>
