@@ -1,26 +1,9 @@
 {% extends "shared/base.html" %}
 {% block title %}{{ role|capitalize }} Catalog — Good Driver Program{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/catalog.css') }}">
 {% endblock %}
 {% block content %}
-<nav class="navbar">
-    <a href="{{ url_for('home') }}" class="logo">Good Driver Program</a>
-    <div class="nav-links">
-        <a href="{{ url_for('home') }}">Home</a>
-        {% if role == 'driver' %}
-        <a href="{{ url_for('driver_profile') }}">My Profile</a>
-        <a href="{{ url_for('driver_points') }}">My Points</a>
-        {% else %}
-        <a href="{{ url_for('sponsor_applications') }}">Applications</a>
-        <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
-        {% endif %}
-        <a class="active-link" href="{{ url_for('ebay_catalog.' + role + '_catalog') }}" aria-current="page">Catalog</a>
-        <a href="{{ url_for('about') }}">About</a>
-    </div>
-    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
-</nav>
 <main class="catalog-page">
     <header class="catalog-heading">
         <span class="catalog-eyebrow">{{ role|upper }} · LIVE EBAY SEARCH</span>

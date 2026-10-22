@@ -1,15 +1,9 @@
 {% extends "shared/base.html" %}
 {% block title %}Item details — Good Driver Program{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/catalog.css') }}">
 {% endblock %}
 {% block content %}
-<nav class="navbar">
-    <a href="{{ url_for('home') }}" class="logo">Good Driver Program</a>
-    <div class="nav-links"><a href="{{ url_for('home') }}">Home</a><a href="{{ url_for('ebay_catalog.' + role + '_catalog') }}">Catalog</a><a href="{{ url_for('about') }}">About</a></div>
-    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
-</nav>
 <main class="catalog-page">
     <a class="catalog-back" href="{{ url_for('ebay_catalog.' + role + '_catalog', q=query, page=page) }}">← Back to search results</a>
     {% if error %}
