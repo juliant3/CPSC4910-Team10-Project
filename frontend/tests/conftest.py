@@ -23,6 +23,9 @@ class FakeCursor:
         self.fetchall_values = list(fetchall_values or [])
         self.lastrowid = lastrowid
         self.executed = []
+        # Rows affected by the last statement; tests can set it to 0 to
+        # simulate an UPDATE that matched nothing.
+        self.rowcount = 1
 
     def __enter__(self):
         return self
@@ -34,6 +37,11 @@ class FakeCursor:
         normalized = " ".join(str(query).split())
         self.executed.append((normalized, params))
         return 1
+
+    def executemany(self, query, seq_of_params):
+        for params in seq_of_params:
+            self.execute(query, params)
+        return len(seq_of_params)
 
     def fetchone(self):
         if not self.fetchone_values:
@@ -125,12 +133,14 @@ def fake_db(monkeypatch, app_module):
 
 @pytest.fixture
 def set_session(client):
-    def _set(role="Driver", user_id=1, first_name="Test"):
+    def _set(role="Driver", user_id=1, first_name="Test", **extra):
         with client.session_transaction() as sess:
             sess["user_id"] = user_id
             sess["first_name"] = first_name
             sess["role"] = role
             # Without this the session-timeout check logs the test user out.
             sess["last_activity"] = datetime.now(timezone.utc).isoformat()
+            # e.g. sponsor_id=7 for a sponsor who joined someone else's organization
+            sess.update(extra)
 
     return _set
