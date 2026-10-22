@@ -12,6 +12,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 
 app = Flask(__name__)
+
+from ebay_catalog import catalog_bp
+app.register_blueprint(catalog_bp)
 app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY",
     "change_this_to_a_secure_random_value"

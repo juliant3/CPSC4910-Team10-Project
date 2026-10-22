@@ -1,0 +1,43 @@
+{% extends "shared/base.html" %}
+{% block title %}Item details — Good Driver Program{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/catalog.css') }}">
+{% endblock %}
+{% block content %}
+<nav class="navbar">
+    <a href="{{ url_for('home') }}" class="logo">Good Driver Program</a>
+    <div class="nav-links"><a href="{{ url_for('home') }}">Home</a><a href="{{ url_for('ebay_catalog.' + role + '_catalog') }}">Catalog</a><a href="{{ url_for('about') }}">About</a></div>
+    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+</nav>
+<main class="catalog-page">
+    <a class="catalog-back" href="{{ url_for('ebay_catalog.' + role + '_catalog', q=query, page=page) }}">← Back to search results</a>
+    {% if error %}
+    <div class="catalog-alert" role="alert">{{ error }}</div>
+    {% elif item %}
+    <div class="catalog-item-layout">
+        <div class="catalog-item-image">
+            {% set image = item.get('image') or {} %}
+            {% if image.get('imageUrl') %}
+            <img src="{{ image.imageUrl }}" alt="{{ item.get('title', 'eBay listing') }}">
+            {% else %}<span>No image available</span>{% endif %}
+        </div>
+        <div class="catalog-item-content">
+            <span class="catalog-eyebrow">EBAY ITEM DETAILS</span>
+            <h1>{{ item.get('title', 'eBay listing') }}</h1>
+            {% if item.get('price') %}<strong class="catalog-item-price">{{ item.price.get('currency', '') }} {{ item.price.get('value', '') }}</strong>{% endif %}
+            {% if item.get('condition') %}<p><strong>Condition:</strong> {{ item.condition }}</p>{% endif %}
+            {% if item.get('seller') %}<p><strong>Seller:</strong> {{ item.seller.get('username', '') }}</p>{% endif %}
+            {% if item.get('estimatedAvailabilities') %}<p><strong>Availability:</strong> {{ item.estimatedAvailabilities[0].get('estimatedAvailabilityStatus', 'See eBay listing')|replace('_', ' ')|title }}</p>{% endif %}
+            <section class="catalog-full-description">
+                <h2>Description</h2>
+                {% set description = item.get('shortDescription') or item.get('description') or item.get('subtitle') %}
+                {% if description %}<p>{{ description|striptags|truncate(2000) }}</p>{% else %}<p>This seller hasn't provided a description through the API. View the original listing for more information.</p>{% endif %}
+            </section>
+            {% if item.get('itemWebUrl') %}<a class="catalog-external" href="{{ item.itemWebUrl }}" target="_blank" rel="noopener noreferrer">View original eBay listing ↗</a>{% endif %}
+            <p class="catalog-disclaimer">This page only displays product information. No orders are placed by the Good Driver Program.</p>
+        </div>
+    </div>
+    {% endif %}
+</main>
+{% endblock %}

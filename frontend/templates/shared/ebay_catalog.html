@@ -1,0 +1,80 @@
+{% extends "shared/base.html" %}
+{% block title %}{{ role|capitalize }} Catalog — Good Driver Program{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/catalog.css') }}">
+{% endblock %}
+{% block content %}
+<nav class="navbar">
+    <a href="{{ url_for('home') }}" class="logo">Good Driver Program</a>
+    <div class="nav-links">
+        <a href="{{ url_for('home') }}">Home</a>
+        {% if role == 'driver' %}
+        <a href="{{ url_for('driver_profile') }}">My Profile</a>
+        <a href="{{ url_for('driver_points') }}">My Points</a>
+        {% else %}
+        <a href="{{ url_for('sponsor_applications') }}">Applications</a>
+        <a href="{{ url_for('sponsor_drivers') }}">My Drivers</a>
+        {% endif %}
+        <a class="active-link" href="{{ url_for('ebay_catalog.' + role + '_catalog') }}" aria-current="page">Catalog</a>
+        <a href="{{ url_for('about') }}">About</a>
+    </div>
+    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+</nav>
+<main class="catalog-page">
+    <header class="catalog-heading">
+        <span class="catalog-eyebrow">{{ role|upper }} · LIVE EBAY SEARCH</span>
+        <h1>Explore items</h1>
+        <p>Search eBay listings for potential incentive products. This preview does not purchase items or add them to a sponsor's saved catalog.</p>
+    </header>
+    <form class="catalog-search" action="{{ url_for('ebay_catalog.' + role + '_catalog') }}" method="get" role="search">
+        <label for="item-search">Search products</label>
+        <div class="catalog-search-row">
+            <input id="item-search" type="search" name="q" value="{{ query }}" placeholder="e.g. truck accessories, headphones, car cleaning kit" maxlength="120" required>
+            <button type="submit">Search items</button>
+        </div>
+    </form>
+    {% if error %}
+    <div class="catalog-alert" role="alert">{{ error }}</div>
+    {% elif items %}
+        <div class="catalog-results-info">
+            <p>Showing {{ (page - 1) * 10 + 1 }}–{{ (page - 1) * 10 + items|length }} of {{ "{:,}".format(total) }} listings for <strong>{{ query }}</strong></p>
+            <span>10 items per page</span>
+        </div>
+        <section class="catalog-grid" aria-label="Search results">
+            {% for product in items %}
+            <article class="catalog-card">
+                <a href="{{ url_for('ebay_catalog.catalog_item', role=role, item_id=product.id, q=query, page=page) }}" class="catalog-image-link" aria-label="View {{ product.title }}">
+                    {% if product.image %}<img src="{{ product.image }}" alt="{{ product.title }}" loading="lazy">{% else %}<span>No image available</span>{% endif %}
+                </a>
+                <div class="catalog-card-body">
+                    {% if product.category %}<div class="catalog-category">{{ product.category }}</div>{% endif %}
+                    <h2><a href="{{ url_for('ebay_catalog.catalog_item', role=role, item_id=product.id, q=query, page=page) }}">{{ product.title }}</a></h2>
+                    {% if product.description %}
+                    <p class="catalog-description">{{ product.description|striptags|truncate(145) }}</p>
+                    {% else %}
+                    <p class="catalog-description">Full item description available under View details.</p>
+                    {% endif %}
+                    {% if product.condition %}<div class="catalog-condition">Condition: {{ product.condition }}</div>{% endif %}
+                    {% if product.seller %}<div class="catalog-seller">Seller: {{ product.seller }}</div>{% endif %}
+                    <div class="catalog-card-bottom">
+                        <div class="catalog-price">
+                            {% if product.price %}{{ product.currency }} {{ product.price }}{% else %}Price unavailable{% endif %}
+                            {% if product.shipping == '0.00' %}<small>Free listed shipping</small>{% endif %}
+                        </div>
+                        <a class="catalog-details" href="{{ url_for('ebay_catalog.catalog_item', role=role, item_id=product.id, q=query, page=page) }}">View details →</a>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </section>
+        <nav class="catalog-pagination" aria-label="Results pages">
+            {% if page > 1 %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', q=query, page=page-1) }}">← Previous</a>{% else %}<span class="disabled">← Previous</span>{% endif %}
+            <span>Page {{ page }}</span>
+            {% if has_next %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', q=query, page=page+1) }}">Next →</a>{% else %}<span class="disabled">Next →</span>{% endif %}
+        </nav>
+    {% else %}
+        <div class="catalog-empty">No products found. Try another search term.</div>
+    {% endif %}
+</main>
+{% endblock %}
