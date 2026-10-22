@@ -2,8 +2,8 @@
 // DRIVERS ADVANTAGE - SESSION TIMEOUT
 // ==========================================
 
-const SESSION_LIMIT = 5 * 60 * 1000;
-const WARNING_TIME = 4 * 60 * 1000;
+const SESSION_LIMIT = 30 * 1000;
+const WARNING_TIME = 15 * 1000;
 
 let lastActivity = Date.now();
 let warningVisible = false;
