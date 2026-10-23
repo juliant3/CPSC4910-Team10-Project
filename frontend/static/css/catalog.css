@@ -46,3 +46,8 @@
 .catalog-disclaimer{font-size:12px!important}
 .navbar .nav-links .active-link{background:rgba(255,255,255,.15);color:white}
 @media(max-width:800px){.catalog-item-layout{grid-template-columns:1fr}.navbar{flex-wrap:wrap;gap:14px;padding:16px 20px}.navbar .nav-links{flex-wrap:wrap}.catalog-search-row{flex-direction:column}.catalog-results-info{align-items:flex-start;flex-direction:column}.catalog-page{padding:0 14px}}
+
+.catalog-help{font-size:13px;color:var(--slate);margin:11px 0 0;line-height:1.5}
+.catalog-success{padding:16px 20px;border:1px solid #99d6b3;background:#eaf8f0;color:#146b42;margin:16px 0}
+.catalog-filter-summary{padding:14px 18px;margin:14px 0 22px;border:1px solid var(--line);background:var(--surface);color:var(--purple-900);font-size:14px}
+.catalog-filter-summary span{color:var(--slate)}

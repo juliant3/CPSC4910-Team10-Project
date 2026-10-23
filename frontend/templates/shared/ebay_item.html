@@ -5,7 +5,7 @@
 {% endblock %}
 {% block content %}
 <main class="catalog-page">
-    <a class="catalog-back" href="{{ url_for('ebay_catalog.' + role + '_catalog', q=query, page=page) }}">← Back to search results</a>
+    <a class="catalog-back" href="{{ url_for('ebay_catalog.' + role + '_catalog', page=page) }}">← Back to catalog</a>
     {% if error %}
     <div class="catalog-alert" role="alert">{{ error }}</div>
     {% elif item %}

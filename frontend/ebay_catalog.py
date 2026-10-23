@@ -1,9 +1,3 @@
-"""Live, read-only eBay catalog browsing for the Good Driver Program.
-
-Register with app.register_blueprint(catalog_bp) in frontend/app.py.
-Never sends an order or purchase request to eBay.
-"""
-
 import os
 import re
 import threading
@@ -11,7 +5,7 @@ import time
 from urllib.parse import quote
 
 import requests
-from flask import Blueprint, abort, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, redirect, render_template, request, session, url_for, flash
 
 catalog_bp = Blueprint("ebay_catalog", __name__)
 EBAY_ROOT = "https://api.ebay.com"
@@ -104,28 +98,113 @@ def _allowed_role():
     return role if role in ("driver", "sponsor") else None
 
 
-def _search_catalog(role):
+def _website_helpers():
+    # Imported only during requests because app.py registers this blueprint
+    # before declaring its database and sponsor helper functions.
+    import app as website
+    return website
+
+
+def _catalog_context(role):
+    """Find the sponsor organization, NEVER trust a sponsor_id in the URL."""
+    website = _website_helpers()
+    if role == "sponsor":
+        return website.current_sponsor_id(), None
+
+    conn = website.get_db()
+    try:
+        with conn.cursor() as cursor:
+            memberships = website.get_driver_sponsorships(cursor, session["user_id"])
+    finally:
+        conn.close()
+
+    selected = website.pick_driver_sponsorship(memberships)
+    if selected is None:
+        return None, "You don't have a sponsor yet. Your catalog will appear when you join a sponsor."
+    if selected.get("status") != "Active":
+        return None, "Only active sponsor memberships have access to their catalogs."
+    return selected["sponsor_id"], None
+
+
+def _saved_search(sponsor_id):
+    """Only the search term is stored, not a snapshot of eBay listings."""
+    conn = _website_helpers().get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT search_term FROM Sponsor_Catalog_Settings WHERE sponsor_id = %s",
+                (sponsor_id,),
+            )
+            row = cursor.fetchone()
+            return (row.get("search_term") or "") if row else ""
+    finally:
+        conn.close()
+
+
+def _save_search(sponsor_id, query):
+    conn = _website_helpers().get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO Sponsor_Catalog_Settings (sponsor_id, search_term)
+                   VALUES (%s, %s)
+                   ON DUPLICATE KEY UPDATE
+                       search_term = VALUES(search_term),
+                       updated_at = CURRENT_TIMESTAMP""",
+                (sponsor_id, query),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _get_csrf_token():
+    """Protect the sponsor's save action from cross-site requests."""
+    from secrets import token_urlsafe
+    if "catalog_csrf" not in session:
+        session["catalog_csrf"] = token_urlsafe(32)
+    return session["catalog_csrf"]
+
+
+def _authorize(role):
     actual_role = _allowed_role()
     if actual_role is None:
-        if "user_id" not in session:
-            return redirect(url_for("login"))
-        return redirect(url_for("home"))
+        return redirect(url_for("login" if "user_id" not in session else "home"))
     if actual_role != role:
         return redirect(url_for("home"))
+    return None
 
-    query = request.args.get("q", "truck accessories").strip()[:120]
+
+def _page_number():
     try:
         page = max(1, int(request.args.get("page", "1")))
-    except ValueError:
+    except (TypeError, ValueError):
         page = 1
-    page = min(page, MAX_OFFSET // PAGE_SIZE + 1)
-    offset = (page - 1) * PAGE_SIZE
-    items = []
-    total = 0
-    error = None
-    has_next = False
+    return min(page, MAX_OFFSET // PAGE_SIZE + 1)
 
-    if query:
+
+def _search_catalog(role):
+    redirect_response = _authorize(role)
+    if redirect_response is not None:
+        return redirect_response
+
+    try:
+        sponsor_id, notice = _catalog_context(role)
+        query = _saved_search(sponsor_id) if sponsor_id is not None else ""
+    except Exception:
+        # Failure to apply the SQL migration or a temporary RDS outage should
+        # display a useful message, rather than silently showing other data.
+        sponsor_id, query = None, ""
+        notice = "Catalog settings couldn't be loaded. Check the database migration and connection."
+
+    page = _page_number()
+    offset = (page - 1) * PAGE_SIZE
+    items, total, has_next, error = [], 0, False, None
+
+    if query and not notice:
         try:
             data = _ebay_get(
                 "/buy/browse/v1/item_summary/search",
@@ -158,12 +237,37 @@ def _search_catalog(role):
     return render_template(
         "shared/ebay_catalog.html", role=role, items=items, query=query,
         page=page, total=total, has_next=has_next, error=error,
+        notice=notice, saved=request.args.get("saved") == "1",
+        csrf_token=_get_csrf_token() if role == "sponsor" else None,
         first_name=session.get("first_name", ""),
     )
 
 
-@catalog_bp.route("/sponsor/catalog")
+@catalog_bp.route("/sponsor/catalog", methods=["GET", "POST"])
 def sponsor_catalog():
+    redirect_response = _authorize("sponsor")
+    if redirect_response is not None:
+        return redirect_response
+
+    if request.method == "POST":
+        from hmac import compare_digest
+        given = request.form.get("catalog_csrf", "")
+        expected = session.get("catalog_csrf", "")
+        if not expected or not compare_digest(given, expected):
+            abort(403)
+
+        query = " ".join(request.form.get("search_term", "").strip().split())
+        if not query or len(query) > 120:
+            flash("Enter a search term between 1 and 120 characters.", "error")
+            return redirect(url_for("ebay_catalog.sponsor_catalog"))
+        try:
+            sponsor_id, _ = _catalog_context("sponsor")
+            _save_search(sponsor_id, query)
+        except Exception:
+            flash("Could not save the catalog. Check the database connection and migration.", "error")
+            return redirect(url_for("ebay_catalog.sponsor_catalog"))
+        return redirect(url_for("ebay_catalog.sponsor_catalog", saved=1))
+
     return _search_catalog("sponsor")
 
 
@@ -174,29 +278,32 @@ def driver_catalog():
 
 @catalog_bp.route("/<role>/catalog/item/<path:item_id>")
 def catalog_item(role, item_id):
-    actual_role = _allowed_role()
-    if actual_role is None:
-        if "user_id" not in session:
-            return redirect(url_for("login"))
-        return redirect(url_for("home"))
-    if role not in ("driver", "sponsor") or role != actual_role:
+    redirect_response = _authorize(role)
+    if redirect_response is not None:
+        return redirect_response
+    if role not in ("driver", "sponsor"):
         abort(404)
 
-    # Avoid turning the item-details endpoint into a general-purpose HTTP proxy.
     if not re.fullmatch(r"v1\|[0-9]{6,20}\|[0-9]{1,20}", item_id):
         abort(404)
-    error = None
-    item = None
+
+    try:
+        sponsor_id, notice = _catalog_context(role)
+        query = _saved_search(sponsor_id) if sponsor_id is not None else ""
+    except Exception:
+        sponsor_id, query = None, ""
+        notice = "Catalog settings couldn't be loaded."
+
+    # No product details if the user has no applicable sponsor catalog.
+    if not query or notice:
+        return redirect(url_for("ebay_catalog." + role + "_catalog"))
+
+    error, item = None, None
     try:
         item = _ebay_get("/buy/browse/v1/item/" + quote(item_id, safe=""))
     except CatalogError as exc:
         error = str(exc)
-
-    query = request.args.get("q", "truck accessories")[:120]
-    page = request.args.get("page", "1")
-    if not page.isdigit():
-        page = "1"
     return render_template(
         "shared/ebay_item.html", role=role, item=item,
-        error=error, query=query, page=page,
+        error=error, query=query, page=str(_page_number()),
     )
