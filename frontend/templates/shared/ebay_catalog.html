@@ -9,73 +9,101 @@
         <span class="catalog-eyebrow">{{ role|upper }} · SPONSOR REWARDS CATALOG</span>
         {% if role == 'sponsor' %}
         <h1>Set your catalog</h1>
-        <p>Choose one eBay search term. All drivers viewing your sponsorship will see the matching items. To change your catalog, simply save a different search term.</p>
+        <p>Choose the types of items your drivers can redeem points for. Drivers filter between the types you pick, and prices are shown in your points.</p>
         {% else %}
         <h1>Your sponsor's catalog</h1>
-        <p>These are the live eBay listings chosen by your sponsor's saved search. Use the sponsor selector above if you belong to more than one program.</p>
+        <p>Redeem your points for items your sponsor offers. Use the sponsor selector above if you belong to more than one program.</p>
         {% endif %}
     </header>
     {% if role == 'sponsor' %}
     <form class="catalog-search" action="{{ url_for('ebay_catalog.sponsor_catalog') }}" method="post">
         <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
-        <label for="item-search">Catalog search term</label>
+        <fieldset class="catalog-types">
+            <legend>Item types in your catalog</legend>
+            {% for item_type in all_item_types %}
+            <label class="catalog-type-option">
+                <input type="checkbox" name="item_types" value="{{ item_type }}" {% if item_type in item_types %}checked{% endif %}>
+                <span>{{ item_type }}</span>
+            </label>
+            {% endfor %}
+        </fieldset>
+        <label for="custom-types">Add your own item types (optional)</label>
         <div class="catalog-search-row">
-            <input id="item-search" type="search" name="search_term" value="{{ query }}" placeholder="e.g. golf club, headphones, truck accessories" maxlength="120" required>
+            <input id="custom-types" type="text" name="custom_types" placeholder="e.g. golf clubs, sunglasses" maxlength="300">
             <button type="submit">Save catalog</button>
         </div>
-        <p class="catalog-help">Your catalog saves the search term, not individual listings. The product results and prices are refreshed from eBay.</p>
+        <p class="catalog-help">Separate your own types with commas. Your catalog saves the item types, not individual listings; products and prices are refreshed from eBay.</p>
     </form>
-    {% if saved %}<div class="catalog-success" role="status">Catalog search saved. Your drivers now see listings for <strong>{{ query }}</strong>.</div>{% endif %}
-    {% for category, message in get_flashed_messages(with_categories=true) %}
-    {% if category == 'error' %}<div class="catalog-alert" role="alert">{{ message }}</div>{% endif %}
-    {% endfor %}
+    {% if saved %}<div class="catalog-success" role="status">Catalog saved. Your drivers can now browse <strong>{{ item_types|join(', ') }}</strong>.</div>{% endif %}
     {% endif %}
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="{{ 'catalog-success' if category == 'success' else 'catalog-alert' }}" role="{{ 'status' if category == 'success' else 'alert' }}">{{ message }}</div>
+    {% endfor %}
     {% if notice %}<div class="catalog-alert" role="alert">{{ notice }}</div>{% endif %}
-    {% if not query and not notice %}
-    <div class="catalog-empty">{% if role == 'sponsor' %}Your catalog hasn't been set yet. Enter a search term above and save it.{% else %}Your sponsor hasn't created a catalog yet.{% endif %}</div>
-    {% elif query and not notice %}
-    <div class="catalog-filter-summary">Current catalog: <strong>{{ query }}</strong> <span>· Live eBay listings, 10 per page</span></div>
+    {% if not item_types and not notice %}
+    <div class="catalog-empty">{% if role == 'sponsor' %}Your catalog hasn't been set yet. Choose at least one item type above and save it.{% else %}Your sponsor hasn't created a catalog yet.{% endif %}</div>
+    {% elif item_types and not notice %}
+    <div class="catalog-toolbar">
+        <nav class="catalog-filters" aria-label="Filter by item type">
+            {% for item_type in item_types %}
+            <a href="{{ url_for('ebay_catalog.' + role + '_catalog', type=item_type) }}" class="catalog-filter{% if item_type == selected_type %} active{% endif %}"{% if item_type == selected_type %} aria-current="true"{% endif %}>{{ item_type }}</a>
+            {% endfor %}
+        </nav>
+        {% if role == 'driver' %}
+        <div class="catalog-wallet">
+            {% if driver_sponsorship %}<span><strong>{{ "{:,}".format(driver_sponsorship.points_balance or 0) }}</strong> points</span>{% endif %}
+            <a href="{{ url_for('ebay_catalog.driver_cart') }}" class="catalog-cart-link">Cart ({{ cart_count }})</a>
+        </div>
+        {% endif %}
+    </div>
     {% if error %}
     <div class="catalog-alert" role="alert">{{ error }}</div>
     {% elif items %}
         <div class="catalog-results-info">
-            <p>Showing {{ (page - 1) * 10 + 1 }}–{{ (page - 1) * 10 + items|length }} of {{ "{:,}".format(total) }} listings for <strong>{{ query }}</strong></p>
+            <p>Showing {{ (page - 1) * 10 + 1 }}–{{ (page - 1) * 10 + items|length }} of {{ "{:,}".format(total) }} listings for <strong>{{ selected_type }}</strong></p>
             <span>10 items per page</span>
         </div>
-        <section class="catalog-grid" aria-label="Search results">
+        <section class="catalog-grid" aria-label="Catalog items">
             {% for product in items %}
+            {% set details_url = url_for('ebay_catalog.catalog_item', role=role, item_id=product.id, type=selected_type, page=page) %}
             <article class="catalog-card">
-                <a href="{{ url_for('ebay_catalog.catalog_item', role=role, item_id=product.id, page=page) }}" class="catalog-image-link" aria-label="View {{ product.title }}">
+                <a href="{{ details_url }}" class="catalog-image-link" aria-label="View {{ product.title }}">
                     {% if product.image %}<img src="{{ product.image }}" alt="{{ product.title }}" loading="lazy">{% else %}<span>No image available</span>{% endif %}
                 </a>
                 <div class="catalog-card-body">
                     {% if product.category %}<div class="catalog-category">{{ product.category }}</div>{% endif %}
-                    <h2><a href="{{ url_for('ebay_catalog.catalog_item', role=role, item_id=product.id, page=page) }}">{{ product.title }}</a></h2>
+                    <h2><a href="{{ details_url }}">{{ product.title }}</a></h2>
                     {% if product.description %}
                     <p class="catalog-description">{{ product.description|striptags|truncate(145) }}</p>
                     {% else %}
                     <p class="catalog-description">Full item description available under View details.</p>
                     {% endif %}
                     {% if product.condition %}<div class="catalog-condition">Condition: {{ product.condition }}</div>{% endif %}
-                    {% if product.seller %}<div class="catalog-seller">Seller: {{ product.seller }}</div>{% endif %}
                     <div class="catalog-card-bottom">
                         <div class="catalog-price">
-                            {% if product.price %}{{ product.currency }} {{ product.price }}{% else %}Price unavailable{% endif %}
-                            {% if product.shipping == '0.00' %}<small>Free listed shipping</small>{% endif %}
+                            {% if product.points is not none %}{{ "{:,}".format(product.points) }} pts{% else %}Price unavailable{% endif %}
+                            {% if product.shipping == '0.00' %}<small>Free shipping</small>{% endif %}
                         </div>
-                        <a class="catalog-details" href="{{ url_for('ebay_catalog.catalog_item', role=role, item_id=product.id, page=page) }}">View details →</a>
+                        <a class="catalog-details" href="{{ details_url }}">View details →</a>
                     </div>
+                    {% if role == 'driver' and product.points is not none %}
+                    <form action="{{ url_for('ebay_catalog.add_to_cart') }}" method="post">
+                        <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
+                        <input type="hidden" name="item_id" value="{{ product.id }}">
+                        <button type="submit" class="catalog-add">Add to cart</button>
+                    </form>
+                    {% endif %}
                 </div>
             </article>
             {% endfor %}
         </section>
         <nav class="catalog-pagination" aria-label="Results pages">
-            {% if page > 1 %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', page=page-1) }}">← Previous</a>{% else %}<span class="disabled">← Previous</span>{% endif %}
+            {% if page > 1 %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', type=selected_type, page=page-1) }}">← Previous</a>{% else %}<span class="disabled">← Previous</span>{% endif %}
             <span>Page {{ page }}</span>
-            {% if has_next %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', page=page+1) }}">Next →</a>{% else %}<span class="disabled">Next →</span>{% endif %}
+            {% if has_next %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', type=selected_type, page=page+1) }}">Next →</a>{% else %}<span class="disabled">Next →</span>{% endif %}
         </nav>
     {% else %}
-        <div class="catalog-empty">No products found. Try another search term.</div>
+        <div class="catalog-empty">No products found for {{ selected_type }}.</div>
     {% endif %}
     {% endif %}
 </main>

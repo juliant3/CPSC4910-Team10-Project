@@ -406,3 +406,29 @@ SELECT * FROM (
 ON DUPLICATE KEY UPDATE
     status = src.status,
     points_balance = src.points_balance;
+
+
+-- Catalog item types (2026-10-25)
+-- Each sponsor picks the types of items in its catalog (e.g. Hats, Cars);
+-- drivers filter between them. Replaces the single search term in
+-- Sponsor_Catalog_Settings.
+CREATE TABLE IF NOT EXISTS Sponsor_Catalog_Types (
+    sponsor_id INT NOT NULL,
+    item_type VARCHAR(60) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (sponsor_id, item_type),
+    FOREIGN KEY (sponsor_id)
+        REFERENCES Sponsors(sponsor_id)
+        ON DELETE CASCADE
+);
+
+-- Keep each sponsor's old saved search as its first item type.
+-- Skip this if your database never had Sponsor_Catalog_Settings.
+INSERT IGNORE INTO Sponsor_Catalog_Types (sponsor_id, item_type)
+SELECT sponsor_id, LEFT(TRIM(search_term), 60)
+FROM Sponsor_Catalog_Settings
+WHERE TRIM(COALESCE(search_term, '')) <> '';
+
+-- Catalog purchases use the existing Products, Orders and Order_Items tables:
+-- the driver pays in points (Driver_Sponsors.points_balance) and nothing is
+-- ordered from eBay.

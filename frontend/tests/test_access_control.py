@@ -25,6 +25,7 @@ DRIVER_PAGES = [
     "/driver/profile/edit",
     "/driver/sponsors",
     "/driver/catalog",
+    "/driver/cart",
 ]
 
 ADMIN_PAGES = [
@@ -47,6 +48,9 @@ ADMIN_ACTIONS = [
 
 DRIVER_ACTIONS = [
     "/driver/switch-sponsor",
+    "/driver/cart/add",
+    "/driver/cart/remove",
+    "/driver/cart/checkout",
 ]
 
 ALL_PAGES = SPONSOR_PAGES + DRIVER_PAGES + ADMIN_PAGES
