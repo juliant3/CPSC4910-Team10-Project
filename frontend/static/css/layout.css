@@ -1501,3 +1501,40 @@ h1, h2, h3 {
         height: 36px;
     }
 }
+
+.assume-driver-banner {
+    background: #fff3cd;
+    color: #664d03;
+    border-bottom: 1px solid #ffecb5;
+    padding: 12px 24px;
+}
+
+.assume-driver-banner-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.assume-driver-banner-inner > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.assume-driver-banner-inner strong {
+    font-weight: 700;
+}
+
+.assume-driver-banner-inner form {
+    flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+    .assume-driver-banner-inner {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

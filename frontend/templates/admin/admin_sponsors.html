@@ -1,0 +1,55 @@
+
+{% extends "shared/base.html" %}
+
+{% block title %}Sponsors{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">Admin</span>
+            <h1>Sponsors</h1>
+            <p>View sponsor accounts for troubleshooting.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ sponsors|length }} sponsor{{ 's' if sponsors|length != 1 }}</h2>
+        </div>
+
+        {% if sponsors %}
+        <ul class="row-list">
+            {% for sponsor in sponsors %}
+            <li class="row-item">
+                <div class="row-main">
+                    <div class="row-link">
+                        <span class="avatar">
+                            {{ (sponsor.company_name or '?')[:1]|upper }}
+                        </span>
+                        <span class="row-text">
+                            <p class="row-title">{{ sponsor.company_name }}</p>
+                            <p class="row-sub">Sponsor ID: {{ sponsor.sponsor_id }}</p>
+                        </span>
+                    </div>
+
+                    <form method="POST"
+                          action="{{ url_for('admin_assume_sponsor', sponsor_id=sponsor.sponsor_id) }}"
+                          onsubmit="return confirm('Open this sponsor account in read-only support mode?');">
+                        <button type="submit" class="btn btn-secondary btn-sm">
+                            Assume sponsor
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">
+            <h3>No sponsors found</h3>
+            <p>There are no sponsor accounts to display.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

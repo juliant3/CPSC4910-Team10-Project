@@ -1,144 +1,438 @@
+
 {% extends "shared/base.html" %}
 
-{% block title %}Drivers{% endblock %}
+{% block title %}Manage Drivers{% endblock %}
+
+{% block head %}
+<style>
+    .drivers-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 28px 20px 48px;
+    }
+
+    .drivers-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .drivers-header h1 {
+        margin: 0 0 8px;
+        font-size: 1.9rem;
+    }
+
+    .drivers-header p {
+        margin: 0;
+        color: var(--text-secondary, #64748b);
+    }
+
+    .drivers-count {
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 12px;
+        padding: 14px 18px;
+        min-width: 120px;
+        background: var(--surface, #fff);
+    }
+
+    .drivers-count strong {
+        display: block;
+        font-size: 1.5rem;
+    }
+
+    .drivers-count span {
+        color: var(--text-secondary, #64748b);
+        font-size: .85rem;
+    }
+
+    .drivers-toolbar {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: end;
+        margin-bottom: 20px;
+        padding: 18px;
+        background: var(--surface, #fff);
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 12px;
+    }
+
+    .drivers-toolbar .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+        min-width: 170px;
+    }
+
+    .drivers-toolbar label,
+    .points-form label {
+        font-size: .85rem;
+        font-weight: 600;
+    }
+
+    .drivers-toolbar input,
+    .drivers-toolbar select,
+    .points-form input,
+    .points-form select {
+        width: 100%;
+        min-height: 40px;
+        padding: 8px 10px;
+        border: 1px solid var(--border, #cbd5e1);
+        border-radius: 8px;
+        background: var(--surface, #fff);
+        color: inherit;
+        box-sizing: border-box;
+    }
+
+    .drivers-table-wrap {
+        overflow-x: auto;
+        background: var(--surface, #fff);
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 12px;
+    }
+
+    .drivers-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 850px;
+    }
+
+    .drivers-table th,
+    .drivers-table td {
+        padding: 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border, #e2e8f0);
+        vertical-align: middle;
+    }
+
+    .drivers-table th {
+        background: var(--surface-secondary, #f8fafc);
+        font-size: .78rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: var(--text-secondary, #64748b);
+    }
+
+    .drivers-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .driver-name {
+        font-weight: 650;
+        margin-bottom: 4px;
+    }
+
+    .driver-email {
+        font-size: .85rem;
+        color: var(--text-secondary, #64748b);
+        overflow-wrap: anywhere;
+    }
+
+    .points-balance {
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .driver-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .driver-actions form {
+        margin: 0;
+    }
+
+    .points-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: end;
+        min-width: 230px;
+    }
+
+    .points-form .field {
+        width: 90px;
+    }
+
+    .points-form .field.reason {
+        width: 130px;
+        flex: 1;
+    }
+
+    .assume-driver-button {
+        background: #fff7ed;
+        color: #9a3412;
+        border: 1px solid #fed7aa;
+    }
+
+    .assume-driver-button:hover {
+        background: #ffedd5;
+    }
+
+    .empty-state {
+        padding: 48px 20px;
+        text-align: center;
+        color: var(--text-secondary, #64748b);
+    }
+
+    .empty-state h2 {
+        color: inherit;
+        font-size: 1.1rem;
+    }
+
+    .muted {
+        color: var(--text-secondary, #64748b);
+        font-size: .85rem;
+    }
+
+    @media (max-width: 640px) {
+        .drivers-page {
+            padding: 20px 12px 36px;
+        }
+
+        .drivers-header h1 {
+            font-size: 1.55rem;
+        }
+
+        .drivers-toolbar {
+            padding: 12px;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
+<div class="drivers-page">
 
-<div class="page">
-
-    <div class="page-header">
+    <header class="drivers-header">
         <div>
-            <span class="eyebrow">Sponsor</span>
-            <h1>Drivers</h1>
-            <p>Drivers currently associated with your sponsorship.</p>
+            <h1>Manage Drivers</h1>
+            <p>View your drivers, manage points, and troubleshoot their experience.</p>
         </div>
-        <div class="page-actions">
-            <a href="{{ url_for('sponsor_recurring') }}" class="btn btn-secondary">Recurring Points</a>
-            <a href="{{ url_for('sponsor_applications') }}" class="btn btn-primary">Invite a Driver</a>
+
+        <div class="drivers-count">
+            <strong>{{ drivers|length }}</strong>
+            <span>Drivers displayed</span>
         </div>
-    </div>
+    </header>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}
-        <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
-        {% endfor %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message {{ category }}" role="status">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
     {% endwith %}
 
-    <div class="card">
+    <form method="GET" action="{{ url_for('sponsor_drivers') }}"
+          class="drivers-toolbar">
 
-        <div class="card-header">
-            <div>
-                <h2>{{ drivers|length }} driver{{ 's' if drivers|length != 1 }}</h2>
-            </div>
-
-            <form method="GET" action="{{ url_for('sponsor_drivers') }}" class="toolbar">
-                <input type="search" name="search" class="input" placeholder="Search by name…" aria-label="Search drivers by name"
-                       value="{{ search or '' }}" style="min-width: 200px;">
-                <select name="sort" class="input" aria-label="Sort by">
-                    <option value="name"{% if sort_key == 'name' %} selected{% endif %}>Sort: Name</option>
-                    <option value="points_high"{% if sort_key == 'points_high' %} selected{% endif %}>Sort: Points high → low</option>
-                    <option value="points_low"{% if sort_key == 'points_low' %} selected{% endif %}>Sort: Points low → high</option>
-                </select>
-                <input type="number" name="min_points" class="input" placeholder="Min points" aria-label="Minimum points"
-                       value="{{ min_points if min_points is not none else '' }}" style="width: 120px; min-width: 0;">
-                <input type="number" name="max_points" class="input" placeholder="Max points" aria-label="Maximum points"
-                       value="{{ max_points if max_points is not none else '' }}" style="width: 120px; min-width: 0;">
-                <button type="submit" class="btn btn-secondary">Search</button>
-                {% if search or sort_key != 'name' or min_points is not none or max_points is not none %}
-                    <a href="{{ url_for('sponsor_drivers') }}" class="btn btn-sm" style="color: var(--slate);">Reset</a>
-                {% endif %}
-            </form>
+        <div class="field">
+            <label for="driver-search">Search drivers</label>
+            <input
+                type="search"
+                id="driver-search"
+                name="search"
+                value="{{ request.args.get('search', '') }}"
+                placeholder="Name or email"
+            >
         </div>
 
+        <div class="field">
+            <label for="driver-sort">Sort by</label>
+            <select id="driver-sort" name="sort">
+                <option value="name"
+                    {{ 'selected' if request.args.get('sort', 'name') == 'name' }}>
+                    Name
+                </option>
+                <option value="points"
+                    {{ 'selected' if request.args.get('sort') == 'points' }}>
+                    Points balance
+                </option>
+                <option value="recent"
+                    {{ 'selected' if request.args.get('sort') == 'recent' }}>
+                    Recently added
+                </option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Apply filters
+        </button>
+
+        <a href="{{ url_for('sponsor_drivers') }}"
+           class="btn btn-secondary">
+            Clear
+        </a>
+    </form>
+
+    <div class="drivers-table-wrap">
         {% if drivers %}
+            <table class="drivers-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Driver</th>
+                        <th scope="col">Points balance</th>
+                        <th scope="col">Driver profile</th>
+                        <th scope="col">Adjust points</th>
+                        <th scope="col">Support</th>
+                    </tr>
+                </thead>
 
-        <ul class="row-list">
-            {% for driver in drivers %}
-            {% set status = (driver.status or '')|lower %}
-            <li class="row-item is-clickable">
+                <tbody>
+                    {% for driver in drivers %}
+                        <tr>
+                            <td>
+                                <div class="driver-name">
+                                    {{ driver.first_name }}
+                                    {{ driver.last_name or '' }}
+                                </div>
+                                <div class="driver-email">
+                                    {{ driver.email or '' }}
+                                </div>
+                            </td>
 
-                <div class="row-main">
+                            <td>
+                                <span class="points-balance">
+                                    {{ "{:,}".format(driver.points_balance|default(0)|int) }}
+                                    pts
+                                </span>
+                            </td>
 
-                    <a href="{{ url_for('sponsor_driver_profile', driver_id=driver.driver_id) }}" class="row-link">
-                        <span class="avatar">{{ (driver.first_name or '?')[:1]|upper }}{{ (driver.last_name or '')[:1]|upper }}</span>
-                        <span class="row-text">
-                            <p class="row-title">{{ driver.first_name }} {{ driver.last_name }}</p>
-                            <p class="row-sub">{{ driver.email }}</p>
-                        </span>
-                    </a>
+                            <td>
+                                <div class="driver-actions">
+                                    <a
+                                        class="btn btn-secondary btn-sm"
+                                        href="{{ url_for(
+                                            'sponsor_driver_profile',
+                                            driver_id=driver.driver_id
+                                        ) }}"
+                                    >
+                                        View profile
+                                    </a>
 
-                    <span class="badge {{ 'badge-success' if status == 'active' else 'badge-warn' if status == 'pending' else 'badge-neutral' }}">
-                        {{ driver.status }}
-                    </span>
+                                    <a
+                                        class="btn btn-secondary btn-sm"
+                                        href="{{ url_for(
+                                            'sponsor_edit_driver',
+                                            driver_id=driver.driver_id
+                                        ) }}"
+                                    >
+                                        Edit
+                                    </a>
+                                </div>
+                            </td>
 
-                    <div class="row-meta">
-                        <span class="row-meta-label">Points</span>
-                        <span class="row-meta-value">{{ driver.points_balance or 0 }}</span>
-                    </div>
+                            <td>
+                                <form
+                                    method="POST"
+                                    action="{{ url_for(
+                                        'change_driver_points',
+                                        driver_id=driver.driver_id
+                                    ) }}"
+                                    class="points-form"
+                                >
+                                    {% if csrf_token is defined %}
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+                                    {% endif %}
 
-                    <div class="row-actions">
-                        <button type="button" class="btn btn-secondary btn-sm"
-                                aria-expanded="false"
-                                aria-controls="adjust-{{ driver.driver_id }}"
-                                onclick="toggleAdjust(this)">
-                            Adjust Points
-                        </button>
-                        <a href="{{ url_for('sponsor_driver_profile', driver_id=driver.driver_id) }}"
-                           class="btn btn-primary btn-sm">
-                            View Profile
-                        </a>
-                    </div>
+                                    <div class="field">
+                                        <label for="points-{{ driver.driver_id }}">
+                                            Points (+/-)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            id="points-{{ driver.driver_id }}"
+                                            name="points_change"
+                                            step="1"
+                                            required
+                                            placeholder="e.g. 50"
+                                        >
+                                    </div>
 
-                </div>
+                                    <div class="field reason">
+                                        <label for="reason-{{ driver.driver_id }}">
+                                            Reason
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="reason-{{ driver.driver_id }}"
+                                            name="reason"
+                                            maxlength="255"
+                                            required
+                                            placeholder="Reason"
+                                        >
+                                    </div>
 
-                <div class="inline-panel" id="adjust-{{ driver.driver_id }}" hidden>
-                    <form method="POST"
-                          action="{{ url_for('change_driver_points', driver_id=driver.driver_id) }}"
-                          class="toolbar">
-                        <input type="number" name="amount" min="1" placeholder="Points" required
-                               class="input" style="width: 110px; min-width: 0;" aria-label="Points">
-                        <input type="text" name="reason" maxlength="255" placeholder="Reason (required)" required
-                               class="input" style="flex: 1; min-width: 200px;" aria-label="Reason">
-                        <button type="submit" name="action" value="add" class="btn btn-success">Add</button>
-                        <button type="submit" name="action" value="deduct" class="btn btn-danger">Deduct</button>
-                    </form>
-                </div>
+                                    <button type="submit"
+                                            class="btn btn-primary btn-sm"
+                                            onclick="return confirm('Apply this points adjustment?');">
+                                        Update
+                                    </button>
+                                </form>
+                            </td>
 
-            </li>
-            {% endfor %}
-        </ul>
+                            <td>
+                                <form
+                                    method="POST"
+                                    action="{{ url_for(
+                                        'sponsor_assume_driver',
+                                        driver_id=driver.driver_id
+                                    ) }}"
+                                    onsubmit="return confirm(
+                                        'View this driver account in read-only support mode?'
+                                    );"
+                                >
+                                    {% if csrf_token is defined %}
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="{{ csrf_token() }}"
+                                        >
+                                    {% endif %}
 
+                                    <button
+                                        type="submit"
+                                        class="btn btn-sm assume-driver-button"
+                                    >
+                                        Assume driver
+                                    </button>
+                                </form>
+
+                                <p class="muted">
+                                    Read-only support view
+                                </p>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         {% else %}
-
-        <div class="empty-state">
-            {% if search %}
-                <h3>No drivers match "{{ search }}"</h3>
-                <p><a href="{{ url_for('sponsor_drivers') }}">Clear search</a></p>
-            {% elif min_points is not none or max_points is not none %}
-                <h3>No drivers match these filters</h3>
-                <p><a href="{{ url_for('sponsor_drivers') }}">Clear filters</a></p>
-            {% else %}
-                <h3>No drivers yet</h3>
-                <p>You don't currently have any drivers associated with your sponsorship.</p>
-                <a href="{{ url_for('sponsor_applications') }}" class="btn btn-primary">Invite a Driver</a>
-            {% endif %}
-        </div>
-
+            <div class="empty-state">
+                <h2>No drivers found</h2>
+                <p>
+                    No drivers match your search, or no drivers have joined
+                    your sponsor program yet.
+                </p>
+                <a href="{{ url_for('sponsor_drivers') }}"
+                   class="btn btn-secondary">
+                    View all drivers
+                </a>
+            </div>
         {% endif %}
-
     </div>
 
 </div>
-
-<script>
-function toggleAdjust(button) {
-    const panel = document.getElementById(button.getAttribute('aria-controls'));
-    const open = panel.hidden;
-    panel.hidden = !open;
-    button.setAttribute('aria-expanded', open);
-    button.textContent = open ? 'Cancel' : 'Adjust Points';
-    if (open) panel.querySelector('input').focus();
-}
-</script>
-
 {% endblock %}

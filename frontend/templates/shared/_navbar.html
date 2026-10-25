@@ -1,16 +1,16 @@
-{#
-    One navbar for every page. Links depend only on the logged-in role,
-    so they stay the same no matter which page you're on.
-    Each link is (label, endpoint, [other endpoints that should highlight it]).
-#}
+
+{# Shared navigation for admins, sponsors, and drivers. #}
 {% set role_key = (session.get('role') or '')|lower %}
+{% set assumed_driver = session.get('assumed_driver_id') is not none %}
+{% set assumed_sponsor = session.get('assumed_sponsor_id') is not none %}
+{% set support_mode = assumed_driver or assumed_sponsor %}
 
 {% if role_key == 'sponsor' %}
     {% set nav_items = [
         ('Dashboard', 'sponsor_dashboard', ['home', 'sponsor_team']),
         ('Drivers', 'sponsor_drivers', ['sponsor_driver_profile', 'sponsor_edit_driver', 'sponsor_recurring']),
         ('Applications', 'sponsor_applications', []),
-        ('Catalog', 'ebay_catalog.sponsor_catalog', ['ebay_catalog.catalog_item']),
+        ('Catalog', 'ebay_catalog.sponsor_catalog', ['ebay_catalog.catalog_item'])
     ] %}
 {% elif role_key == 'driver' %}
     {% set nav_items = [
@@ -18,20 +18,20 @@
         ('My Points', 'driver_points', []),
         ('Catalog', 'ebay_catalog.driver_catalog', ['ebay_catalog.catalog_item']),
         ('Sponsors', 'driver_sponsors', []),
-        ('My Profile', 'driver_profile', ['driver_edit_profile']),
+        ('My Profile', 'driver_profile', ['driver_edit_profile'])
     ] %}
 {% elif role_key == 'admin' %}
     {% set nav_items = [
         ('Dashboard', 'home', []),
+        ('Sponsors', 'admin_sponsors', []),
         ('Driver Applications', 'admin_pending_applications', []),
-        ('Sponsor Requests', 'admin_sponsor_requests', []),
+        ('Sponsor Requests', 'admin_sponsor_requests', [])
     ] %}
 {% else %}
     {% set nav_items = [] %}
 {% endif %}
 
 {% if session.get('user_id') %}
-
 <header class="site-header">
     <div class="site-header-inner">
 
@@ -40,21 +40,23 @@
             <span class="brand-name">Good Driver Program</span>
         </a>
 
-        <nav class="primary-nav" aria-label="Main">
+        <nav class="primary-nav" aria-label="Main navigation">
             {% for label, endpoint, also in nav_items %}
                 <a href="{{ url_for(endpoint) }}"
-                   class="{{ 'active' if request.endpoint == endpoint or request.endpoint in also }}">
+                   class="{{ 'active' if request.endpoint == endpoint or request.endpoint in also else '' }}">
                     {{ label }}
                 </a>
             {% endfor %}
+
             <a href="{{ url_for('about') }}"
-               class="{{ 'active' if request.endpoint == 'about' }}">
+               class="{{ 'active' if request.endpoint == 'about' else '' }}">
                 About
             </a>
         </nav>
 
         <div class="header-actions">
 
+            {% if not support_mode %}
             <div class="notif-menu" id="notif-menu">
                 <button type="button"
                         class="icon-button"
@@ -66,28 +68,39 @@
                         aria-label="Notifications{% if unread_count %} ({{ unread_count }} unread){% endif %}"
                         data-unread="{{ unread_count or 0 }}"
                         data-mark-read-url="{{ url_for('mark_notifications_read') }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="1.8"
+                         stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
                         <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
                         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                     </svg>
+
                     {% if unread_count and unread_count > 0 %}
-                        <span class="notif-count">{{ unread_count if unread_count < 100 else '99+' }}</span>
+                        <span class="notif-count">
+                            {{ unread_count if unread_count < 100 else '99+' }}
+                        </span>
                     {% endif %}
                 </button>
 
-                <div class="notif-panel" id="notif-panel" role="region" aria-label="Notifications" hidden>
+                <div class="notif-panel" id="notif-panel"
+                     role="region" aria-label="Notifications" hidden>
                     <div class="notif-panel-header">
                         <span>Notifications</span>
-                        {% if unread_count %}<span class="badge badge-accent">{{ unread_count }} new</span>{% endif %}
+                        {% if unread_count %}
+                            <span class="badge badge-accent">{{ unread_count }} new</span>
+                        {% endif %}
                     </div>
 
                     {% if recent_notifications %}
                     <ul class="notif-list">
                         {% for n in recent_notifications %}
-                        <li class="notif-item {{ 'unread' if not n.is_read }}">
+                        <li class="notif-item {{ 'unread' if not n.is_read else '' }}">
                             <p class="notif-subject">{{ n.subject }}</p>
                             <p class="notif-message">{{ n.message }}</p>
-                            <p class="notif-time">{{ (n.created_at|local).strftime('%b %d, %Y · %I:%M %p') if n.created_at else '' }}</p>
+                            <p class="notif-time">
+                                {{ (n.created_at|local).strftime('%b %d, %Y · %I:%M %p') if n.created_at else '' }}
+                            </p>
                         </li>
                         {% endfor %}
                     </ul>
@@ -96,6 +109,7 @@
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
 
             <div class="user-chip">
                 <span class="user-avatar">
@@ -103,43 +117,82 @@
                 </span>
                 <span class="user-meta">
                     <span class="user-name">
-                        {{ session.get('first_name') }} {{ session.get('last_name') or '' }}
+                        {{ session.get('first_name') or '' }} {{ session.get('last_name') or '' }}
                     </span>
-                    <span class="user-role">{{ session.get('role') }}</span>
+                    <span class="user-role">
+                        {{ 'Admin' if assumed_sponsor else ('Sponsor' if assumed_driver else role_key|title) }}
+                    </span>
                 </span>
             </div>
 
+            {% if not support_mode %}
             <a href="{{ url_for('logout') }}"
                class="logout-link"
                onclick="return confirm('Are you sure you want to log out?');">
                 Log Out
             </a>
-
+            {% endif %}
         </div>
-
     </div>
 </header>
 
-{# Drivers with more than one sponsor choose whose points/history they see. #}
-{% if role_key == 'driver' and driver_sponsorships and driver_sponsorships|length > 1 %}
+{# Persistent banner when an admin is viewing a sponsor account. #}
+{% if assumed_sponsor %}
+<div class="support-mode-banner">
+    <div class="support-mode-message">
+        <strong>Read-only support mode</strong>
+        <span>Viewing sponsor: {{ session.get('assumed_sponsor_name', 'Sponsor') }}</span>
+    </div>
+    <form method="POST" action="{{ url_for('admin_exit_assumed_sponsor') }}">
+        <button type="submit" class="btn btn-secondary btn-sm">
+            Exit sponsor view
+        </button>
+    </form>
+</div>
+
+{# Persistent banner when a sponsor is viewing a driver account. #}
+{% elif assumed_driver %}
+<div class="support-mode-banner">
+    <div class="support-mode-message">
+        <strong>Read-only support mode</strong>
+        <span>Viewing driver: {{ session.get('assumed_driver_name', 'Driver') }}</span>
+    </div>
+    <form method="POST" action="{{ url_for('sponsor_exit_assumed_driver') }}">
+        <button type="submit" class="btn btn-secondary btn-sm">
+            Exit driver view
+        </button>
+    </form>
+</div>
+{% endif %}
+
+{# Driver sponsor switcher is disabled during support sessions. #}
+{% if not support_mode and role_key == 'driver'
+      and driver_sponsorships and driver_sponsorships|length > 1 %}
 <div class="context-bar">
-    <form method="POST" action="{{ url_for('switch_driver_sponsor') }}" class="context-bar-inner">
+    <form method="POST"
+          action="{{ url_for('switch_driver_sponsor') }}"
+          class="context-bar-inner">
         <label for="sponsor-switch">Viewing sponsor</label>
-        <select id="sponsor-switch" name="sponsor_id" class="input" onchange="this.form.submit()">
+        <select id="sponsor-switch" name="sponsor_id"
+                class="input" onchange="this.form.submit()">
             {% for sp in driver_sponsorships %}
-            <option value="{{ sp.sponsor_id }}" {{ 'selected' if driver_sponsorship and sp.sponsor_id == driver_sponsorship.sponsor_id }}>
+            <option value="{{ sp.sponsor_id }}"
+                {{ 'selected' if driver_sponsorship and sp.sponsor_id == driver_sponsorship.sponsor_id else '' }}>
                 {{ sp.company_name }} ({{ "{:,}".format(sp.points_balance) }} pts)
             </option>
             {% endfor %}
         </select>
-        <noscript><button type="submit" class="btn btn-secondary btn-sm">Switch</button></noscript>
-        <span class="context-bar-note">Points are kept separately for each sponsor.</span>
+        <noscript>
+            <button type="submit" class="btn btn-secondary btn-sm">Switch</button>
+        </noscript>
+        <span class="context-bar-note">
+            Points are kept separately for each sponsor.
+        </span>
     </form>
 </div>
 {% endif %}
 
 {% elif request.endpoint == 'about' %}
-
 <header class="site-header">
     <div class="site-header-inner">
         <a href="{{ url_for('login') }}" class="brand">
@@ -151,5 +204,35 @@
         </div>
     </div>
 </header>
-
 {% endif %}
+
+<style>
+.support-mode-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 12px 5%;
+    background: #fff4e5;
+    border-bottom: 1px solid #f0d2a8;
+    color: #633c08;
+}
+
+.support-mode-message {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.support-mode-banner form {
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .support-mode-banner {
+        padding: 12px 16px;
+    }
+}
+</style>

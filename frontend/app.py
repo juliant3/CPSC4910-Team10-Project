@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort
 import pymysql
 import os
 import hashlib
@@ -3577,6 +3577,263 @@ def register():
     # and sponsor teammates are invited from the Team page.
     return redirect(url_for("sponsor_request"))
 
+# Add these imports if they are not already present.
+from flask import request, session, redirect, url_for, flash
+
+
+@app.route("/sponsor/assume-driver/<int:driver_id>", methods=["POST"])
+def sponsor_assume_driver(driver_id):
+    """Temporarily view a driver account from a sponsor's perspective."""
+
+    # Only authenticated sponsors may start this mode.
+    if not session.get("user_id") or (session.get("role") or "").lower() != "sponsor":
+        return "Forbidden", 403
+
+    # Prevent nested assume-driver sessions.
+    if session.get("assumed_driver_id"):
+        return "You are already viewing a driver.", 400
+
+    sponsor_user_id = session["user_id"]
+    preferred_sponsor_id = session.get("sponsor_id")
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # Verify that the logged-in user belongs to this sponsor.
+            cursor.execute(
+                """
+                SELECT sponsor_id
+                FROM Sponsor_Users
+                WHERE user_id = %s
+                  AND (%s IS NULL OR sponsor_id = %s)
+                LIMIT 1
+                """,
+                (sponsor_user_id, preferred_sponsor_id, preferred_sponsor_id),
+            )
+            sponsor_row = cursor.fetchone()
+
+            if not sponsor_row:
+                return "Your account is not associated with a sponsor.", 403
+
+            sponsor_id = sponsor_row["sponsor_id"]
+
+            # Verify the driver is associated with this sponsor.
+            # Do not trust the driver_id supplied by the browser by itself.
+            cursor.execute(
+                """
+                SELECT
+                    d.driver_id,
+                    d.user_id,
+                    u.first_name,
+                    u.last_name
+                FROM Drivers AS d
+                JOIN Users AS u ON u.user_id = d.user_id
+                JOIN Driver_Sponsors AS ds ON ds.driver_id = d.driver_id
+                WHERE d.driver_id = %s
+                  AND ds.sponsor_id = %s
+                LIMIT 1
+                """,
+                (driver_id, sponsor_id),
+            )
+            driver = cursor.fetchone()
+
+            if not driver:
+                return "That driver is not associated with your sponsor.", 404
+
+    finally:
+        conn.close()
+
+    # Preserve the sponsor's complete original session so we can restore it.
+    original_session = dict(session)
+
+    # Switch the active session to the driver's identity.
+    # Existing driver routes can now use their usual session fields.
+    session["role"] = "driver"
+    session["user_id"] = driver["user_id"]
+    session["driver_id"] = driver["driver_id"]
+    session["driver_sponsor_id"] = sponsor_id
+    session["first_name"] = driver["first_name"]
+    session["last_name"] = driver["last_name"] or ""
+
+    # Keep explicit support-mode metadata for the banner and safety checks.
+    session["_assume_driver_original"] = original_session
+    session["assumed_driver_id"] = driver["driver_id"]
+    session["assumed_driver_name"] = (
+        f"{driver['first_name']} {driver['last_name'] or ''}".strip()
+    )
+    session["assumed_sponsor_id"] = sponsor_id
+
+    flash(
+        f"Now viewing {session['assumed_driver_name']}'s account in read-only mode.",
+        "info",
+    )
+    return redirect(url_for("driver_dashboard"))
+
+
+@app.route("/sponsor/exit-assumed-driver", methods=["POST"])
+def sponsor_exit_assumed_driver():
+    """Restore the sponsor's original session."""
+
+    original_session = session.get("_assume_driver_original")
+
+    if not original_session:
+        return "No assumed-driver session is active.", 400
+
+    # Restore the original sponsor identity and all of its session values.
+    session.clear()
+    session.update(original_session)
+
+    flash("You have returned to your sponsor account.", "success")
+    return redirect(url_for("sponsor_drivers"))
+
+@app.before_request
+def enforce_assumed_driver_read_only():
+    if not session.get("assumed_driver_id"):
+        return None
+
+    # The one operation allowed to end support mode.
+    if request.endpoint == "sponsor_exit_assumed_driver":
+        return None
+
+    # Preserve the existing session keep-alive endpoint.
+    # This endpoint should only refresh session activity, not alter account data.
+    if request.path == "/session/keep-alive":
+        return None
+
+    # Block POST, PUT, PATCH and DELETE requests during support mode.
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        return (
+            "This is a read-only support session. Exit driver view to make changes.",
+            403,
+        )
+
+    return None
+
+
+@app.route("/admin/assume-sponsor/<int:sponsor_id>", methods=["POST"])
+def admin_assume_sponsor(sponsor_id):
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    # Do not allow nested account switching.
+    if session.get("assumed_driver_id") or session.get("assumed_sponsor_id"):
+        abort(400, description="Exit the current support view first.")
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # Verify the sponsor exists and find a user belonging to it.
+            cursor.execute(
+                """
+                SELECT
+                    s.sponsor_id,
+                    s.company_name,
+                    su.user_id,
+                    u.first_name,
+                    u.last_name
+                FROM Sponsors AS s
+                JOIN Sponsor_Users AS su
+                    ON su.sponsor_id = s.sponsor_id
+                JOIN Users AS u
+                    ON u.user_id = su.user_id
+                WHERE s.sponsor_id = %s
+                ORDER BY su.user_id
+                LIMIT 1
+                """,
+                (sponsor_id,),
+            )
+            sponsor = cursor.fetchone()
+    finally:
+        conn.close()
+
+    if not sponsor:
+        abort(404, description="Sponsor or associated sponsor user not found.")
+
+    # Preserve the original admin session so it can be restored on exit.
+    session["_assume_sponsor_original"] = dict(session)
+
+    session["user_id"] = sponsor["user_id"]
+    session["role"] = "sponsor"
+    session["sponsor_id"] = sponsor["sponsor_id"]
+    session["first_name"] = sponsor["first_name"]
+    session["last_name"] = sponsor["last_name"] or ""
+
+    # Marker used by the navbar and read-only protection.
+    session["assumed_sponsor_id"] = sponsor["sponsor_id"]
+    session["assumed_sponsor_name"] = sponsor["company_name"]
+
+    flash(
+        f"Now viewing {sponsor['company_name']} in read-only support mode.",
+        "info",
+    )
+    return redirect(url_for("sponsor_dashboard"))
+
+
+@app.route("/admin/exit-assumed-sponsor", methods=["POST"])
+def admin_exit_assumed_sponsor():
+    original = session.get("_assume_sponsor_original")
+
+    if not original or not session.get("assumed_sponsor_id"):
+        abort(400, description="No assumed-sponsor session is active.")
+
+    session.clear()
+    session.update(original)
+
+    flash("Returned to your admin account.", "success")
+    return redirect(url_for("home"))
+
+
+@app.route("/admin/sponsors")
+def admin_sponsors():
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT sponsor_id, company_name
+                FROM Sponsors
+                ORDER BY company_name
+                """
+            )
+            sponsors = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return render_template("admin/admin_sponsors.html", sponsors=sponsors)
+
+
+@app.before_request
+def enforce_assumed_account_read_only():
+    assumed_driver = session.get("assumed_driver_id") is not None
+    assumed_sponsor = session.get("assumed_sponsor_id") is not None
+
+    if not assumed_driver and not assumed_sponsor:
+        return None
+
+    allowed_exit_endpoints = {
+        "sponsor_exit_assumed_driver",
+        "admin_exit_assumed_sponsor",
+    }
+
+    if request.endpoint in allowed_exit_endpoints:
+        return None
+
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        abort(
+            403,
+            description="This support session is read-only. Exit the assumed account to make changes.",
+        )
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)
-

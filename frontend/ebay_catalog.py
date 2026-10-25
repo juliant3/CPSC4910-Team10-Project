@@ -1,10 +1,14 @@
 import os
 import re
+import base64
+import json
+import socket
 import threading
 import time
-from urllib.parse import quote
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urlencode
+from urllib.request import Request, urlopen
 
-import requests
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for, flash
 
 catalog_bp = Blueprint("ebay_catalog", __name__)
@@ -23,6 +27,43 @@ _cached_until = 0.0
 
 class CatalogError(Exception):
     """A message safe to show to someone using the catalog."""
+
+
+class _RequestTimeout(Exception):
+    pass
+
+
+class _RequestFailure(Exception):
+    pass
+
+
+def _http_json(method, url, headers=None, data=None, auth=None):
+    headers = dict(headers or {})
+    body = None
+    if auth:
+        credentials = base64.b64encode(f"{auth[0]}:{auth[1]}".encode()).decode()
+        headers["Authorization"] = f"Basic {credentials}"
+    if data is not None:
+        body = urlencode(data).encode()
+        headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+
+    req = Request(url, data=body, headers=headers, method=method)
+    try:
+        with urlopen(req, timeout=15) as response:
+            status, content = response.status, response.read()
+    except HTTPError as exc:
+        status, content = exc.code, exc.read()
+    except (socket.timeout, TimeoutError) as exc:
+        raise _RequestTimeout() from exc
+    except URLError as exc:
+        if isinstance(exc.reason, (socket.timeout, TimeoutError)):
+            raise _RequestTimeout() from exc
+        raise _RequestFailure() from exc
+    except OSError as exc:
+        raise _RequestFailure() from exc
+
+    payload = json.loads(content) if content else {}
+    return status, payload
 
 
 def _access_token(force_refresh=False):
@@ -46,17 +87,17 @@ def _access_token(force_refresh=False):
         if not force_refresh and _cached_token and time.monotonic() < _cached_until:
             return _cached_token
         try:
-            response = requests.post(
+            status, payload = _http_json(
+                "POST",
                 f"{EBAY_ROOT}/identity/v1/oauth2/token",
                 auth=(client_id, client_secret),
                 data={"grant_type": "client_credentials", "scope": EBAY_SCOPE},
-                timeout=(5, 15),
             )
-            response.raise_for_status()
-            payload = response.json()
+            if status >= 400:
+                raise _RequestFailure()
             token = payload["access_token"]
             expiry = max(60, int(payload.get("expires_in", 7200)) - 120)
-        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+        except (_RequestFailure, _RequestTimeout, ValueError, KeyError, TypeError) as exc:
             raise CatalogError("Couldn't authenticate with eBay. Check your Production API credentials.") from exc
         _cached_token = token
         _cached_until = time.monotonic() + expiry
@@ -71,23 +112,24 @@ def _ebay_get(path, params=None):
             "Accept": "application/json",
         }
         try:
-            response = requests.get(
-                f"{EBAY_ROOT}{path}", headers=headers,
-                params=params, timeout=(5, 15),
-            )
-            if response.status_code == 401 and attempt == 0 and not (os.getenv("EBAY_ACCESS_TOKEN") or DEMO_ACCESS_TOKEN):
+            url = f"{EBAY_ROOT}{path}"
+            if params:
+                url += "?" + urlencode(params)
+            status, payload = _http_json("GET", url, headers=headers)
+            if status == 401 and attempt == 0 and not (os.getenv("EBAY_ACCESS_TOKEN") or DEMO_ACCESS_TOKEN):
                 continue
-            if response.status_code == 401:
+            if status == 401:
                 raise CatalogError("Your eBay access token was rejected or has expired.")
-            if response.status_code == 403:
+            if status == 403:
                 raise CatalogError("Your eBay application doesn't have Browse API access in Production.")
-            if response.status_code == 429:
+            if status == 429:
                 raise CatalogError("eBay's request limit has been reached. Please try again later.")
-            response.raise_for_status()
-            return response.json()
-        except requests.Timeout as exc:
+            if status >= 400:
+                raise _RequestFailure()
+            return payload
+        except _RequestTimeout as exc:
             raise CatalogError("eBay took too long to respond. Please try again.") from exc
-        except (requests.RequestException, ValueError) as exc:
+        except (_RequestFailure, ValueError) as exc:
             raise CatalogError("Unable to retrieve items from eBay right now.") from exc
 
 
