@@ -1,0 +1,85 @@
+{% extends "shared/base.html" %}
+{% block title %}My Cart{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/catalog.css') }}">
+{% endblock %}
+{% block content %}
+<main class="catalog-page">
+    <a class="catalog-back" href="{{ url_for('ebay_catalog.driver_catalog') }}">← Back to catalog</a>
+    <header class="catalog-heading">
+        <span class="catalog-eyebrow">DRIVER · CART{% if driver_sponsorship %} · {{ driver_sponsorship.company_name|upper }}{% endif %}</span>
+        <h1>My cart</h1>
+        <p>Items are paid for with points from the sponsor you're viewing. You have <strong>{{ "{:,}".format(balance or 0) }}</strong> points.</p>
+    </header>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="{{ 'catalog-success' if category == 'success' else 'catalog-alert' }}" role="{{ 'status' if category == 'success' else 'alert' }}">{{ message }}</div>
+    {% endfor %}
+    {% if notice %}<div class="catalog-alert" role="alert">{{ notice }}</div>{% endif %}
+    {% if error %}<div class="catalog-alert" role="alert">{{ error }}</div>{% endif %}
+
+    <section class="cart-section" aria-labelledby="cart-heading">
+        <h2 id="cart-heading">In your cart</h2>
+        {% if items %}
+        <ul class="cart-list">
+            {% for item in items %}
+            <li class="cart-row">
+                <div class="cart-thumb">{% if item.image %}<img src="{{ item.image }}" alt="" loading="lazy">{% endif %}</div>
+                <div class="cart-info">
+                    <a href="{{ url_for('ebay_catalog.catalog_item', role='driver', item_id=item.id) }}">{{ item.title }}</a>
+                    <span>{{ "{:,}".format(item.points) }} pts{% if item.quantity > 1 %} × {{ item.quantity }}{% endif %}</span>
+                </div>
+                <strong class="cart-line-points">{{ "{:,}".format(item.line_points) }} pts</strong>
+                <form action="{{ url_for('ebay_catalog.remove_from_cart') }}" method="post">
+                    <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
+                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                    <button type="submit" class="cart-remove">Remove</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        <div class="cart-total">
+            <div>
+                <span>Total</span>
+                <strong>{{ "{:,}".format(total_points) }} points</strong>
+                {% if total_points > balance %}<small class="cart-short">You need {{ "{:,}".format(total_points - balance) }} more points.</small>
+                {% else %}<small>{{ "{:,}".format(balance - total_points) }} points left after purchase</small>{% endif %}
+            </div>
+            <form action="{{ url_for('ebay_catalog.checkout') }}" method="post">
+                <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
+                <button type="submit" class="catalog-add cart-purchase" {% if total_points > balance %}disabled{% endif %}>Purchase</button>
+            </form>
+        </div>
+        {% elif not error %}
+        <div class="catalog-empty">Your cart is empty. <a href="{{ url_for('ebay_catalog.driver_catalog') }}">Browse the catalog</a> to add items.</div>
+        {% endif %}
+    </section>
+
+    <section class="cart-section" aria-labelledby="purchases-heading">
+        <h2 id="purchases-heading">Recently purchased</h2>
+        {% if purchases %}
+        {% for order in purchases %}
+        <article class="purchase-card">
+            <header>
+                <strong>Order {{ order.order_number }}</strong>
+                <span>{{ (order.order_date|local).strftime('%b %d, %Y %I:%M %p') if order.order_date else '' }} · {{ order.status }} · {{ "{:,}".format(order.total_points) }} pts</span>
+            </header>
+            <ul class="cart-list">
+                {% for item in order['items'] %}
+                <li class="cart-row">
+                    <div class="cart-thumb">{% if item.image_url %}<img src="{{ item.image_url }}" alt="" loading="lazy">{% endif %}</div>
+                    <div class="cart-info">
+                        <span class="cart-title">{{ item.product_name }}</span>
+                        <span>{{ "{:,}".format(item.unit_price_points) }} pts{% if item.quantity > 1 %} × {{ item.quantity }}{% endif %}</span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </article>
+        {% endfor %}
+        {% else %}
+        <div class="catalog-empty">You haven't purchased anything from this sponsor yet.</div>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}

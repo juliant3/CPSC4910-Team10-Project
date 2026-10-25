@@ -5,7 +5,10 @@
 {% endblock %}
 {% block content %}
 <main class="catalog-page">
-    <a class="catalog-back" href="{{ url_for('ebay_catalog.' + role + '_catalog', page=page) }}">← Back to catalog</a>
+    <a class="catalog-back" href="{{ url_for('ebay_catalog.' + role + '_catalog', type=selected_type, page=page) }}">← Back to catalog</a>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="{{ 'catalog-success' if category == 'success' else 'catalog-alert' }}" role="{{ 'status' if category == 'success' else 'alert' }}">{{ message }}{% if category == 'success' and role == 'driver' %} <a href="{{ url_for('ebay_catalog.driver_cart') }}">View cart →</a>{% endif %}</div>
+    {% endfor %}
     {% if error %}
     <div class="catalog-alert" role="alert">{{ error }}</div>
     {% elif item %}
@@ -17,9 +20,17 @@
             {% else %}<span>No image available</span>{% endif %}
         </div>
         <div class="catalog-item-content">
-            <span class="catalog-eyebrow">EBAY ITEM DETAILS</span>
+            <span class="catalog-eyebrow">ITEM DETAILS</span>
             <h1>{{ item.get('title', 'eBay listing') }}</h1>
-            {% if item.get('price') %}<strong class="catalog-item-price">{{ item.price.get('currency', '') }} {{ item.price.get('value', '') }}</strong>{% endif %}
+            {% if points is not none %}<strong class="catalog-item-price">{{ "{:,}".format(points) }} points</strong>{% else %}<strong class="catalog-item-price">Price unavailable</strong>{% endif %}
+            {% if role == 'driver' and points is not none %}
+            <form class="catalog-item-buy" action="{{ url_for('ebay_catalog.add_to_cart') }}" method="post">
+                <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
+                <input type="hidden" name="item_id" value="{{ item_id }}">
+                <button type="submit" class="catalog-add">Add to cart</button>
+                {% if driver_sponsorship %}<span>You have {{ "{:,}".format(driver_sponsorship.points_balance or 0) }} points</span>{% endif %}
+            </form>
+            {% endif %}
             {% if item.get('condition') %}<p><strong>Condition:</strong> {{ item.condition }}</p>{% endif %}
             {% if item.get('seller') %}<p><strong>Seller:</strong> {{ item.seller.get('username', '') }}</p>{% endif %}
             {% if item.get('estimatedAvailabilities') %}<p><strong>Availability:</strong> {{ item.estimatedAvailabilities[0].get('estimatedAvailabilityStatus', 'See eBay listing')|replace('_', ' ')|title }}</p>{% endif %}
@@ -29,7 +40,7 @@
                 {% if description %}<p>{{ description|striptags|truncate(2000) }}</p>{% else %}<p>This seller hasn't provided a description through the API. View the original listing for more information.</p>{% endif %}
             </section>
             {% if item.get('itemWebUrl') %}<a class="catalog-external" href="{{ item.itemWebUrl }}" target="_blank" rel="noopener noreferrer">View original eBay listing ↗</a>{% endif %}
-            <p class="catalog-disclaimer">This page only displays product information. No orders are placed by the Good Driver Program.</p>
+            <p class="catalog-disclaimer">Items are paid for with your sponsor points.</p>
         </div>
     </div>
     {% endif %}
