@@ -359,3 +359,119 @@
     color: #000000 !important;
     border-color: #FFFF00;
 }
+
+/* ==========================================
+   RED-GREEN FRIENDLY MODE
+   ========================================== */
+
+:root[data-color-mode="red-green"] {
+    --a11y-primary: #315F9B;
+    --a11y-primary-hover: #244A79;
+    --a11y-positive: #16718C;
+    --a11y-negative: #A34E90;
+    --a11y-highlight: #E6F0FA;
+
+    --good: var(--a11y-positive);
+    --bad: var(--a11y-negative);
+    --good-bg: #E0F3F7;
+    --bad-bg: #F7E5F2;
+}
+
+/* ==========================================
+   BLUE-YELLOW FRIENDLY MODE
+   ========================================== */
+
+:root[data-color-mode="blue-yellow"] {
+    --a11y-primary: #8B3658;
+    --a11y-primary-hover: #702B48;
+    --a11y-positive: #327A59;
+    --a11y-negative: #A84460;
+    --a11y-highlight: #F9E8EF;
+
+    --good: var(--a11y-positive);
+    --bad: var(--a11y-negative);
+    --good-bg: #E4F2E9;
+    --bad-bg: #F8E7EC;
+}
+
+/* ==========================================
+   APPLY COLORBLIND-FRIENDLY ACCENTS
+   ========================================== */
+
+:root[data-color-mode="red-green"] .btn-primary,
+:root[data-color-mode="blue-yellow"] .btn-primary,
+:root[data-color-mode="red-green"] .dashboard-button.primary,
+:root[data-color-mode="blue-yellow"] .dashboard-button.primary {
+    background: var(--a11y-primary);
+    color: #FFFFFF;
+}
+
+:root[data-color-mode="red-green"] .btn-primary:hover,
+:root[data-color-mode="blue-yellow"] .btn-primary:hover {
+    background: var(--a11y-primary-hover);
+}
+
+:root[data-color-mode="red-green"] .stat-icon,
+:root[data-color-mode="blue-yellow"] .stat-icon {
+    background: var(--a11y-highlight);
+    color: var(--a11y-primary);
+}
+
+:root[data-color-mode="red-green"] .stat-icon.green,
+:root[data-color-mode="blue-yellow"] .stat-icon.green {
+    background: var(--good-bg);
+    color: var(--good);
+}
+
+:root[data-color-mode="red-green"] .badge-success,
+:root[data-color-mode="blue-yellow"] .badge-success {
+    background: var(--good-bg);
+    color: var(--good);
+}
+
+:root[data-color-mode="red-green"] .badge-danger,
+:root[data-color-mode="blue-yellow"] .badge-danger {
+    background: var(--bad-bg);
+    color: var(--bad);
+}
+
+:root[data-color-mode="red-green"] .alert-success,
+:root[data-color-mode="blue-yellow"] .alert-success {
+    background: var(--good-bg);
+    color: var(--good);
+    border-color: var(--good);
+}
+
+:root[data-color-mode="red-green"] .alert-error,
+:root[data-color-mode="blue-yellow"] .alert-error {
+    background: var(--bad-bg);
+    color: var(--bad);
+    border-color: var(--bad);
+}
+
+/* Dark mode: use lighter accents for visibility */
+:root[data-theme="dark"][data-color-mode="red-green"] {
+    --a11y-primary: #78B5FF;
+    --a11y-primary-hover: #A2CDFF;
+    --a11y-positive: #7BD4E8;
+    --a11y-negative: #F0A5D7;
+    --a11y-highlight: #263B53;
+    --good-bg: #173842;
+    --bad-bg: #42283D;
+}
+
+:root[data-theme="dark"][data-color-mode="blue-yellow"] {
+    --a11y-primary: #F3A2BF;
+    --a11y-primary-hover: #FFC4D7;
+    --a11y-positive: #8DDBA9;
+    --a11y-negative: #FF9EAE;
+    --a11y-highlight: #49303C;
+    --good-bg: #203D2F;
+    --bad-bg: #492831;
+}
+
+/* Maintain readable foreground on light-colored dark-mode accents */
+:root[data-theme="dark"][data-color-mode="red-green"] .btn-primary,
+:root[data-theme="dark"][data-color-mode="blue-yellow"] .btn-primary {
+    color: #111318 !important;
+}
