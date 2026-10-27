@@ -631,3 +631,31 @@
     color: #F6E5D0;
     border-color: var(--line);
 }
+/* ==========================================
+   WARM NIGHT MODE - INVITE DRIVER BUTTON FIX
+   ========================================== */
+
+:root[data-theme="warm"] .welcome-banner .btn-light {
+    background: #E9B47A;
+    color: #211B19 !important;
+    border: 1px solid #E9B47A;
+    font-weight: 600;
+}
+
+:root[data-theme="warm"] .welcome-banner .btn-light:hover {
+    background: #F6C995;
+    color: #211B19 !important;
+    border-color: #F6C995;
+}
+
+/* Keyboard accessibility */
+:root[data-theme="warm"] .welcome-banner .btn-light:focus-visible {
+    outline: 3px solid #F6E5D0;
+    outline-offset: 3px;
+}
+:root[data-theme="warm"][data-color-mode="high-contrast"]
+.welcome-banner .btn-light {
+    background: #FFFF00;
+    color: #000000 !important;
+    border-color: #FFFF00;
+}
