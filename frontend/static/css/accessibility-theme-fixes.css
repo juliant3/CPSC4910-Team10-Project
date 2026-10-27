@@ -295,3 +295,67 @@
     background: #FFFF00;
     color: #000000;
 }
+
+
+/* ==========================================
+   DARK MODE - DASHBOARD TEXT VISIBILITY FIX
+   ========================================== */
+
+/* Dashboard statistics and numbers */
+:root[data-theme="dark"] .stat-value,
+:root[data-theme="dark"] .stat-label,
+:root[data-theme="dark"] .stat-hint,
+:root[data-theme="dark"] .row-meta-value {
+    color: #FFFFFF !important;
+}
+
+/* Card headings and content */
+:root[data-theme="dark"] .card-header h2,
+:root[data-theme="dark"] .card-header h3,
+:root[data-theme="dark"] .card-body h2,
+:root[data-theme="dark"] .card-body h3,
+:root[data-theme="dark"] .empty-state h3,
+:root[data-theme="dark"] .row-title {
+    color: #FFFFFF !important;
+}
+
+/* Secondary dashboard text */
+:root[data-theme="dark"] .card-header p,
+:root[data-theme="dark"] .card-body p,
+:root[data-theme="dark"] .empty-state p,
+:root[data-theme="dark"] .row-sub,
+:root[data-theme="dark"] .section-title {
+    color: #FFFFFF !important;
+}
+
+/* Secondary buttons, including View all */
+:root[data-theme="dark"] .btn-secondary,
+:root[data-theme="dark"] .btn-secondary:visited,
+:root[data-theme="dark"] .btn-secondary:hover {
+    background: #303440;
+    color: #FFFFFF !important;
+    border-color: #737987;
+}
+
+/* General dashboard links */
+:root[data-theme="dark"] .quick-link,
+:root[data-theme="dark"] .action-tile h3,
+:root[data-theme="dark"] .breadcrumb {
+    color: #FFFFFF !important;
+}
+
+/* Keep button labels readable */
+:root[data-theme="dark"] .btn-primary,
+:root[data-theme="dark"] .btn-accent {
+    background: #6042A0;
+    color: #FFFFFF !important;
+}
+
+/* High contrast: black text on yellow buttons */
+:root[data-color-mode="high-contrast"] .btn-primary,
+:root[data-color-mode="high-contrast"] .btn-accent,
+:root[data-color-mode="high-contrast"] .btn-secondary {
+    background: #FFFF00;
+    color: #000000 !important;
+    border-color: #FFFF00;
+}
