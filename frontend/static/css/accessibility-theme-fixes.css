@@ -211,3 +211,87 @@
 :root[data-theme="dark"] .site-header .logout-link { color: #FFFFFF; }
 :root[data-theme="dark"] .site-header .user-role { color: #D1D4E0; }
 :root[data-theme="dark"] .site-header .icon-button { color: #FFFFFF; }
+/* ==========================================
+   DARK MODE - WHITE TEXT FIX
+   ========================================== */
+
+:root[data-theme="dark"] {
+    --ink: #FFFFFF;
+    --slate: #FFFFFF;
+    --muted: #FFFFFF;
+
+    --purple-900: #FFFFFF;
+    --purple-800: #FFFFFF;
+    --purple-700: #FFFFFF;
+}
+
+/* General text */
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] h1,
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] h3,
+:root[data-theme="dark"] h4,
+:root[data-theme="dark"] h5,
+:root[data-theme="dark"] h6,
+:root[data-theme="dark"] p,
+:root[data-theme="dark"] span,
+:root[data-theme="dark"] label,
+:root[data-theme="dark"] a,
+:root[data-theme="dark"] li,
+:root[data-theme="dark"] strong,
+:root[data-theme="dark"] td,
+:root[data-theme="dark"] th {
+    color: #FFFFFF;
+}
+
+/* Login page */
+:root[data-theme="dark"] .login-container,
+:root[data-theme="dark"] .login-container h1,
+:root[data-theme="dark"] .login-container .motto,
+:root[data-theme="dark"] .account-help,
+:root[data-theme="dark"] .account-help strong,
+:root[data-theme="dark"] .auth-center label {
+    color: #FFFFFF;
+}
+
+/* Dashboard */
+:root[data-theme="dark"] .dashboard-header h1,
+:root[data-theme="dark"] .dashboard-header p,
+:root[data-theme="dark"] .dashboard-card h2,
+:root[data-theme="dark"] .dashboard-card p,
+:root[data-theme="dark"] .card-label,
+:root[data-theme="dark"] .dashboard-nav a,
+:root[data-theme="dark"] .dashboard-nav .logo {
+    color: #FFFFFF;
+}
+
+/* Inputs need dark backgrounds with white text */
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+    background-color: #232632;
+    color: #FFFFFF;
+    border-color: #646879;
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+    color: #D0D3DC;
+}
+
+/* Keep text readable on dark purple buttons */
+:root[data-theme="dark"] .btn-primary,
+:root[data-theme="dark"] .dashboard-button.primary,
+:root[data-theme="dark"] .login-container button:not(.toggle-password),
+:root[data-theme="dark"] .login-container input[type="submit"] {
+    background: #6042A0;
+    color: #FFFFFF;
+}
+
+/* High contrast remains separate */
+:root[data-color-mode="high-contrast"] .btn-primary,
+:root[data-color-mode="high-contrast"] .dashboard-button.primary,
+:root[data-color-mode="high-contrast"] .login-container button:not(.toggle-password) {
+    background: #FFFF00;
+    color: #000000;
+}
