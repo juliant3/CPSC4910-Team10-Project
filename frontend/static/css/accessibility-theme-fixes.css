@@ -1,0 +1,213 @@
+/* Drivers Advantage: accessibility theme corrections.
+   Load AFTER layout.css, login.css, main.css, and other page styles.
+   Keep existing accessibility-panel styling from accessibility.css. */
+
+/* Restore normal brand variables for dark mode: do not make a background token pale. */
+:root[data-theme="dark"] {
+  --purple-900: #30214D;
+  --purple-800: #3B285F;
+  --purple-700: #6042A0;
+  --purple-500: #9273CE;
+  --purple-50: #302A40;
+  --orange-600: #F1A56E;
+  --orange-700: #F1A56E;
+  --ink: #F4F5FA;
+  --slate: #D1D4E0;
+  --muted: #BFC3D2;
+  --line: #525767;
+  --paper: #12141B;
+  --surface: #232632;
+  --good: #8EDDB5;
+  --good-bg: #203C31;
+  --warn: #F4D08D;
+  --warn-bg: #43351E;
+  --bad: #FFAAA7;
+  --bad-bg: #452729;
+}
+
+/* Login page: separate its dark hero from the readable form panel. */
+:root[data-theme="dark"] .login-page-wrapper { background: var(--paper); }
+:root[data-theme="dark"] .login-side {
+  background: linear-gradient(160deg, #211735, #38265A);
+  color: #FFFFFF;
+}
+:root[data-theme="dark"] .login-side h2 { color: #FFFFFF; }
+:root[data-theme="dark"] .login-side p,
+:root[data-theme="dark"] .login-stats span { color: #E2DDEE; }
+:root[data-theme="dark"] .login-form-side,
+:root[data-theme="dark"] .auth-center { background: var(--paper); }
+:root[data-theme="dark"] .login-container { background: var(--surface); color: var(--ink); }
+:root[data-theme="dark"] .login-container h1,
+:root[data-theme="dark"] .account-help strong,
+:root[data-theme="dark"] .auth-center label { color: var(--ink); }
+:root[data-theme="dark"] .login-container input[type="text"],
+:root[data-theme="dark"] .login-container input[type="email"],
+:root[data-theme="dark"] .login-container input[type="password"],
+:root[data-theme="dark"] .login-container select,
+:root[data-theme="dark"] .auth-center textarea {
+  background: #171A23;
+  color: #FFFFFF;
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .login-container input::placeholder,
+:root[data-theme="dark"] .auth-center textarea::placeholder { color: #BFC3D2; }
+:root[data-theme="dark"] .login-container button:not(.toggle-password),
+:root[data-theme="dark"] .login-container input[type="submit"] {
+  background: #6042A0;
+  color: #FFFFFF;
+}
+:root[data-theme="dark"] .login-container button:not(.toggle-password):hover,
+:root[data-theme="dark"] .login-container input[type="submit"]:hover { background: #7657B7; }
+:root[data-theme="dark"] .login-container .toggle-password { color: #D5C5FA; background: transparent; }
+:root[data-theme="dark"] .login-container .toggle-password:hover { background: #373146; }
+:root[data-theme="dark"] .create-account-btn { color: var(--ink); }
+:root[data-theme="dark"] .success-box { background: var(--good-bg); color: var(--good); border-color: var(--good); }
+
+/* Dashboard main.css hardcoded backgrounds and text. */
+:root[data-theme="dark"] .dashboard-page { background: linear-gradient(135deg, #12141B, #1C202A); }
+:root[data-theme="dark"] .dashboard-header,
+:root[data-theme="dark"] .dashboard-card { background: var(--surface); color: var(--ink); }
+:root[data-theme="dark"] .dashboard-header h1,
+:root[data-theme="dark"] .dashboard-card h2,
+:root[data-theme="dark"] .dashboard-nav .logo { color: var(--ink); }
+:root[data-theme="dark"] .dashboard-header p,
+:root[data-theme="dark"] .dashboard-card p,
+:root[data-theme="dark"] .card-label,
+:root[data-theme="dark"] .dashboard-nav a { color: var(--slate); }
+:root[data-theme="dark"] .dashboard-nav a:hover { color: #D5C5FA; }
+:root[data-theme="dark"] .role-badge { background: #343C50; color: #E3EAFF; }
+:root[data-theme="dark"] .feature-card { background: linear-gradient(135deg, #304C74, #223653); color: #FFFFFF; }
+:root[data-theme="dark"] .feature-card h2 { color: #FFFFFF; }
+:root[data-theme="dark"] .feature-card p { color: #E5ECF7; }
+:root[data-theme="dark"] .dashboard-button { background: #FFFFFF; color: #203C5C; }
+:root[data-theme="dark"] .dashboard-button.primary { background: #6042A0; color: #FFFFFF; }
+:root[data-theme="dark"] .dashboard-button.primary:hover { background: #7657B7; }
+:root[data-theme="dark"] .status-active { color: #8EDDB5 !important; }
+:root[data-theme="dark"] .status-inactive,
+:root[data-theme="dark"] .status-pending { color: #F4D08D !important; }
+
+/* Shared components using fixed light backgrounds. */
+:root[data-theme="dark"] .data-table th,
+:root[data-theme="dark"] .notif-item.unread,
+:root[data-theme="dark"] .row-item.is-clickable:hover,
+:root[data-theme="dark"] .segmented a:hover { background: #302A40; }
+:root[data-theme="dark"] .input,
+:root[data-theme="dark"] .form-group input:not([type="checkbox"]):not([type="radio"]),
+:root[data-theme="dark"] .form-group select { background: #171A23; color: var(--ink); }
+:root[data-theme="dark"] .btn-primary { background: #6042A0; color: #FFFFFF; }
+:root[data-theme="dark"] .btn-primary:hover { background: #7657B7; }
+:root[data-theme="dark"] .btn-accent { background: #A94F20; color: #FFFFFF; }
+:root[data-theme="dark"] .btn-accent:hover { background: #8B401A; }
+:root[data-theme="dark"] .btn-success { background: #22674A; color: #FFFFFF; }
+:root[data-theme="dark"] .btn-danger { background: #8B3334; color: #FFFFFF; }
+:root[data-theme="dark"] .welcome-banner { background: linear-gradient(120deg, #251936, #38265A); color: #FFFFFF; }
+:root[data-theme="dark"] .welcome-banner h1 { color: #FFFFFF; }
+:root[data-theme="dark"] .btn-light { background: #FFFFFF; color: #251936; }
+:root[data-theme="dark"] .btn-outline-light { color: #FFFFFF; }
+
+/* High contrast must win over dark mode and all colorblind palettes.
+   Explicit black foreground for every yellow-filled control. */
+:root[data-color-mode="high-contrast"] {
+  --purple-900: #FFFFFF;
+  --purple-800: #FFFFFF;
+  --purple-700: #FFFF00;
+  --purple-500: #FFFF00;
+  --purple-50: #000000;
+  --orange-600: #FFFF00;
+  --orange-700: #FFFF00;
+  --ink: #FFFFFF;
+  --slate: #FFFFFF;
+  --muted: #FFFFFF;
+  --line: #FFFFFF;
+  --paper: #000000;
+  --surface: #000000;
+  --good: #A3FFD0;
+  --good-bg: #000000;
+  --warn: #FFFF00;
+  --warn-bg: #000000;
+  --bad: #FFB3B3;
+  --bad-bg: #000000;
+  color-scheme: dark;
+}
+:root[data-color-mode="high-contrast"] body,
+:root[data-color-mode="high-contrast"] .login-page-wrapper,
+:root[data-color-mode="high-contrast"] .login-side,
+:root[data-color-mode="high-contrast"] .login-form-side,
+:root[data-color-mode="high-contrast"] .login-container,
+:root[data-color-mode="high-contrast"] .auth-center,
+:root[data-color-mode="high-contrast"] .dashboard-page,
+:root[data-color-mode="high-contrast"] .dashboard-header,
+:root[data-color-mode="high-contrast"] .dashboard-card,
+:root[data-color-mode="high-contrast"] .feature-card,
+:root[data-color-mode="high-contrast"] .welcome-banner,
+:root[data-color-mode="high-contrast"] .site-header,
+:root[data-color-mode="high-contrast"] .site-footer {
+  background: #000000;
+  color: #FFFFFF;
+  border-color: #FFFFFF;
+}
+:root[data-color-mode="high-contrast"] :is(h1,h2,h3,p,span,label,strong,small),
+:root[data-color-mode="high-contrast"] .login-side h2,
+:root[data-color-mode="high-contrast"] .login-side p,
+:root[data-color-mode="high-contrast"] .login-stats span,
+:root[data-color-mode="high-contrast"] .dashboard-header h1,
+:root[data-color-mode="high-contrast"] .dashboard-card h2,
+:root[data-color-mode="high-contrast"] .dashboard-header p,
+:root[data-color-mode="high-contrast"] .dashboard-card p,
+:root[data-color-mode="high-contrast"] .feature-card h2,
+:root[data-color-mode="high-contrast"] .feature-card p,
+:root[data-color-mode="high-contrast"] .welcome-banner h1,
+:root[data-color-mode="high-contrast"] .login-container h1,
+:root[data-color-mode="high-contrast"] .account-help strong,
+:root[data-color-mode="high-contrast"] .auth-center label {
+  color: #FFFFFF;
+}
+:root[data-color-mode="high-contrast"] a { color: #FFFF00; }
+:root[data-color-mode="high-contrast"] .site-header a,
+:root[data-color-mode="high-contrast"] .site-header .brand,
+:root[data-color-mode="high-contrast"] .site-header .user-name { color: #FFFFFF; }
+:root[data-color-mode="high-contrast"] .site-header .primary-nav a.active { border-bottom-color: #FFFF00; }
+:root[data-color-mode="high-contrast"] .role-badge,
+:root[data-color-mode="high-contrast"] .badge { background: #000000; color: #FFFF00; border: 1px solid #FFFF00; }
+:root[data-color-mode="high-contrast"] .login-container input,
+:root[data-color-mode="high-contrast"] .login-container select,
+:root[data-color-mode="high-contrast"] .auth-center textarea,
+:root[data-color-mode="high-contrast"] .form-group input,
+:root[data-color-mode="high-contrast"] .form-group select,
+:root[data-color-mode="high-contrast"] .input { background: #000000; color: #FFFFFF; border: 2px solid #FFFFFF; }
+:root[data-color-mode="high-contrast"] .btn,
+:root[data-color-mode="high-contrast"] .dashboard-button,
+:root[data-color-mode="high-contrast"] .dashboard-button.primary,
+:root[data-color-mode="high-contrast"] .login-container button:not(.toggle-password),
+:root[data-color-mode="high-contrast"] .login-container input[type="submit"],
+:root[data-color-mode="high-contrast"] .segmented a.active {
+  background: #FFFF00;
+  color: #000000;
+  border: 2px solid #FFFF00;
+}
+:root[data-color-mode="high-contrast"] .login-container .toggle-password { background: #000000; color: #FFFF00; border: 1px solid #FFFF00; }
+:root[data-color-mode="high-contrast"] .create-account-btn { color: #FFFF00; border-color: #FFFFFF; }
+:root[data-color-mode="high-contrast"] .dashboard-button:hover,
+:root[data-color-mode="high-contrast"] .dashboard-button.primary:hover,
+:root[data-color-mode="high-contrast"] .login-container button:not(.toggle-password):hover { background: #FFFFFF; color: #000000; }
+:root[data-color-mode="high-contrast"] .success-box,
+:root[data-color-mode="high-contrast"] .error { background: #000000; color: #FFFFFF; border-color: #FFFF00; }
+:root[data-color-mode="high-contrast"] .status-active { color: #A3FFD0 !important; }
+:root[data-color-mode="high-contrast"] .status-inactive,
+:root[data-color-mode="high-contrast"] .status-pending { color: #FFFF00 !important; }
+:root[data-color-mode="high-contrast"] :focus-visible { outline: 3px solid #FFFF00; outline-offset: 3px; }
+
+/* Settings panel itself remains readable in high contrast. */
+:root[data-color-mode="high-contrast"] #accessibility-button,
+:root[data-color-mode="high-contrast"] #accessibility-panel { background: #000000; color: #FFFFFF; border-color: #FFFFFF; }
+:root[data-color-mode="high-contrast"] #accessibility-panel select { background: #000000; color: #FFFFFF; border-color: #FFFFFF; }
+:root[data-color-mode="high-contrast"] #accessibility-panel button { background: #FFFF00; color: #000000; border-color: #FFFF00; }
+/* Keep labels/icons inside yellow buttons black, even with global text rules. */
+:root[data-color-mode="high-contrast"] :is(.btn, .dashboard-button, .login-container button:not(.toggle-password), .login-container input[type="submit"], .segmented a.active, #accessibility-panel button) :is(span,strong,small) { color: #000000; }
+/* Header icons and light-on-dark text in dark mode. */
+:root[data-theme="dark"] .site-header .brand,
+:root[data-theme="dark"] .site-header .primary-nav a,
+:root[data-theme="dark"] .site-header .user-name,
+:root[data-theme="dark"] .site-header .logout-link { color: #FFFFFF; }
+:root[data-theme="dark"] .site-header .user-role { color: #D1D4E0; }
+:root[data-theme="dark"] .site-header .icon-button { color: #FFFFFF; }
