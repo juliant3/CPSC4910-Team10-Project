@@ -1,91 +1,319 @@
+
+/* ==========================================
+   DRIVERS ADVANTAGE - ACCESSIBILITY THEMES
+   Works with existing layout.css variables
+   ========================================== */
+
+/* LIGHT MODE - original website colors */
 :root,
 :root[data-theme="light"] {
-    --a11y-bg: #ffffff;
-    --a11y-surface: #f5f2fa;
-    --a11y-text: #241633;
-    --a11y-accent: #513078;
+    --purple-900: #2E1A4D;
+    --purple-800: #3B2363;
+    --purple-700: #4C2A85;
+    --purple-500: #7B4FC9;
+    --purple-50: #F3EFFA;
+    --orange-600: #D9662C;
+    --orange-700: #C4571F;
+
+    --ink: #211C2E;
+    --slate: #6B6478;
+    --muted: #736B7E;
+    --line: #E3DEEC;
+    --paper: #F7F6FA;
+    --surface: #FFFFFF;
+
+    --good: #246B4B;
+    --good-bg: #E6F4EC;
+    --warn: #80551C;
+    --warn-bg: #FBF1DE;
+    --bad: #A3413A;
+    --bad-bg: #FBEAE8;
+
+    --a11y-header-text: #FFFFFF;
+    --a11y-button-text: #FFFFFF;
 }
 
+/* DARK MODE */
 :root[data-theme="dark"] {
-    --a11y-bg: #17131e;
-    --a11y-surface: #292333;
-    --a11y-text: #f8f5fc;
-    --a11y-accent: #b99af0;
+    --purple-900: #D8C6F8;
+    --purple-800: #C7AEF4;
+    --purple-700: #B89BEA;
+    --purple-500: #9D7BD8;
+    --purple-50: #342944;
+    --orange-600: #F0A36B;
+    --orange-700: #E99152;
+
+    --ink: #F5F1FA;
+    --slate: #D0C8DC;
+    --muted: #B5AFC0;
+    --line: #51465E;
+    --paper: #17131E;
+    --surface: #282231;
+
+    --good: #85D6AE;
+    --good-bg: #203E32;
+    --warn: #F0C47E;
+    --warn-bg: #44351F;
+    --bad: #F0A09B;
+    --bad-bg: #46292B;
+
+    --a11y-header-text: #17131E;
+    --a11y-button-text: #17131E;
 }
 
+/* RED-GREEN FRIENDLY PALETTE */
 :root[data-color-mode="red-green"] {
-    --a11y-accent: #176caa;
+    --orange-600: #2467A6;
+    --orange-700: #174F83;
+    --good: #16718C;
+    --bad: #A34E90;
 }
 
+/* BLUE-YELLOW FRIENDLY PALETTE */
 :root[data-color-mode="blue-yellow"] {
-    --a11y-accent: #a34c80;
+    --orange-600: #B64A70;
+    --orange-700: #963353;
+    --good: #327A59;
+    --bad: #A84460;
 }
 
+/* HIGH CONTRAST - applied after other modes */
 :root[data-color-mode="high-contrast"] {
-    --a11y-bg: #000000;
-    --a11y-surface: #000000;
-    --a11y-text: #ffffff;
-    --a11y-accent: #ffff00;
+    --purple-900: #FFFFFF;
+    --purple-800: #FFFFFF;
+    --purple-700: #FFFF00;
+    --purple-500: #FFFF00;
+    --purple-50: #202020;
+    --orange-600: #FFFF00;
+    --orange-700: #FFFF00;
+
+    --ink: #FFFFFF;
+    --slate: #FFFFFF;
+    --muted: #FFFFFF;
+    --line: #FFFFFF;
+    --paper: #000000;
+    --surface: #000000;
+
+    --good: #80FFB0;
+    --good-bg: #000000;
+    --warn: #FFFF00;
+    --warn-bg: #000000;
+    --bad: #FF9B9B;
+    --bad-bg: #000000;
+
+    --a11y-header-text: #000000;
+    --a11y-button-text: #000000;
 }
+
+/* ==========================================
+   SHARED COMPONENT OVERRIDES
+   ========================================== */
 
 body {
-    background-color: var(--a11y-bg);
-    color: var(--a11y-text);
+    background: var(--paper);
+    color: var(--ink);
 }
+
+.site-header {
+    background: #2E1A4D;
+}
+
+:root[data-theme="dark"] .site-header,
+:root[data-color-mode="high-contrast"] .site-header {
+    background: var(--surface);
+    border-bottom-color: var(--orange-600);
+}
+
+:root[data-theme="dark"] .site-header .brand,
+:root[data-theme="dark"] .site-header .primary-nav a,
+:root[data-theme="dark"] .site-header .user-name,
+:root[data-theme="dark"] .site-header .logout-link,
+:root[data-color-mode="high-contrast"] .site-header .brand,
+:root[data-color-mode="high-contrast"] .site-header .primary-nav a,
+:root[data-color-mode="high-contrast"] .site-header .user-name,
+:root[data-color-mode="high-contrast"] .site-header .logout-link {
+    color: var(--ink);
+}
+
+:root[data-theme="dark"] .site-header .primary-nav a.active,
+:root[data-color-mode="high-contrast"] .site-header .primary-nav a.active {
+    border-bottom-color: var(--orange-600);
+}
+
+:root[data-theme="dark"] .icon-button,
+:root[data-color-mode="high-contrast"] .icon-button {
+    color: var(--ink);
+}
+
+:root[data-theme="dark"] .icon-button:hover,
+:root[data-color-mode="high-contrast"] .icon-button:hover {
+    color: var(--ink);
+}
+
+:root[data-theme="dark"] .user-role,
+:root[data-color-mode="high-contrast"] .user-role {
+    color: var(--slate);
+}
+
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .stat-tile,
+:root[data-theme="dark"] .action-tile,
+:root[data-theme="dark"] .quick-link,
+:root[data-color-mode="high-contrast"] .card,
+:root[data-color-mode="high-contrast"] .stat-tile,
+:root[data-color-mode="high-contrast"] .action-tile,
+:root[data-color-mode="high-contrast"] .quick-link {
+    background: var(--surface);
+    border-color: var(--line);
+    color: var(--ink);
+}
+
+:root[data-theme="dark"] .form-group input,
+:root[data-theme="dark"] .form-group select,
+:root[data-theme="dark"] .input,
+:root[data-color-mode="high-contrast"] .form-group input,
+:root[data-color-mode="high-contrast"] .form-group select,
+:root[data-color-mode="high-contrast"] .input {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--line);
+}
+
+:root[data-theme="dark"] .data-table th,
+:root[data-color-mode="high-contrast"] .data-table th {
+    background: var(--surface);
+    color: var(--slate);
+}
+
+:root[data-theme="dark"] .notif-item.unread,
+:root[data-color-mode="high-contrast"] .notif-item.unread,
+:root[data-theme="dark"] .row-item.is-clickable:hover,
+:root[data-color-mode="high-contrast"] .row-item.is-clickable:hover {
+    background: var(--purple-50);
+}
+
+/* Preserve readable text on filled buttons */
+:root[data-theme="dark"] .btn-primary,
+:root[data-theme="dark"] .btn-accent,
+:root[data-theme="dark"] .btn-success,
+:root[data-theme="dark"] .btn-danger {
+    color: #17131E;
+}
+
+:root[data-color-mode="high-contrast"] .btn-primary,
+:root[data-color-mode="high-contrast"] .btn-accent {
+    background: #FFFF00;
+    color: #000000;
+    border: 2px solid #FFFF00;
+}
+
+/* ==========================================
+   ACCESSIBILITY SETTINGS BUTTON
+   ========================================== */
 
 #accessibility-button {
     position: fixed;
     right: 20px;
     bottom: 20px;
     z-index: 1000;
+
     padding: 12px 18px;
-    background: var(--a11y-accent);
-    color: var(--a11y-bg);
-    border: 2px solid currentColor;
+    border: 2px solid var(--line);
     border-radius: 12px;
+
+    background: var(--surface);
+    color: var(--ink);
+
+    font: inherit;
+    font-weight: 600;
     cursor: pointer;
+    box-shadow: 0 5px 20px #0003;
 }
+
+#accessibility-button:hover {
+    border-color: var(--orange-600);
+}
+
+/* ==========================================
+   ACCESSIBILITY SETTINGS POPUP
+   ========================================== */
 
 #accessibility-panel {
     position: fixed;
     right: 20px;
-    bottom: 80px;
+    bottom: 85px;
     z-index: 1001;
-    width: min(340px, calc(100vw - 40px));
-    padding: 22px;
-    border: 2px solid var(--a11y-accent);
+
+    width: min(360px, calc(100vw - 40px));
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
+    padding: 24px;
+
+    background: var(--surface);
+    color: var(--ink);
+    border: 2px solid var(--line);
     border-radius: 14px;
-    background: var(--a11y-surface);
-    color: var(--a11y-text);
-    box-shadow: 0 8px 30px #0005;
+    box-shadow: 0 10px 35px #0005;
 }
 
 #accessibility-panel[hidden] {
     display: none;
 }
 
-#accessibility-panel label,
+#accessibility-panel h2 {
+    margin-top: 0;
+    color: var(--ink);
+}
+
+#accessibility-panel label {
+    display: block;
+    margin: 16px 0 6px;
+    font-weight: 600;
+}
+
 #accessibility-panel select {
     display: block;
     width: 100%;
-    margin: 10px 0;
+    padding: 11px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--ink);
+    font: inherit;
 }
 
-#accessibility-panel select {
-    padding: 10px;
-    background: var(--a11y-bg);
-    color: var(--a11y-text);
-    border: 1px solid var(--a11y-accent);
+.accessibility-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 22px;
 }
 
-#accessibility-panel button {
-    margin: 8px 5px 0 0;
-    padding: 9px 12px;
+.accessibility-actions button {
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--ink);
+    font: inherit;
     cursor: pointer;
 }
 
 #accessibility-panel :focus-visible,
 #accessibility-button:focus-visible {
-    outline: 3px solid var(--a11y-accent);
+    outline: 3px solid var(--orange-600);
     outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+    #accessibility-button {
+        right: 12px;
+        bottom: 12px;
+    }
+
+    #accessibility-panel {
+        right: 12px;
+        bottom: 75px;
+        width: calc(100vw - 24px);
+    }
 }
