@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,9 +13,41 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 
 <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+
 {% block head %}{% endblock %}
+
 <link rel="stylesheet"
       href="{{ url_for('static', filename='css/session-timeout.css') }}">
+
+<!-- NEW: Accessibility stylesheet -->
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/accessibility.css') }}">
+
+<!-- NEW: Apply saved preferences before the page displays -->
+<script>
+(function () {
+    try {
+        const savedTheme = localStorage.getItem("da-theme") || "system";
+        const savedColor = localStorage.getItem("da-color-mode") || "default";
+
+        const theme = savedTheme === "system"
+            ? (window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark" : "light")
+            : savedTheme;
+
+        document.documentElement.dataset.theme =
+            ["light", "dark"].includes(theme) ? theme : "light";
+
+        document.documentElement.dataset.colorMode =
+            ["default", "red-green", "blue-yellow", "high-contrast"]
+                .includes(savedColor) ? savedColor : "default";
+    } catch (error) {
+        document.documentElement.dataset.theme = "light";
+        document.documentElement.dataset.colorMode = "default";
+    }
+})();
+</script>
+
 </head>
 <body>
 
@@ -38,10 +71,68 @@
         </div>
     </footer>
 
+    <!-- ==========================================
+         NEW: ACCESSIBILITY SETTINGS BUTTON
+         ========================================== -->
+
+    <button id="accessibility-button"
+            type="button"
+            aria-label="Open accessibility settings"
+            aria-controls="accessibility-panel"
+            aria-expanded="false">
+        ⚙ Accessibility
+    </button>
+
+    <!-- ==========================================
+         NEW: ACCESSIBILITY SETTINGS PANEL
+         ========================================== -->
+
+    <div id="accessibility-panel"
+         role="dialog"
+         aria-modal="false"
+         aria-labelledby="accessibility-title"
+         hidden>
+
+        <h2 id="accessibility-title">Accessibility Settings</h2>
+
+        <p>Customize how Drivers Advantage looks.</p>
+
+        <label for="theme-setting">Appearance</label>
+        <select id="theme-setting">
+            <option value="light">Light Mode</option>
+            <option value="dark">Dark Mode</option>
+            <option value="system">System Default</option>
+        </select>
+
+        <label for="color-setting">Color Accessibility</label>
+        <select id="color-setting">
+            <option value="default">Standard Colors</option>
+            <option value="red-green">Red-Green Friendly</option>
+            <option value="blue-yellow">Blue-Yellow Friendly</option>
+            <option value="high-contrast">High Contrast</option>
+        </select>
+
+        <div class="accessibility-actions">
+            <button id="reset-accessibility" type="button">
+                Reset to Defaults
+            </button>
+
+            <button id="close-accessibility" type="button">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Existing scripts -->
     {% if session.get('user_id') %}
         <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-        <!-- Automatically log out after 5 minutes of inactivity -->
+
+        <!-- Session timeout -->
         <script src="{{ url_for('static', filename='js/session-timeout.js') }}"></script>
     {% endif %}
+
+    <!-- NEW: Accessibility JavaScript -->
+    <script src="{{ url_for('static', filename='js/accessibility.js') }}" defer></script>
+
 </body>
 </html>
