@@ -39,7 +39,7 @@
             : savedTheme;
 
         document.documentElement.dataset.theme =
-            ["light", "dark"].includes(theme) ? theme : "light";
+            ["light", "dark", "warm"].includes(theme) ? theme : "light";
 
         document.documentElement.dataset.colorMode =
             ["default", "red-green", "blue-yellow", "high-contrast"]
@@ -104,6 +104,7 @@
         <select id="theme-setting">
             <option value="light">Light Mode</option>
             <option value="dark">Dark Mode</option>
+            <option value="warm">Warm Night Mode</option>
             <option value="system">System Default</option>
         </select>
 

@@ -475,3 +475,159 @@
 :root[data-theme="dark"][data-color-mode="blue-yellow"] .btn-primary {
     color: #111318 !important;
 }
+
+/* ==========================================
+   WARM NIGHT MODE
+   ========================================== */
+
+:root[data-theme="warm"] {
+    --purple-900: #F6E5D0;
+    --purple-800: #E9D3B9;
+    --purple-700: #E9B47A;
+    --purple-500: #C98955;
+    --purple-50: #3C3029;
+
+    --orange-600: #E9B47A;
+    --orange-700: #C98955;
+
+    --ink: #F6E5D0;
+    --slate: #D8C1A7;
+    --muted: #C6AD93;
+    --line: #655449;
+    --paper: #211B19;
+    --surface: #302621;
+
+    --good: #A9D4A4;
+    --good-bg: #293B2C;
+    --warn: #F0CA8A;
+    --warn-bg: #443526;
+    --bad: #F0A8A0;
+    --bad-bg: #482C2B;
+}
+
+/* Main backgrounds and text */
+:root[data-theme="warm"] body,
+:root[data-theme="warm"] .dashboard-page,
+:root[data-theme="warm"] .login-page-wrapper {
+    background: var(--paper);
+    color: var(--ink);
+}
+
+:root[data-theme="warm"] .site-header {
+    background: #2B201D;
+    border-bottom-color: #C98955;
+}
+
+:root[data-theme="warm"] .site-header .brand,
+:root[data-theme="warm"] .site-header a,
+:root[data-theme="warm"] .site-header .user-name,
+:root[data-theme="warm"] .site-header .user-role {
+    color: #F6E5D0;
+}
+
+/* Cards and panels */
+:root[data-theme="warm"] .card,
+:root[data-theme="warm"] .stat-tile,
+:root[data-theme="warm"] .action-tile,
+:root[data-theme="warm"] .quick-link,
+:root[data-theme="warm"] .dashboard-card,
+:root[data-theme="warm"] .dashboard-header,
+:root[data-theme="warm"] .login-container,
+:root[data-theme="warm"] .login-form-side,
+:root[data-theme="warm"] .auth-center {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--line);
+}
+
+/* Text */
+:root[data-theme="warm"] h1,
+:root[data-theme="warm"] h2,
+:root[data-theme="warm"] h3,
+:root[data-theme="warm"] p,
+:root[data-theme="warm"] .stat-value,
+:root[data-theme="warm"] .stat-label,
+:root[data-theme="warm"] .card-header h2,
+:root[data-theme="warm"] .empty-state h3,
+:root[data-theme="warm"] .dashboard-card h2,
+:root[data-theme="warm"] .dashboard-card p,
+:root[data-theme="warm"] .login-container h1,
+:root[data-theme="warm"] .login-container .motto {
+    color: var(--ink);
+}
+
+/* Welcome banner */
+:root[data-theme="warm"] .welcome-banner,
+:root[data-theme="warm"] .login-side,
+:root[data-theme="warm"] .feature-card {
+    background: linear-gradient(120deg, #3B2824, #51372C);
+    color: #F6E5D0;
+}
+
+:root[data-theme="warm"] .welcome-banner h1,
+:root[data-theme="warm"] .welcome-banner p,
+:root[data-theme="warm"] .login-side h2,
+:root[data-theme="warm"] .login-side p,
+:root[data-theme="warm"] .feature-card h2,
+:root[data-theme="warm"] .feature-card p {
+    color: #F6E5D0;
+}
+
+/* Buttons */
+:root[data-theme="warm"] .btn-primary,
+:root[data-theme="warm"] .btn-accent,
+:root[data-theme="warm"] .dashboard-button.primary,
+:root[data-theme="warm"] .login-container button:not(.toggle-password),
+:root[data-theme="warm"] .login-container input[type="submit"] {
+    background: #C98955;
+    color: #211B19;
+}
+
+:root[data-theme="warm"] .btn-secondary,
+:root[data-theme="warm"] .create-account-btn {
+    background: #3C3029;
+    color: #F6E5D0;
+    border-color: var(--line);
+}
+
+/* Form fields */
+:root[data-theme="warm"] input,
+:root[data-theme="warm"] select,
+:root[data-theme="warm"] textarea {
+    background: #3C3029;
+    color: #F6E5D0;
+    border-color: var(--line);
+}
+
+:root[data-theme="warm"] input::placeholder,
+:root[data-theme="warm"] textarea::placeholder {
+    color: #D8C1A7;
+}
+
+/* Dashboard table headers */
+:root[data-theme="warm"] .data-table th {
+    background: #3C3029;
+    color: #F6E5D0;
+}
+
+/* Status and other shared components */
+:root[data-theme="warm"] .badge,
+:root[data-theme="warm"] .stat-icon {
+    background: #3C3029;
+    color: #E9B47A;
+}
+
+/* Accessibility settings popup */
+:root[data-theme="warm"] #accessibility-panel,
+:root[data-theme="warm"] #accessibility-button {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--line);
+}
+
+:root[data-theme="warm"] #accessibility-panel select,
+:root[data-theme="warm"] .accessibility-actions button {
+    background: #3C3029;
+    color: #F6E5D0;
+    border-color: var(--line);
+}
