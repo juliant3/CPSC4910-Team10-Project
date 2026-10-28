@@ -212,120 +212,151 @@
 :root[data-theme="dark"] .site-header .user-role { color: #D1D4E0; }
 :root[data-theme="dark"] .site-header .icon-button { color: #FFFFFF; }
 /* ==========================================
-   DARK MODE - WHITE TEXT FIX
+   DARK MODE - READABLE TEXT
+   The purple tokens are used both as text colour and as the fill
+   behind white text, so they are made light here (for text) and
+   every purple-filled element gets an explicit dark fill below.
    ========================================== */
 
-:root[data-theme="dark"] {
-    --ink: #FFFFFF;
-    --slate: #FFFFFF;
-    --muted: #FFFFFF;
-
-    --purple-900: #FFFFFF;
-    --purple-800: #FFFFFF;
-    --purple-700: #FFFFFF;
+/* High contrast sets its own tokens, so leave it alone */
+:root[data-theme="dark"]:not([data-color-mode="high-contrast"]) {
+    --purple-900: #E6DCFA;
+    --purple-800: #DACBF7;
+    --purple-700: #C9B3F5;
 }
 
-/* General text */
-:root[data-theme="dark"] body,
-:root[data-theme="dark"] h1,
-:root[data-theme="dark"] h2,
-:root[data-theme="dark"] h3,
-:root[data-theme="dark"] h4,
-:root[data-theme="dark"] h5,
-:root[data-theme="dark"] h6,
-:root[data-theme="dark"] p,
-:root[data-theme="dark"] span,
-:root[data-theme="dark"] label,
-:root[data-theme="dark"] a,
-:root[data-theme="dark"] li,
-:root[data-theme="dark"] strong,
-:root[data-theme="dark"] td,
-:root[data-theme="dark"] th {
+/* Purple-filled controls keep white text on a dark purple fill */
+:root[data-theme="dark"] .btn-primary,
+:root[data-theme="dark"] .segmented a.active,
+:root[data-theme="dark"] .version-badge,
+:root[data-theme="dark"] .dashboard-button.primary,
+:root[data-theme="dark"] .login-container button:not(.toggle-password),
+:root[data-theme="dark"] .login-container input[type="submit"],
+:root[data-theme="dark"] .catalog-pagination a,
+:root[data-theme="dark"] .catalog-filter.active,
+:root[data-theme="dark"] .catalog-cart-link,
+:root[data-theme="dark"] .catalog-add {
+    background: #6042A0;
+    border-color: #6042A0;
     color: #FFFFFF;
 }
 
-/* Login page */
-:root[data-theme="dark"] .login-container,
-:root[data-theme="dark"] .login-container h1,
-:root[data-theme="dark"] .login-container .motto,
-:root[data-theme="dark"] .account-help,
-:root[data-theme="dark"] .account-help strong,
-:root[data-theme="dark"] .auth-center label {
+:root[data-theme="dark"] .btn-primary:hover,
+:root[data-theme="dark"] .catalog-add:hover,
+:root[data-theme="dark"] .login-container button:not(.toggle-password):hover,
+:root[data-theme="dark"] .login-container input[type="submit"]:hover {
+    background: #7657B7;
+}
+
+:root[data-theme="dark"] .btn:disabled {
+    background: #3A3D4A;
+    border-color: #3A3D4A;
+    color: #A9ADBB;
+}
+
+/* Orange catalog buttons: the light dark-mode orange is too pale behind white text */
+:root[data-theme="dark"] .catalog-search button,
+:root[data-theme="dark"] .catalog-details,
+:root[data-theme="dark"] .catalog-external {
+    background: #A94F20;
     color: #FFFFFF;
 }
 
-/* Dashboard */
-:root[data-theme="dark"] .dashboard-header h1,
-:root[data-theme="dark"] .dashboard-header p,
-:root[data-theme="dark"] .dashboard-card h2,
-:root[data-theme="dark"] .dashboard-card p,
-:root[data-theme="dark"] .card-label,
-:root[data-theme="dark"] .dashboard-nav a,
-:root[data-theme="dark"] .dashboard-nav .logo {
-    color: #FFFFFF;
+:root[data-theme="dark"] .catalog-search button:hover,
+:root[data-theme="dark"] .catalog-details:hover,
+:root[data-theme="dark"] .catalog-external:hover {
+    background: #8B401A;
 }
 
-/* Inputs need dark backgrounds with white text */
+/* Catalog panels are hardcoded white in catalog.css */
+:root[data-theme="dark"] .catalog-search,
+:root[data-theme="dark"] .catalog-card,
+:root[data-theme="dark"] .catalog-empty,
+:root[data-theme="dark"] .catalog-item-content,
+:root[data-theme="dark"] .catalog-type-option,
+:root[data-theme="dark"] .catalog-filter {
+    background: var(--surface);
+    color: var(--ink);
+}
+
+/* Product photos stay on white, so their placeholder text stays dark */
+:root[data-theme="dark"] .catalog-image-link span,
+:root[data-theme="dark"] .catalog-item-image span {
+    color: #4A4458;
+}
+
+:root[data-theme="dark"] .catalog-success {
+    background: var(--good-bg);
+    border-color: var(--good);
+    color: var(--good);
+}
+
+/* Light banners keep their dark text */
+:root[data-theme="dark"] .support-mode-banner,
+:root[data-theme="dark"] .assume-driver-banner {
+    background: #43351E;
+    border-color: #6B5530;
+    color: #F4D08D;
+}
+
+:root[data-theme="dark"] .assume-driver-button {
+    background: #43351E;
+    border-color: #6B5530;
+    color: #F4D08D;
+}
+
+:root[data-theme="dark"] .assume-driver-button:hover {
+    background: #54432A;
+}
+
+/* Inputs need dark backgrounds with light text */
 :root[data-theme="dark"] input,
 :root[data-theme="dark"] select,
 :root[data-theme="dark"] textarea {
     background-color: #232632;
-    color: #FFFFFF;
+    color: var(--ink);
     border-color: #646879;
 }
 
 :root[data-theme="dark"] input::placeholder,
 :root[data-theme="dark"] textarea::placeholder {
-    color: #D0D3DC;
+    color: #A9ADBB;
 }
 
-/* Keep text readable on dark purple buttons */
-:root[data-theme="dark"] .btn-primary,
-:root[data-theme="dark"] .dashboard-button.primary,
-:root[data-theme="dark"] .login-container button:not(.toggle-password),
-:root[data-theme="dark"] .login-container input[type="submit"] {
-    background: #6042A0;
-    color: #FFFFFF;
+/* Inline-styled labels on login/apply use #555 */
+:root[data-theme="dark"] .login-container label,
+:root[data-theme="dark"] .auth-center label {
+    color: var(--slate) !important;
 }
-
-/* High contrast remains separate */
-:root[data-color-mode="high-contrast"] .btn-primary,
-:root[data-color-mode="high-contrast"] .dashboard-button.primary,
-:root[data-color-mode="high-contrast"] .login-container button:not(.toggle-password) {
-    background: #FFFF00;
-    color: #000000;
-}
-
 
 /* ==========================================
    DARK MODE - DASHBOARD TEXT VISIBILITY FIX
    ========================================== */
 
-/* Dashboard statistics and numbers */
+/* Primary dashboard text */
 :root[data-theme="dark"] .stat-value,
-:root[data-theme="dark"] .stat-label,
-:root[data-theme="dark"] .stat-hint,
-:root[data-theme="dark"] .row-meta-value {
-    color: #FFFFFF !important;
-}
-
-/* Card headings and content */
+:root[data-theme="dark"] .row-meta-value,
 :root[data-theme="dark"] .card-header h2,
 :root[data-theme="dark"] .card-header h3,
 :root[data-theme="dark"] .card-body h2,
 :root[data-theme="dark"] .card-body h3,
 :root[data-theme="dark"] .empty-state h3,
-:root[data-theme="dark"] .row-title {
-    color: #FFFFFF !important;
+:root[data-theme="dark"] .row-title,
+:root[data-theme="dark"] .action-tile h3 {
+    color: var(--ink) !important;
 }
 
-/* Secondary dashboard text */
+/* Secondary dashboard text stays a step dimmer than headings */
+:root[data-theme="dark"] .stat-label,
+:root[data-theme="dark"] .stat-hint,
 :root[data-theme="dark"] .card-header p,
 :root[data-theme="dark"] .card-body p,
+:root[data-theme="dark"] .empty-state,
 :root[data-theme="dark"] .empty-state p,
 :root[data-theme="dark"] .row-sub,
-:root[data-theme="dark"] .section-title {
-    color: #FFFFFF !important;
+:root[data-theme="dark"] .section-title,
+:root[data-theme="dark"] .breadcrumb {
+    color: var(--slate) !important;
 }
 
 /* Secondary buttons, including View all */
@@ -333,28 +364,23 @@
 :root[data-theme="dark"] .btn-secondary:visited,
 :root[data-theme="dark"] .btn-secondary:hover {
     background: #303440;
-    color: #FFFFFF !important;
+    color: var(--ink) !important;
     border-color: #737987;
-}
-
-/* General dashboard links */
-:root[data-theme="dark"] .quick-link,
-:root[data-theme="dark"] .action-tile h3,
-:root[data-theme="dark"] .breadcrumb {
-    color: #FFFFFF !important;
-}
-
-/* Keep button labels readable */
-:root[data-theme="dark"] .btn-primary,
-:root[data-theme="dark"] .btn-accent {
-    background: #6042A0;
-    color: #FFFFFF !important;
 }
 
 /* High contrast: black text on yellow buttons */
 :root[data-color-mode="high-contrast"] .btn-primary,
 :root[data-color-mode="high-contrast"] .btn-accent,
-:root[data-color-mode="high-contrast"] .btn-secondary {
+:root[data-color-mode="high-contrast"] .btn-secondary,
+:root[data-color-mode="high-contrast"] .dashboard-button.primary,
+:root[data-color-mode="high-contrast"] .login-container button:not(.toggle-password),
+:root[data-color-mode="high-contrast"] .login-container input[type="submit"],
+:root[data-color-mode="high-contrast"] .segmented a.active,
+:root[data-color-mode="high-contrast"] .version-badge,
+:root[data-color-mode="high-contrast"] .catalog-add,
+:root[data-color-mode="high-contrast"] .catalog-cart-link,
+:root[data-color-mode="high-contrast"] .catalog-pagination a,
+:root[data-color-mode="high-contrast"] .catalog-filter.active {
     background: #FFFF00;
     color: #000000 !important;
     border-color: #FFFF00;
