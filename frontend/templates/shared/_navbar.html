@@ -78,7 +78,7 @@
 
                     {% if unread_count and unread_count > 0 %}
                         <span class="notif-count">
-                            {{ unread_count if unread_count < 100 else '99+' }}
+                            {{- unread_count if unread_count < 100 else '99+' -}}
                         </span>
                     {% endif %}
                 </button>
@@ -120,7 +120,7 @@
                         {{ session.get('first_name') or '' }} {{ session.get('last_name') or '' }}
                     </span>
                     <span class="user-role">
-                        {{ 'Admin' if assumed_sponsor else ('Sponsor' if assumed_driver else role_key|title) }}
+                        {{- 'Admin' if assumed_sponsor else ('Sponsor' if assumed_driver else role_key|title) -}}
                     </span>
                 </span>
             </div>
