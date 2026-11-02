@@ -24,7 +24,7 @@
             <h1>{{ item.get('title', 'eBay listing') }}</h1>
             {% if points is not none %}<strong class="catalog-item-price">{{ "{:,}".format(points) }} points</strong>{% else %}<strong class="catalog-item-price">Price unavailable</strong>{% endif %}
             {% if not in_stock %}<div class="catalog-alert catalog-stock" role="status">Out of stock. This item can't be added to a cart right now.</div>{% endif %}
-            {% if role == 'driver' and points is not none and in_stock %}
+            {% if role == 'driver' and points is not none and in_stock and session.get('assumed_driver_by') != 'admin' %}
             <form class="catalog-item-buy" action="{{ url_for('ebay_catalog.add_to_cart') }}" method="post">
                 <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
                 <input type="hidden" name="item_id" value="{{ item_id }}">

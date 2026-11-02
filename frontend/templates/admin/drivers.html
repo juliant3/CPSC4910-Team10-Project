@@ -1,0 +1,66 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Drivers{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">Admin</span>
+            <h1>Drivers</h1>
+            <p>Find a driver and view the site as they see it, for troubleshooting.</p>
+        </div>
+    </div>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ drivers|length }} driver{{ 's' if drivers|length != 1 }}</h2>
+
+            <form method="GET" action="{{ url_for('admin_drivers') }}" class="toolbar">
+                <label class="sr-only" for="driver-search">Search drivers</label>
+                <input type="search" id="driver-search" name="search" class="input"
+                       value="{{ search }}" placeholder="Name or email">
+                <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+                {% if search %}<a href="{{ url_for('admin_drivers') }}" class="btn btn-secondary btn-sm">Clear</a>{% endif %}
+            </form>
+        </div>
+
+        {% if drivers %}
+        <ul class="row-list">
+            {% for driver in drivers %}
+            <li class="row-item">
+                <div class="row-main">
+                    <div class="row-link">
+                        <span class="avatar">
+                            {{ (driver.first_name or '?')[:1]|upper }}{{ (driver.last_name or '')[:1]|upper }}
+                        </span>
+                        <span class="row-text">
+                            <p class="row-title">{{ driver.first_name }} {{ driver.last_name or '' }}</p>
+                            <p class="row-sub">{{ driver.email }} · {{ driver.programs or 'No sponsor yet' }}</p>
+                        </span>
+                    </div>
+
+                    <form method="POST"
+                          action="{{ url_for('admin_assume_driver', driver_id=driver.driver_id) }}"
+                          onsubmit="return confirm('View this driver account in read-only support mode?');">
+                        <button type="submit" class="btn btn-secondary btn-sm">
+                            View as driver
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">
+            <h3>No drivers found</h3>
+            <p>{% if search %}No drivers match "{{ search }}".{% else %}There are no driver accounts to display.{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

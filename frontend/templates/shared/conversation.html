@@ -1,0 +1,148 @@
+{% extends "shared/base.html" %}
+
+{% block title %}{{ convo.title }} · Messages{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <div>
+            <a href="{{ url_for('chat.inbox') }}" class="eyebrow">← All messages</a>
+            <h1>{{ convo.title }}</h1>
+            <p>
+                {% if convo.side == 'driver' %}Your conversation with this sponsor's team.
+                {% else %}Anyone on your team can read and reply here.{% endif %}
+            </p>
+        </div>
+    </div>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
+    <div class="card chat-card">
+        <div class="chat-log" id="chat-log" aria-live="polite"
+             data-poll-url="{{ url_for('chat.new_messages', other_id=convo.other_id) }}"
+             data-last-id="{{ messages[-1].message_id if messages else 0 }}">
+            {% for m in messages %}
+            <div class="chat-bubble{{ ' mine' if m.mine }}">
+                <p class="chat-body">{{ m.body }}</p>
+                <span class="chat-meta">{{ 'You' if m.mine and convo.side == 'driver' else m.sender }} · {{ m.time }}</span>
+            </div>
+            {% else %}
+            <p class="chat-empty" id="chat-empty">No messages yet. Say hello!</p>
+            {% endfor %}
+            <span id="latest"></span>
+        </div>
+
+        {% if convo.can_send and not session.get('assumed_driver_id') %}
+        <form method="POST" class="chat-form" id="chat-form">
+            <label class="sr-only" for="chat-body">Message</label>
+            <textarea id="chat-body" name="body" class="input" rows="2"
+                      maxlength="{{ max_length }}" required
+                      placeholder="Write a message…"></textarea>
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+        {% elif not convo.can_send %}
+        <p class="chat-closed">This program isn't active, so new messages can't be sent.</p>
+        {% else %}
+        <p class="chat-closed">Read-only: messages can't be sent while viewing as a driver.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function () {
+    const log = document.getElementById("chat-log");
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("chat-body");
+    let lastId = Number(log.dataset.lastId) || 0;
+
+    log.scrollTop = log.scrollHeight;
+
+    // Enter sends; Shift+Enter adds a new line.
+    if (input) {
+        input.addEventListener("keydown", event => {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                if (input.value.trim()) form.requestSubmit();
+            }
+        });
+        input.focus();
+    }
+
+    function addMessage(m) {
+        document.getElementById("chat-empty")?.remove();
+
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble" + (m.mine ? " mine" : "");
+
+        // textContent, never innerHTML: messages are user input.
+        const body = document.createElement("p");
+        body.className = "chat-body";
+        body.textContent = m.body;
+
+        const meta = document.createElement("span");
+        meta.className = "chat-meta";
+        meta.textContent = m.sender + " · " + m.time;
+
+        bubble.append(body, meta);
+        log.insertBefore(bubble, document.getElementById("latest"));
+    }
+
+    // Ask quickly while a conversation is active, then back off to every
+    // 30 seconds when it goes quiet. Stops for good once the user is logged out.
+    const FASTEST = 5000, SLOWEST = 30000;
+    let delay = FASTEST;
+    let timer = null;
+    let stopped = false;
+
+    function schedule() {
+        clearTimeout(timer);
+        if (!stopped) timer = setTimeout(poll, delay);
+    }
+
+    async function poll() {
+        if (document.hidden) return;  // resumes on visibilitychange
+        try {
+            const response = await fetch(log.dataset.pollUrl + "?after=" + lastId, {
+                headers: { "Accept": "application/json" },
+                redirect: "manual"
+            });
+            const isJson = (response.headers.get("Content-Type") || "").includes("application/json");
+            if (!response.ok || !isJson) {
+                // Logged out or session expired: never keep asking.
+                stopped = true;
+                return;
+            }
+            const data = await response.json();
+            if (data.messages.length) {
+                const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+                data.messages.forEach(addMessage);
+                lastId = data.messages[data.messages.length - 1].id;
+                if (nearBottom) log.scrollTop = log.scrollHeight;
+                delay = FASTEST;
+            } else {
+                delay = Math.min(delay * 2, SLOWEST);
+            }
+        } catch (error) {
+            delay = Math.min(delay * 2, SLOWEST);  // network hiccup: try again later
+        }
+        schedule();
+    }
+
+    // Typing means a reply may be coming, so check quickly again.
+    if (input) {
+        input.addEventListener("input", () => {
+            if (delay !== FASTEST) { delay = FASTEST; schedule(); }
+        });
+    }
+
+    // No requests at all while the tab is in the background.
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) { delay = FASTEST; poll(); }
+    });
+
+    schedule();
+})();
+</script>
+{% endblock %}

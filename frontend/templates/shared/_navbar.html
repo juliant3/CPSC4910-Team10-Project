@@ -4,6 +4,7 @@
 {% set assumed_driver = session.get('assumed_driver_id') is not none %}
 {% set assumed_sponsor = session.get('assumed_sponsor_id') is not none %}
 {% set support_mode = assumed_driver or assumed_sponsor %}
+{% set admin_driver_view = assumed_driver and session.get('assumed_driver_by') == 'admin' %}
 
 {% if role_key == 'sponsor' %}
     {% set nav_items = [
@@ -11,6 +12,7 @@
         ('Drivers', 'sponsor_drivers', ['sponsor_driver_profile', 'sponsor_edit_driver', 'sponsor_recurring']),
         ('Applications', 'sponsor_applications', []),
         ('Catalog', 'ebay_catalog.sponsor_catalog', ['ebay_catalog.catalog_item']),
+        ('Messages', 'chat.inbox', ['chat.conversation']),
         ('Team', 'sponsor_team', [])
     ] %}
 {% elif role_key == 'driver' %}
@@ -18,6 +20,7 @@
         ('Dashboard', 'driver_dashboard', ['home']),
         ('My Points', 'driver_points', []),
         ('Catalog', 'ebay_catalog.driver_catalog', ['ebay_catalog.catalog_item', 'ebay_catalog.driver_cart']),
+        ('Messages', 'chat.inbox', ['chat.conversation']),
         ('Sponsors', 'driver_sponsors', []),
         ('My Profile', 'driver_profile', ['driver_edit_profile'])
     ] %}
@@ -25,6 +28,7 @@
     {% set nav_items = [
         ('Dashboard', 'home', []),
         ('Sponsors', 'admin_sponsors', []),
+        ('Drivers', 'admin_drivers', []),
         ('Driver Applications', 'admin_pending_applications', []),
         ('Sponsor Requests', 'admin_sponsor_requests', [])
     ] %}
@@ -46,6 +50,9 @@
                 <a href="{{ url_for(endpoint) }}"
                    class="{{ 'active' if request.endpoint == endpoint or request.endpoint in also else '' }}">
                     {{ label }}
+                    {%- if endpoint == 'chat.inbox' and unread_messages %}
+                    <span class="nav-count" aria-label="{{ unread_messages }} unread">{{ unread_messages if unread_messages < 100 else '99+' }}</span>
+                    {%- endif %}
                 </a>
             {% endfor %}
 
@@ -112,6 +119,18 @@
             </div>
             {% endif %}
 
+            {% if not support_mode %}
+            <a href="{{ url_for('settings') }}"
+               class="icon-button{{ ' active' if request.endpoint == 'settings' else '' }}"
+               title="Settings" aria-label="Settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+            </a>
+            {% endif %}
+
             <div class="user-chip">
                 <span class="user-avatar">
                     {{ (session.get('first_name') or '?')[:1]|upper }}{{ (session.get('last_name') or '')[:1]|upper }}
@@ -121,7 +140,7 @@
                         {{ session.get('first_name') or '' }} {{ session.get('last_name') or '' }}
                     </span>
                     <span class="user-role">
-                        {{- 'Admin' if assumed_sponsor else ('Sponsor' if assumed_driver else role_key|title) -}}
+                        {{- 'Admin' if assumed_sponsor or admin_driver_view else ('Sponsor' if assumed_driver else role_key|title) -}}
                     </span>
                 </span>
             </div>
@@ -155,8 +174,13 @@
 {% elif assumed_driver %}
 <div class="support-mode-banner">
     <div class="support-mode-message">
+        {% if admin_driver_view %}
+        <strong>Read-only support mode</strong>
+        <span>Viewing as {{ session.get('assumed_driver_name', 'Driver') }}. Nothing can be changed or bought from this view.</span>
+        {% else %}
         <strong>Driver view</strong>
         <span>Viewing as {{ session.get('assumed_driver_name', 'Driver') }}. You can shop the catalog for them; other changes are off.</span>
+        {% endif %}
     </div>
     <form method="POST" action="{{ url_for('sponsor_exit_assumed_driver') }}">
         <button type="submit" class="btn btn-secondary btn-sm">
@@ -166,8 +190,9 @@
 </div>
 {% endif %}
 
-{# Driver sponsor switcher is disabled during support sessions. #}
-{% if not support_mode and role_key == 'driver'
+{# Driver sponsor switcher: off during a sponsor's driver view (locked to their
+   program), on for an admin's, who may look at any of the driver's sponsors. #}
+{% if (not support_mode or admin_driver_view) and role_key == 'driver'
       and driver_sponsorships and driver_sponsorships|length > 1 %}
 <div class="context-bar">
     <form method="POST"

@@ -15,6 +15,9 @@ app = Flask(__name__)
 
 from ebay_catalog import catalog_bp
 app.register_blueprint(catalog_bp)
+
+from chat import chat_bp, count_unread_messages
+app.register_blueprint(chat_bp)
 app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY",
     "change_this_to_a_secure_random_value"
@@ -295,7 +298,7 @@ def inject_driver_sponsorships():
         return {}
 
     # A sponsor viewing as this driver only sees their own program.
-    if session.get("assumed_driver_id"):
+    if session.get("assumed_driver_sponsor_id"):
         sponsorships = [
             s for s in sponsorships
             if s["sponsor_id"] == session.get("assumed_driver_sponsor_id")
@@ -312,10 +315,31 @@ def inject_current_year():
     return {"current_year": local_now().year}
 
 
+# Settings toggles: column in User_Settings -> notification types it covers,
+# its label, and who sees the toggle.
+NOTIFICATION_SETTINGS = [
+    ("notify_points", ("Point Change",), "Points and redemption", ("driver",)),
+    ("notify_orders", ("Order Placed",), "Orders", ("driver",)),
+    ("notify_program", ("Dropped",), "Program changes", ("driver",)),
+    ("notify_applications", ("New Application",), "New applications and requests", ("sponsor", "admin")),
+    ("notify_messages", ("Message",), "New messages", ("driver", "sponsor")),
+]
+
+# Hides notification types the user switched off. Built only from the
+# constants above, never from user input.
+MUTED_NOTIFICATIONS_SQL = " OR ".join(
+    # COALESCE: users with no settings row have everything switched on.
+    "(Notifications.notification_type IN ({}) AND COALESCE(User_Settings.{}, 1) = 0)".format(
+        ", ".join(f"'{t}'" for t in types), column
+    )
+    for column, types, _, _ in NOTIFICATION_SETTINGS
+)
+
+
 @app.context_processor
 def inject_notifications():
     """Unread count + latest notifications for the navbar dropdown on every page."""
-    empty = {"unread_count": 0, "recent_notifications": []}
+    empty = {"unread_count": 0, "recent_notifications": [], "unread_messages": 0}
 
     if "user_id" not in session:
         return empty
@@ -325,29 +349,50 @@ def inject_notifications():
         try:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """
+                    f"""
                     SELECT COUNT(*) AS c
                     FROM Notifications
-                    WHERE user_id = %s
-                      AND is_read = 0
+                    LEFT JOIN User_Settings
+                        ON User_Settings.user_id = Notifications.user_id
+                    WHERE Notifications.user_id = %s
+                      AND Notifications.is_read = 0
+                      AND NOT ({MUTED_NOTIFICATIONS_SQL})
                     """,
                     (session["user_id"],)
                 )
                 unread_count = cursor.fetchone()["c"]
 
                 cursor.execute(
-                    """
-                    SELECT notification_id, subject, message, is_read, created_at
+                    f"""
+                    SELECT
+                        Notifications.notification_id,
+                        Notifications.subject,
+                        Notifications.message,
+                        Notifications.is_read,
+                        Notifications.created_at
                     FROM Notifications
-                    WHERE user_id = %s
-                    ORDER BY created_at DESC, notification_id DESC
+                    LEFT JOIN User_Settings
+                        ON User_Settings.user_id = Notifications.user_id
+                    WHERE Notifications.user_id = %s
+                      AND NOT ({MUTED_NOTIFICATIONS_SQL})
+                    ORDER BY Notifications.created_at DESC, Notifications.notification_id DESC
                     LIMIT 15
                     """,
                     (session["user_id"],)
                 )
                 recent = cursor.fetchall()
 
-                return {"unread_count": unread_count, "recent_notifications": recent}
+                # Kept separate so the bell still works if the chat table is missing.
+                try:
+                    unread_messages = count_unread_messages(cursor)
+                except Exception:
+                    unread_messages = 0
+
+                return {
+                    "unread_count": unread_count,
+                    "recent_notifications": recent,
+                    "unread_messages": unread_messages,
+                }
         finally:
             conn.close()
     except Exception:
@@ -1787,6 +1832,110 @@ def delete_sponsor_question(question_id):
 
     return redirect(url_for("sponsor_applications"))
 
+def delete_open_application(cursor, application_id, sponsor_id=None):
+    """
+    Remove an application that is still waiting (Pending or Submitted).
+
+    Decided applications are kept as history. With sponsor_id, only that
+    sponsor's application can be removed. Returns the deleted row, or None.
+    """
+    cursor.execute(
+        """
+        SELECT application_id, sponsor_id, driver_id, status, applicant_email
+        FROM Driver_Applications
+        WHERE application_id = %s
+          AND status IN ('Pending', 'Submitted')
+          AND (%s IS NULL OR sponsor_id = %s)
+        FOR UPDATE
+        """,
+        (application_id, sponsor_id, sponsor_id)
+    )
+    application = cursor.fetchone()
+
+    if not application:
+        return None
+
+    cursor.execute(
+        "DELETE FROM Application_Answers WHERE application_id = %s",
+        (application_id,)
+    )
+
+    # Its invite link stops working because the row (and token) is gone.
+    cursor.execute(
+        "DELETE FROM Driver_Applications WHERE application_id = %s",
+        (application_id,)
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO Audit_Logs
+            (user_id, sponsor_id, category, action, status, username)
+        VALUES
+            (%s, %s, 'Driver Application', 'Application deleted', %s, %s)
+        """,
+        (session["user_id"], application["sponsor_id"],
+         application["status"], application["applicant_email"])
+    )
+
+    return application
+
+
+@app.route("/sponsor/applications/<int:application_id>/delete", methods=["POST"])
+def sponsor_delete_application(application_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            deleted = delete_open_application(cursor, application_id, current_sponsor_id())
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    if deleted:
+        flash("Application deleted.", "success")
+    else:
+        flash("Only applications still waiting on a decision can be deleted.", "error")
+
+    return redirect(url_for("sponsor_applications", **request.args))
+
+
+@app.route("/admin/applications/<int:application_id>/delete", methods=["POST"])
+def admin_delete_application(application_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "admin":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            deleted = delete_open_application(cursor, application_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    if deleted:
+        flash("Application deleted.", "success")
+    else:
+        flash("Only applications still waiting on a decision can be deleted.", "error")
+
+    return redirect(url_for("admin_pending_applications"))
+
+
 @app.route("/admin/applications")
 def admin_pending_applications():
 
@@ -2966,6 +3115,123 @@ def switch_driver_sponsor():
     return redirect(back)
 
 
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    """Notification toggles, name, and password for any logged-in user."""
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    role_key = (session.get("role") or "").lower()
+    toggles = [t for t in NOTIFICATION_SETTINGS if role_key in t[3]]
+    user_id = session["user_id"]
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            if request.method == "POST":
+                action = request.form.get("action")
+
+                if action == "notifications":
+                    columns = [column for column, _, _, _ in toggles]
+                    values = [1 if request.form.get(column) else 0 for column in columns]
+
+                    if columns:
+                        # Column names come from NOTIFICATION_SETTINGS, not the form.
+                        cursor.execute(
+                            f"""
+                            INSERT INTO User_Settings
+                                (user_id, {", ".join(columns)})
+                            VALUES
+                                (%s, {", ".join(["%s"] * len(columns))})
+                            ON DUPLICATE KEY UPDATE
+                                {", ".join(f"{c} = VALUES({c})" for c in columns)}
+                            """,
+                            (user_id, *values)
+                        )
+                        conn.commit()
+
+                    flash("Notification settings saved.", "success")
+
+                elif action == "profile":
+                    first_name = " ".join(request.form.get("first_name", "").split())[:100]
+                    last_name = " ".join(request.form.get("last_name", "").split())[:100]
+
+                    if not first_name or not last_name:
+                        flash("Enter both a first and last name.", "error")
+                    else:
+                        cursor.execute(
+                            "UPDATE Users SET first_name = %s, last_name = %s WHERE user_id = %s",
+                            (first_name, last_name, user_id)
+                        )
+                        conn.commit()
+                        session["first_name"] = first_name
+                        session["last_name"] = last_name
+                        flash("Your name was updated.", "success")
+
+                elif action == "password":
+                    current = request.form.get("current_password", "")
+                    new_password = request.form.get("new_password", "")
+                    confirm = request.form.get("confirm_password", "")
+
+                    cursor.execute(
+                        "SELECT password_hash FROM Password WHERE user_id = %s",
+                        (user_id,)
+                    )
+                    record = cursor.fetchone()
+
+                    if not record or not check_password_hash(record["password_hash"], current):
+                        flash("Your current password is incorrect.", "error")
+                    elif len(new_password) < MIN_PASSWORD_LENGTH:
+                        flash(f"New password must be at least {MIN_PASSWORD_LENGTH} characters.", "error")
+                    elif new_password != confirm:
+                        flash("The new passwords do not match.", "error")
+                    elif new_password == current:
+                        flash("Your new password must be different from your current password.", "error")
+                    else:
+                        cursor.execute(
+                            "UPDATE Password SET password_hash = %s WHERE user_id = %s",
+                            (generate_password_hash(new_password, method="pbkdf2:sha256"), user_id)
+                        )
+                        # Reset links sent before the change stop working.
+                        cursor.execute(
+                            "UPDATE Password_Tokens SET used_at = NOW() WHERE user_id = %s AND used_at IS NULL",
+                            (user_id,)
+                        )
+                        cursor.execute(
+                            """
+                            INSERT INTO Audit_Logs
+                                (user_id, category, action, success)
+                            VALUES
+                                (%s, 'Password Change', 'Password changed in settings', 1)
+                            """,
+                            (user_id,)
+                        )
+                        conn.commit()
+                        flash("Your password was changed.", "success")
+
+                return redirect(url_for("settings") + "#" + (action or ""))
+
+            cursor.execute(
+                "SELECT * FROM User_Settings WHERE user_id = %s",
+                (user_id,)
+            )
+            saved = cursor.fetchone() or {}
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "shared/settings.html",
+        toggles=[
+            {"column": column, "label": label, "on": bool(saved.get(column, 1))}
+            for column, _, label, _ in toggles
+        ],
+    )
+
+
 @app.route("/notifications/read", methods=["POST"])
 def mark_notifications_read():
     """Called by the navbar dropdown when it is opened."""
@@ -3698,6 +3964,33 @@ def register():
 from flask import request, session, redirect, url_for, flash
 
 
+def start_driver_view(driver, by, sponsor_id=None):
+    """
+    Switch the session to a driver so the usual driver pages work, keeping the
+    original session to restore on exit. A sponsor is locked to its own
+    program (sponsor_id); an admin can see every sponsor the driver has.
+    """
+    original_session = dict(session)
+
+    session["role"] = "Driver"
+    session["user_id"] = driver["user_id"]
+    session["first_name"] = driver["first_name"]
+    session["last_name"] = driver["last_name"] or ""
+    session.pop("driver_sponsor_id", None)
+    if sponsor_id is not None:
+        session["driver_sponsor_id"] = sponsor_id
+
+    # Support-mode markers for the banner and the read-only guard.
+    session["_assume_driver_original"] = original_session
+    session["assumed_driver_id"] = driver["user_id"]
+    session["assumed_driver_name"] = (
+        f"{driver['first_name']} {driver['last_name'] or ''}".strip()
+    )
+    session["assumed_driver_by"] = by
+    if sponsor_id is not None:
+        session["assumed_driver_sponsor_id"] = sponsor_id
+
+
 @app.route("/sponsor/assume-driver/<int:driver_id>", methods=["POST"])
 def sponsor_assume_driver(driver_id):
     """Temporarily view a driver account from a sponsor's perspective."""
@@ -3738,24 +4031,7 @@ def sponsor_assume_driver(driver_id):
     finally:
         conn.close()
 
-    # Preserve the sponsor's complete original session so we can restore it.
-    original_session = dict(session)
-
-    # Switch the active session to the driver's identity.
-    # Existing driver routes can now use their usual session fields.
-    session["role"] = "Driver"
-    session["user_id"] = driver["user_id"]
-    session["driver_sponsor_id"] = sponsor_id
-    session["first_name"] = driver["first_name"]
-    session["last_name"] = driver["last_name"] or ""
-
-    # Keep explicit support-mode metadata for the banner and safety checks.
-    session["_assume_driver_original"] = original_session
-    session["assumed_driver_id"] = driver["user_id"]
-    session["assumed_driver_name"] = (
-        f"{driver['first_name']} {driver['last_name'] or ''}".strip()
-    )
-    session["assumed_driver_sponsor_id"] = sponsor_id
+    start_driver_view(driver, by="sponsor", sponsor_id=sponsor_id)
 
     flash(
         f"Now viewing {session['assumed_driver_name']}'s account. "
@@ -3767,20 +4043,114 @@ def sponsor_assume_driver(driver_id):
 
 @app.route("/sponsor/exit-assumed-driver", methods=["POST"])
 def sponsor_exit_assumed_driver():
-    """Restore the sponsor's original session."""
+    """Restore the sponsor's or admin's original session."""
 
     original_session = session.get("_assume_driver_original")
 
     if not original_session:
         return "No assumed-driver session is active.", 400
 
-    # Restore the original sponsor identity and all of its session values.
+    # Restore the original identity and all of its session values.
     session.clear()
     session.update(original_session)
     session["last_activity"] = datetime.now(timezone.utc).isoformat()
 
+    if (session.get("role") or "").lower() == "admin":
+        flash("Returned to your admin account.", "success")
+        return redirect(url_for("admin_drivers"))
+
     flash("You have returned to your sponsor account.", "success")
     return redirect(url_for("sponsor_drivers"))
+
+
+@app.route("/admin/drivers")
+def admin_drivers():
+    """Every driver and the programs they belong to, for support."""
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    search = request.args.get("search", "").strip()[:100]
+    search_pattern = f"%{' '.join(search.split())}%"
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    Users.user_id AS driver_id,
+                    Users.first_name,
+                    Users.last_name,
+                    Users.email,
+                    GROUP_CONCAT(
+                        CONCAT(Sponsors.company_name, ' (', Driver_Sponsors.status, ')')
+                        ORDER BY Sponsors.company_name SEPARATOR ', '
+                    ) AS programs
+                FROM Users
+                LEFT JOIN Driver_Sponsors
+                    ON Driver_Sponsors.driver_id = Users.user_id
+                LEFT JOIN Sponsors
+                    ON Sponsors.sponsor_id = Driver_Sponsors.sponsor_id
+                WHERE Users.role = 'Driver'
+                  AND (
+                      %s = ''
+                      OR Users.email LIKE %s
+                      OR CONCAT_WS(' ', Users.first_name, Users.last_name) LIKE %s
+                  )
+                GROUP BY Users.user_id, Users.first_name, Users.last_name, Users.email
+                ORDER BY Users.last_name, Users.first_name
+                """,
+                (search, search_pattern, search_pattern)
+            )
+            drivers = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return render_template("admin/drivers.html", drivers=drivers, search=search)
+
+
+@app.route("/admin/assume-driver/<int:driver_id>", methods=["POST"])
+def admin_assume_driver(driver_id):
+    """Look at the site as a driver, read-only, for support."""
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    # Do not allow nested account switching.
+    if session.get("assumed_driver_id") or session.get("assumed_sponsor_id"):
+        abort(400, description="Exit the current support view first.")
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT user_id, first_name, last_name
+                FROM Users
+                WHERE user_id = %s
+                  AND role = 'Driver'
+                """,
+                (driver_id,)
+            )
+            driver = cursor.fetchone()
+    finally:
+        conn.close()
+
+    if not driver:
+        abort(404, description="Driver not found.")
+
+    start_driver_view(driver, by="admin")
+
+    flash(
+        f"Now viewing {session['assumed_driver_name']}'s account in read-only support mode.",
+        "info",
+    )
+    return redirect(url_for("driver_dashboard"))
 
 @app.route("/admin/assume-sponsor/<int:sponsor_id>", methods=["POST"])
 def admin_assume_sponsor(sponsor_id):
@@ -3905,8 +4275,11 @@ def enforce_assumed_account_read_only():
         "session_keep_alive",
     }
 
-    # A sponsor viewing a driver may shop the catalog on that driver's behalf.
-    if assumed_driver:
+    # A sponsor viewing a driver may shop the catalog on that driver's behalf;
+    # an admin only looks, but can switch between the driver's sponsors.
+    if assumed_driver and session.get("assumed_driver_by") == "admin":
+        allowed_endpoints.add("switch_driver_sponsor")
+    elif assumed_driver:
         allowed_endpoints |= SPONSOR_SHOPPING_ENDPOINTS
 
     if request.endpoint in allowed_endpoints:

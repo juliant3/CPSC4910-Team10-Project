@@ -1,0 +1,159 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">{{ session.get('role', '')|title }}</span>
+            <h1>Settings</h1>
+            <p>Choose your notifications, update your account, and change how the site looks.</p>
+        </div>
+    </div>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
+    <div class="settings-grid">
+
+        {% if toggles %}
+        <section class="card" id="notifications">
+            <div class="card-header">
+                <div>
+                    <h2>Notifications</h2>
+                    <p>Choose what shows up in your notification bell.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('settings') }}">
+                    <input type="hidden" name="action" value="notifications">
+                    {% for t in toggles %}
+                    <label class="setting-toggle" for="{{ t.column }}">
+                        <span>{{ t.label }}</span>
+                        <input type="checkbox" id="{{ t.column }}" name="{{ t.column }}" value="1" {{ 'checked' if t.on }}>
+                    </label>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary" style="margin-top: 12px;">Save notifications</button>
+                </form>
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="card" id="profile">
+            <div class="card-header">
+                <div>
+                    <h2>Your name</h2>
+                    <p>Shown in the header and to the people you work with.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('settings') }}" class="settings-form">
+                    <input type="hidden" name="action" value="profile">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="first_name">First name</label>
+                            <input type="text" id="first_name" name="first_name" maxlength="100" required
+                                   value="{{ session.get('first_name', '') }}" autocomplete="given-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="last_name">Last name</label>
+                            <input type="text" id="last_name" name="last_name" maxlength="100" required
+                                   value="{{ session.get('last_name', '') }}" autocomplete="family-name">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save name</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card" id="password">
+            <div class="card-header">
+                <div>
+                    <h2>Change password</h2>
+                    <p>At least 8 characters.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('settings') }}" class="settings-form">
+                    <input type="hidden" name="action" value="password">
+                    <div class="form-group">
+                        <label for="current_password">Current password</label>
+                        <input type="password" id="current_password" name="current_password" required
+                               autocomplete="current-password">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="new_password">New password</label>
+                            <input type="password" id="new_password" name="new_password" minlength="8" required
+                                   autocomplete="new-password">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm_password">Confirm new password</label>
+                            <input type="password" id="confirm_password" name="confirm_password" minlength="8" required
+                                   autocomplete="new-password">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Change password</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card" id="appearance">
+            <div class="card-header">
+                <div>
+                    <h2>Appearance</h2>
+                    <p>The same options as the Accessibility button. They're saved on this device.</p>
+                </div>
+            </div>
+            <div class="card-body settings-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="settings-theme">Theme</label>
+                        <select id="settings-theme" data-mirrors="theme-setting">
+                            <option value="light">Light Mode</option>
+                            <option value="dark">Dark Mode</option>
+                            <option value="warm">Warm Night Mode</option>
+                            <option value="system">System Default</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="settings-color">Color accessibility</label>
+                        <select id="settings-color" data-mirrors="color-setting">
+                            <option value="default">Standard Colors</option>
+                            <option value="red-green">Red-Green Friendly</option>
+                            <option value="blue-yellow">Blue-Yellow Friendly</option>
+                            <option value="high-contrast">High Contrast</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</div>
+
+<script>
+// Appearance: these selects drive the Accessibility panel's own controls, so
+// accessibility.js stays the one place that applies and saves the theme.
+window.addEventListener("load", () => {
+    document.querySelectorAll("[data-mirrors]").forEach(select => {
+        const panelSelect = document.getElementById(select.dataset.mirrors);
+        if (!panelSelect) return;
+
+        select.value = panelSelect.value;
+
+        select.addEventListener("change", () => {
+            panelSelect.value = select.value;
+            panelSelect.dispatchEvent(new Event("change"));
+        });
+
+        // Keep in step when the floating panel is used on this page.
+        panelSelect.addEventListener("change", () => {
+            select.value = panelSelect.value;
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -11,7 +11,11 @@
         <span class="catalog-eyebrow">DRIVER · CART{% if driver_sponsorship %} · {{ driver_sponsorship.company_name|upper }}{% endif %}</span>
         {% if shopper %}
         <h1>{{ shopper }}'s cart</h1>
+        {% if session.get('assumed_driver_by') == 'admin' %}
+        <p>Read-only view of {{ shopper }}'s cart. They have <strong>{{ "{:,}".format(balance or 0) }}</strong> points.</p>
+        {% else %}
         <p>You're shopping for {{ shopper }}. Purchases use their points; they have <strong>{{ "{:,}".format(balance or 0) }}</strong> points.</p>
+        {% endif %}
         {% else %}
         <h1>My cart</h1>
         <p>Items are paid for with points from the sponsor you're viewing. You have <strong>{{ "{:,}".format(balance or 0) }}</strong> points.</p>
@@ -43,11 +47,13 @@
                     <span>{{ "{:,}".format(item.points) }} pts{% if item.quantity > 1 %} × {{ item.quantity }}{% endif %}</span>
                 </div>
                 <strong class="cart-line-points">{{ "{:,}".format(item.line_points) }} pts</strong>
+                {% if session.get('assumed_driver_by') != 'admin' %}
                 <form action="{{ url_for('ebay_catalog.remove_from_cart') }}" method="post">
                     <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
                     <input type="hidden" name="item_id" value="{{ item.id }}">
                     <button type="submit" class="cart-remove">Remove</button>
                 </form>
+                {% endif %}
             </li>
             {% endfor %}
         </ul>
@@ -58,10 +64,12 @@
                 {% if total_points > balance %}<small class="cart-short">You need {{ "{:,}".format(total_points - balance) }} more points.</small>
                 {% else %}<small>{{ "{:,}".format(balance - total_points) }} points left after purchase</small>{% endif %}
             </div>
+            {% if session.get('assumed_driver_by') != 'admin' %}
             <form action="{{ url_for('ebay_catalog.checkout') }}" method="post">
                 <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
                 <button type="submit" class="catalog-add cart-purchase" {% if total_points > balance or suspended %}disabled{% endif %}>{{ 'Purchase for ' ~ shopper if shopper else 'Purchase' }}</button>
             </form>
+            {% endif %}
         </div>
         {% elif not error %}
         <div class="catalog-empty">Your cart is empty. <a href="{{ url_for('ebay_catalog.driver_catalog') }}">Browse the catalog</a> to add items.</div>

@@ -1,0 +1,45 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Messages{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">{{ 'Driver' if side == 'driver' else 'Sponsor' }}</span>
+            <h1>Messages</h1>
+            <p>
+                {% if side == 'driver' %}Message the sponsors whose programs you're in.
+                {% else %}Message the drivers in your program. Everyone on your team shares these conversations.{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="card">
+        {% if conversations %}
+        <ul class="row-list">
+            {% for c in conversations %}
+            <li class="row-item {{ 'row-unread' if c.unread }}">
+                <a class="row-main row-link" href="{{ url_for('chat.conversation', other_id=c.other_id) }}">
+                    <span class="avatar">{{ (c.name or '?')[:1]|upper }}</span>
+                    <span class="row-text" style="flex: 1; min-width: 0;">
+                        <p class="row-title">{{ c.name }}</p>
+                        <p class="row-sub inbox-preview">{{ c.last_body or 'No messages yet. Start the conversation.' }}</p>
+                    </span>
+                    {% if c.unread %}<span class="badge badge-accent">{{ c.unread }} new</span>{% endif %}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">
+            <h3>No conversations</h3>
+            <p>
+                {% if side == 'driver' %}Once you join a sponsor's program you can message them here.
+                {% else %}Once drivers join your program you can message them here.{% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

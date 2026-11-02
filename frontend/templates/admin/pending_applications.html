@@ -14,6 +14,10 @@
         </div>
     </div>
 
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
     <div class="card">
         <div class="card-header">
             <h2>{{ applications|length }} awaiting decision</h2>
@@ -29,6 +33,7 @@
                         <th>Email</th>
                         <th>Status</th>
                         <th>Sent</th>
+                        <th><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -43,6 +48,13 @@
                             </span>
                         </td>
                         <td style="white-space: nowrap;">{{ (a.application_date|local).strftime('%b %d, %Y') if a.application_date else '' }}</td>
+                        <td>
+                            <form method="POST"
+                                  action="{{ url_for('admin_delete_application', application_id=a.application_id) }}"
+                                  onsubmit="return confirm('Delete this application? This can\'t be undone.');">
+                                <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

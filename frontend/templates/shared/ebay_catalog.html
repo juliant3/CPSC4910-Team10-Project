@@ -95,7 +95,7 @@
                         </div>
                         <a class="catalog-details" href="{{ details_url }}">View details →</a>
                     </div>
-                    {% if role == 'driver' and product.points is not none %}
+                    {% if role == 'driver' and product.points is not none and session.get('assumed_driver_by') != 'admin' %}
                     <form action="{{ url_for('ebay_catalog.add_to_cart') }}" method="post">
                         <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
                         <input type="hidden" name="item_id" value="{{ product.id }}">

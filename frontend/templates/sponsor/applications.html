@@ -14,6 +14,10 @@
         </div>
     </div>
 
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
     {% endif %}
@@ -113,6 +117,14 @@
                         <span class="badge {{ 'badge-accent' if st == 'Submitted' else 'badge-warn' if st == 'Pending' else 'badge-success' if st == 'Accepted' else 'badge-danger' if st == 'Rejected' else 'badge-neutral' }}">
                             {{ 'New' if st == 'Submitted' else st }}
                         </span>
+
+                        {% if st in ('Pending', 'Submitted') %}
+                        <form method="POST"
+                              action="{{ url_for('sponsor_delete_application', application_id=application.application_id, status=request.args.get('status'), sort=request.args.get('sort')) }}"
+                              onsubmit="return confirm('Delete this application? {{ 'Their invite link will stop working.' if st == 'Pending' else 'Their answers will be removed.' }} This can\'t be undone.');">
+                            <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+                        </form>
+                        {% endif %}
                     </div>
 
                     {% if application.applicant_dob or application.applicant_address or application.answers or (st == 'Rejected' and application.reason) or st == 'Submitted' %}

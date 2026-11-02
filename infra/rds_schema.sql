@@ -461,3 +461,64 @@ ALTER TABLE Driver_Sponsors
     ADD COLUMN redeem_suspended TINYINT(1) NOT NULL DEFAULT 0,
     ADD COLUMN suspend_reason VARCHAR(255) NULL;
 
+
+
+-- Notification types (2026-11-02)
+-- The app also sends 'New Application' alerts, which this ENUM was missing
+-- (MySQL stored them as ''), and chat adds 'Message'.
+ALTER TABLE Notifications
+    MODIFY notification_type ENUM(
+        'Dropped',
+        'Point Change',
+        'Order Placed',
+        'New Application',
+        'Message'
+    ) NOT NULL;
+
+UPDATE Notifications
+SET notification_type = 'New Application'
+WHERE notification_type = '';
+
+
+-- User settings (2026-11-02)
+-- Which kinds of notifications show in the bell. No row means everything is on.
+CREATE TABLE IF NOT EXISTS User_Settings (
+    user_id INT PRIMARY KEY,
+    notify_points TINYINT(1) NOT NULL DEFAULT 1,
+    notify_orders TINYINT(1) NOT NULL DEFAULT 1,
+    notify_applications TINYINT(1) NOT NULL DEFAULT 1,
+    notify_program TINYINT(1) NOT NULL DEFAULT 1,
+    notify_messages TINYINT(1) NOT NULL DEFAULT 1,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id)
+        REFERENCES Users(user_id)
+        ON DELETE CASCADE
+);
+
+
+-- Sponsor/driver chat (2026-11-02)
+-- One conversation per driver and sponsor organization; everyone on the
+-- sponsor's team shares the sponsor side. read_at is set when the other side
+-- opens the conversation.
+CREATE TABLE IF NOT EXISTS Messages (
+    message_id INT AUTO_INCREMENT PRIMARY KEY,
+    driver_id INT NOT NULL,
+    sponsor_id INT NOT NULL,
+    sender_user_id INT NOT NULL,
+    body VARCHAR(2000) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at TIMESTAMP NULL,
+    FOREIGN KEY (driver_id)
+        REFERENCES Drivers(driver_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (sponsor_id)
+        REFERENCES Sponsors(sponsor_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (sender_user_id)
+        REFERENCES Users(user_id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_messages_conversation
+    ON Messages(driver_id, sponsor_id, message_id);

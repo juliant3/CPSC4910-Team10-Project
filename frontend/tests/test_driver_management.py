@@ -201,3 +201,101 @@ def test_navbar_only_lists_the_viewing_sponsors_program(fake_db, app_module, mon
         context = app_module.inject_driver_sponsorships()
 
     assert [s["company_name"] for s in context["driver_sponsorships"]] == ["Acme"]
+
+
+# ------------------------------------------------------------------
+# Admins viewing as a driver
+# ------------------------------------------------------------------
+
+def start_admin_driver_view(client, set_session, fake_db):
+    conn = fake_db(fetchone_values=[DRIVER_ROW])
+    set_session(role="Admin", user_id=1, first_name="Ada", last_name="Admin")
+    response = client.post("/admin/assume-driver/20")
+    return conn, response
+
+
+def test_admin_can_view_as_any_driver(client, set_session, fake_db):
+    conn, response = start_admin_driver_view(client, set_session, fake_db)
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/driver/dashboard")
+    query, params = sql(conn)[0]
+    assert "role = 'Driver'" in query and params == (20,)
+
+    with client.session_transaction() as sess:
+        assert sess["user_id"] == 20 and sess["role"] == "Driver"
+        assert sess["assumed_driver_by"] == "admin"
+        # Not locked to one sponsor: the admin can look at all of them.
+        assert "assumed_driver_sponsor_id" not in sess
+        assert "driver_sponsor_id" not in sess
+
+
+def test_only_admins_can_use_admin_driver_view(client, set_session, fake_db):
+    conn = fake_db(fetchone_values=[DRIVER_ROW])
+    set_session(role="Sponsor", user_id=50, sponsor_id=3)
+
+    assert client.post("/admin/assume-driver/20").status_code == 403
+    assert client.get("/admin/drivers").status_code == 403
+    assert sql(conn) == []
+
+
+def test_admin_driver_view_of_unknown_driver_is_404(client, set_session, fake_db):
+    fake_db(fetchone_values=[None])
+    set_session(role="Admin", user_id=1)
+    assert client.post("/admin/assume-driver/99").status_code == 404
+
+
+def test_admin_driver_view_is_read_only_even_for_shopping(client, set_session, fake_db):
+    start_admin_driver_view(client, set_session, fake_db)
+
+    for path in ("/driver/cart/add", "/driver/cart/checkout", "/driver/cart/remove", "/notifications/read"):
+        response = client.post(path, data={"catalog_csrf": "x"})
+        assert response.status_code == 403
+        assert b"read-only" in response.data
+
+    # Switching which sponsor's program they look at is allowed.
+    response = client.post("/driver/switch-sponsor", data={"sponsor_id": "8"})
+    assert response.status_code == 302
+    with client.session_transaction() as sess:
+        assert sess["driver_sponsor_id"] == 8
+
+
+def test_admin_exit_returns_to_admin_drivers(client, set_session, fake_db):
+    start_admin_driver_view(client, set_session, fake_db)
+
+    response = client.post("/sponsor/exit-assumed-driver")
+
+    assert response.headers["Location"].endswith("/admin/drivers")
+    with client.session_transaction() as sess:
+        assert sess["user_id"] == 1 and sess["role"] == "Admin"
+        assert "assumed_driver_id" not in sess
+
+
+def test_admin_driver_view_navbar_lists_every_sponsor(fake_db, app_module, monkeypatch):
+    fake_db()
+    monkeypatch.setattr(app_module, "get_driver_sponsorships", lambda cursor, driver_id: [
+        {"sponsor_id": 3, "company_name": "Acme"},
+        {"sponsor_id": 8, "company_name": "Other Fleet"},
+    ])
+
+    with app_module.app.test_request_context():
+        from flask import session
+        session.update({"user_id": 20, "role": "Driver",
+                        "assumed_driver_id": 20, "assumed_driver_by": "admin"})
+        context = app_module.inject_driver_sponsorships()
+
+    assert len(context["driver_sponsorships"]) == 2
+
+
+def test_admin_drivers_page_lists_drivers(client, set_session, fake_db):
+    conn = fake_db(fetchall_values=[[{
+        "driver_id": 20, "first_name": "Dana", "last_name": "Diaz",
+        "email": "dana@example.com", "programs": "Acme (Active)",
+    }]])
+    set_session(role="Admin", user_id=1)
+
+    html = client.get("/admin/drivers?search=dana").data
+
+    assert b"Dana Diaz" in html and b"Acme (Active)" in html
+    assert b"/admin/assume-driver/20" in html
+    assert sql(conn)[0][1] == ("dana", "%dana%", "%dana%")
