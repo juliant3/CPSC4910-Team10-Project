@@ -90,7 +90,7 @@
                     {% if product.condition %}<div class="catalog-condition">Condition: {{ product.condition }}</div>{% endif %}
                     <div class="catalog-card-bottom">
                         <div class="catalog-price">
-                            {% if product.points is not none %}{{ "{:,}".format(product.points) }} pts{% if role == 'sponsor' and product.custom_points %} <small class="catalog-custom-price">your price</small>{% endif %}{% else %}Price unavailable{% endif %}
+                            {% if product.points is not none %}{{ "{:,}".format(product.points) }} pts{% else %}Price unavailable{% endif %}
                             {% if product.shipping == '0.00' %}<small>Free shipping</small>{% endif %}
                         </div>
                         <a class="catalog-details" href="{{ details_url }}">View details →</a>

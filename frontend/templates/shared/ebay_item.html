@@ -24,30 +24,6 @@
             <h1>{{ item.get('title', 'eBay listing') }}</h1>
             {% if points is not none %}<strong class="catalog-item-price">{{ "{:,}".format(points) }} points</strong>{% else %}<strong class="catalog-item-price">Price unavailable</strong>{% endif %}
             {% if not in_stock %}<div class="catalog-alert catalog-stock" role="status">Out of stock. This item can't be added to a cart right now.</div>{% endif %}
-            {% if role == 'sponsor' %}
-            <form class="catalog-point-cost" action="{{ url_for('ebay_catalog.set_item_points', item_id=item_id) }}" method="post">
-                <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
-                <input type="hidden" name="type" value="{{ selected_type }}">
-                <input type="hidden" name="page" value="{{ page }}">
-                <label for="point-cost">Point cost for your drivers</label>
-                <div class="catalog-search-row">
-                    <input id="point-cost" type="number" name="points" min="1" step="1" required value="{{ points if points is not none else '' }}">
-                    <button type="submit">Save point cost</button>
-                </div>
-                <p class="catalog-help">
-                    {% if custom_points is not none %}You set this price.{% if default_points is not none %} The default from your point value is {{ "{:,}".format(default_points) }} points.{% endif %}
-                    {% else %}This is the default price from your point value. Change it to charge a different number of points for this item.{% endif %}
-                </p>
-            </form>
-            {% if custom_points is not none %}
-            <form action="{{ url_for('ebay_catalog.set_item_points', item_id=item_id) }}" method="post">
-                <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
-                <input type="hidden" name="type" value="{{ selected_type }}">
-                <input type="hidden" name="page" value="{{ page }}">
-                <button type="submit" name="action" value="reset" class="cart-remove">Use default price</button>
-            </form>
-            {% endif %}
-            {% endif %}
             {% if role == 'driver' and points is not none and in_stock %}
             <form class="catalog-item-buy" action="{{ url_for('ebay_catalog.add_to_cart') }}" method="post">
                 <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">

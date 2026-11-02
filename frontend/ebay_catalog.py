@@ -44,7 +44,6 @@ MAX_TYPE_LENGTH = 60
 MAX_CART_ITEMS = 10
 MAX_QUANTITY = 5
 MAX_SEARCH_LENGTH = 80
-MAX_POINT_COST = 10_000_000
 # OPTIONAL quick demo: paste your Postman OAuth access token here and remove
 # it before committing. It expires; client credentials below are better.
 DEMO_ACCESS_TOKEN = ""
@@ -277,34 +276,6 @@ def _search_keywords():
     return " ".join(request.args.get("q", "").split())[:MAX_SEARCH_LENGTH]
 
 
-def _point_overrides(sponsor_id, item_ids):
-    """{item_id: points} for listings this sponsor gave its own point cost."""
-    item_ids = [item_id for item_id in item_ids if item_id]
-    if not sponsor_id or not item_ids:
-        return {}
-    placeholders = ", ".join(["%s"] * len(item_ids))
-    try:
-        conn = _website_helpers().get_db()
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    f"""
-                    SELECT external_product_id, price_points
-                    FROM Sponsor_Item_Points
-                    WHERE sponsor_id = %s
-                      AND external_product_id IN ({placeholders})
-                    """,
-                    (sponsor_id, *item_ids),
-                )
-                rows = cursor.fetchall()
-        finally:
-            conn.close()
-    except Exception as exc:
-        # Never fall back to the default price: a sponsor's price must be honored.
-        raise CatalogError("Point costs couldn't be loaded. Check the database connection and migration.") from exc
-    return {row["external_product_id"]: int(row["price_points"]) for row in rows}
-
-
 def _availability(listing):
     """(in_stock, quantity eBay says is left or None) for one eBay item."""
     for availability in listing.get("estimatedAvailabilities") or []:
@@ -407,11 +378,6 @@ def _search_catalog(role):
                     "url": listing.get("itemWebUrl", ""),
                 })
             has_next = bool(data.get("next")) and offset + PAGE_SIZE < min(total, MAX_OFFSET + PAGE_SIZE)
-            overrides = _point_overrides(sponsor_id, [item["id"] for item in items])
-            for item in items:
-                if item["id"] in overrides:
-                    item["points"] = overrides[item["id"]]
-                    item["custom_points"] = True
         except CatalogError as exc:
             error = str(exc)
 
@@ -492,80 +458,19 @@ def catalog_item(role, item_id):
     if not types or notice:
         return redirect(url_for("ebay_catalog." + role + "_catalog"))
 
-    error, item, custom_points = None, None, None
+    error, item = None, None
     try:
         item = _ebay_get("/buy/browse/v1/item/" + quote(item_id, safe=""))
-        custom_points = _point_overrides(sponsor_id, [item_id]).get(item_id)
     except CatalogError as exc:
         error = str(exc)
-    default_points = to_points(((item or {}).get("price") or {}).get("value"), point_value)
+    points = to_points(((item or {}).get("price") or {}).get("value"), point_value)
     in_stock, _ = _availability(item or {})
     return render_template(
         "shared/ebay_item.html", role=role, item=item, item_id=item_id,
-        points=custom_points if custom_points is not None else default_points,
-        default_points=default_points, custom_points=custom_points, in_stock=in_stock,
+        points=points, in_stock=in_stock,
         error=error, selected_type=_selected_type(types),
         page=str(_page_number()), csrf_token=_get_csrf_token(),
     )
-
-
-@catalog_bp.route("/sponsor/catalog/item/<path:item_id>/points", methods=["POST"])
-def set_item_points(item_id):
-    """Let a sponsor charge a different number of points for one listing."""
-    redirect_response = _authorize("sponsor")
-    if redirect_response is not None:
-        return redirect_response
-    _check_csrf()
-    if not re.fullmatch(ITEM_ID_PATTERN, item_id):
-        abort(404)
-
-    back = url_for("ebay_catalog.catalog_item", role="sponsor", item_id=item_id,
-                   type=request.form.get("type", ""), page=request.form.get("page", "1"))
-    reset = request.form.get("action") == "reset"
-    if not reset:
-        try:
-            points = int(request.form.get("points", ""))
-        except ValueError:
-            points = 0
-        if not 1 <= points <= MAX_POINT_COST:
-            flash(f"Enter a whole number of points from 1 to {MAX_POINT_COST:,}.", "error")
-            return redirect(back)
-
-    website = _website_helpers()
-    sponsor_id = website.current_sponsor_id()
-    conn = website.get_db()
-    try:
-        with conn.cursor() as cursor:
-            if reset:
-                cursor.execute(
-                    "DELETE FROM Sponsor_Item_Points WHERE sponsor_id = %s AND external_product_id = %s",
-                    (sponsor_id, item_id),
-                )
-            else:
-                cursor.execute(
-                    """
-                    INSERT INTO Sponsor_Item_Points
-                        (sponsor_id, external_product_id, price_points, updated_by_user_id)
-                    VALUES (%s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                        price_points = VALUES(price_points),
-                        updated_by_user_id = VALUES(updated_by_user_id)
-                    """,
-                    (sponsor_id, item_id, points, session["user_id"]),
-                )
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        flash("Could not save the point cost. Check the database connection and migration.", "error")
-        return redirect(back)
-    finally:
-        conn.close()
-
-    if reset:
-        flash("Point cost reset to the default price.", "success")
-    else:
-        flash(f"Drivers now pay {points:,} points for this item.", "success")
-    return redirect(back)
 
 
 # ==========================================
@@ -594,14 +499,13 @@ def _back_to(fallback):
     return back if back.startswith(request.host_url) else fallback
 
 
-def _cart_items(cart, point_value, sponsor_id):
+def _cart_items(cart, point_value):
     """Look up each cart item on eBay so prices and stock are always current.
 
     Returns (items, cart, notes). Sold-out or ended listings are left out of
     the returned cart, quantities are lowered to what eBay has left, and each
     change is explained in notes so the driver is told.
     """
-    overrides = _point_overrides(sponsor_id, list(cart))
     items, kept, notes = [], {}, []
     for item_id, quantity in cart.items():
         try:
@@ -611,7 +515,7 @@ def _cart_items(cart, point_value, sponsor_id):
             continue
         title = listing.get("title", "An item")
         price = (listing.get("price") or {}).get("value")
-        points = overrides.get(item_id, to_points(price, point_value))
+        points = to_points(price, point_value)
         in_stock, left = _availability(listing)
         if not in_stock or points is None or price is None:
             notes.append(f"\"{title}\" is out of stock and was removed from your cart.")
@@ -755,7 +659,7 @@ def driver_cart():
         cart = _cart_for(sponsor_id)
         if cart and not notice:
             try:
-                items, kept, stock_notes = _cart_items(cart, point_value, sponsor_id)
+                items, kept, stock_notes = _cart_items(cart, point_value)
                 if kept != cart:
                     _store_cart(sponsor_id, kept)
             except CatalogError as exc:
@@ -798,7 +702,7 @@ def checkout():
         return redirect(cart_page)
 
     try:
-        items, kept, stock_notes = _cart_items(cart, point_value, sponsor_id)
+        items, kept, stock_notes = _cart_items(cart, point_value)
     except CatalogError as exc:
         flash(str(exc), "error")
         return redirect(cart_page)

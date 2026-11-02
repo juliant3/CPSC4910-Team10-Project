@@ -49,20 +49,6 @@ ITEM = {
 }
 
 
-REAL_POINT_OVERRIDES = ebay_catalog._point_overrides
-
-
-@pytest.fixture(autouse=True)
-def point_overrides(monkeypatch):
-    """No sponsor-set point costs unless a test adds some: {item_id: points}."""
-    overrides = {}
-    monkeypatch.setattr(
-        ebay_catalog, "_point_overrides",
-        lambda sponsor_id, item_ids: {i: overrides[i] for i in item_ids if i in overrides},
-    )
-    return overrides
-
-
 @pytest.fixture
 def selected_sponsor(monkeypatch):
     """Mock the sponsor association for rendering; other tests exercise it directly."""
@@ -436,89 +422,6 @@ def test_cart_is_separate_for_each_sponsor(client, set_session, saved_types, fak
     client.post("/driver/cart/checkout", data={"catalog_csrf": "tok"})
     assert not any("UPDATE Driver_Sponsors" in q for q, p in conn.cursor().executed)
     assert cart_in_session(client) == {"3": {ITEM_A: 1}}
-
-
-# ------------------------------------------------------------------
-# Sponsor point costs
-# ------------------------------------------------------------------
-
-def test_sponsor_point_cost_replaces_default_price_everywhere(client, set_session, selected_sponsor, saved_types, fake_ebay, point_overrides):
-    point_overrides[ITEM_A] = 300
-    fake_ebay(SEARCH_RESULT)
-    set_session(role="Sponsor", user_id=50, sponsor_id=3)
-
-    resp = client.get("/sponsor/catalog?type=Hats")
-    assert b"300 pts" in resp.data and b"your price" in resp.data
-    assert b"4,999 pts" not in resp.data
-
-    fake_ebay(ITEM)
-    resp = client.get(f"/sponsor/catalog/item/{ITEM_A}")
-    assert b"300 points" in resp.data
-    assert b"The default from your point value is 1,250 points" in resp.data
-
-
-def test_checkout_charges_the_sponsor_point_cost(client, set_session, selected_sponsor, saved_types, fake_db, fake_ebay, point_overrides):
-    point_overrides[ITEM_A] = 300
-    fake_ebay(ITEM)
-    conn = fake_db(fetchone_values=[{"product_id": 77}], lastrowid=501)
-    set_session(role="Driver", user_id=20)
-    put_in_cart(client, {ITEM_A: 2})
-
-    client.post("/driver/cart/checkout", data={"catalog_csrf": "tok"})
-
-    executed = conn.cursor().executed
-    assert next(p for q, p in executed if "UPDATE Driver_Sponsors" in q) == (600, 20, 3, 600)
-    line = next(p for q, p in executed if "INSERT INTO Order_Items" in q)
-    assert line[4] == 300 and line[5] == Decimal("12.50")
-
-
-@pytest.mark.parametrize("points", ["0", "-5", "abc", "", str(ebay_catalog.MAX_POINT_COST + 1)])
-def test_bad_point_cost_is_rejected(client, set_session, fake_db, points):
-    conn = fake_db()
-    set_session(role="Sponsor", user_id=50, sponsor_id=3, catalog_csrf="tok")
-
-    resp = client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"points": points, "catalog_csrf": "tok"})
-
-    assert resp.status_code == 302
-    assert conn.cursor().executed == []
-
-
-def test_sponsor_can_set_and_reset_a_point_cost(client, set_session, fake_db):
-    set_session(role="Sponsor", user_id=50, sponsor_id=3, catalog_csrf="tok")
-
-    conn = fake_db()
-    resp = client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"points": "750", "catalog_csrf": "tok"})
-    assert resp.status_code == 302 and "/sponsor/catalog/item/" in resp.headers["Location"]
-    query, params = conn.cursor().executed[0]
-    assert "INSERT INTO Sponsor_Item_Points" in query and params == (3, ITEM_A, 750, 50)
-    assert conn.committed
-
-    conn = fake_db()
-    client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"action": "reset", "catalog_csrf": "tok"})
-    query, params = conn.cursor().executed[0]
-    assert query.startswith("DELETE FROM Sponsor_Item_Points") and params == (3, ITEM_A)
-
-
-def test_only_sponsors_can_set_point_costs(client, set_session, fake_db):
-    conn = fake_db()
-    set_session(role="Driver", user_id=20, catalog_csrf="tok")
-    client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"points": "1", "catalog_csrf": "tok"})
-    assert conn.cursor().executed == []
-
-    set_session(role="Sponsor", user_id=50, sponsor_id=3, catalog_csrf="tok")
-    assert client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"points": "1"}).status_code == 403
-
-
-def test_point_overrides_query_is_scoped_to_the_sponsor(fake_db, app):
-    conn = fake_db(fetchall_values=[[{"external_product_id": ITEM_A, "price_points": 42}]])
-    assert REAL_POINT_OVERRIDES(3, [ITEM_A, ITEM_B]) == {ITEM_A: 42}
-    query, params = conn.cursor().executed[0]
-    assert "sponsor_id = %s" in query and params == (3, ITEM_A, ITEM_B)
-
-
-def test_point_overrides_never_silently_fall_back_to_default(app):
-    with pytest.raises(ebay_catalog.CatalogError):
-        REAL_POINT_OVERRIDES(3, [ITEM_A])  # conftest's get_db raises
 
 
 # ------------------------------------------------------------------

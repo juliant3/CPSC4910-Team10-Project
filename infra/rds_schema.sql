@@ -461,23 +461,3 @@ ALTER TABLE Driver_Sponsors
     ADD COLUMN redeem_suspended TINYINT(1) NOT NULL DEFAULT 0,
     ADD COLUMN suspend_reason VARCHAR(255) NULL;
 
-
--- Sponsor point cost overrides (2026-11-02)
--- By default an item costs its eBay price / Sponsors.point_value. A sponsor
--- can set a different point cost for one listing.
-CREATE TABLE IF NOT EXISTS Sponsor_Item_Points (
-    sponsor_id INT NOT NULL,
-    external_product_id VARCHAR(255) NOT NULL,
-    price_points INT NOT NULL,
-    updated_by_user_id INT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (sponsor_id, external_product_id),
-    FOREIGN KEY (sponsor_id)
-        REFERENCES Sponsors(sponsor_id)
-        ON DELETE CASCADE,
-    FOREIGN KEY (updated_by_user_id)
-        REFERENCES Users(user_id)
-        ON DELETE SET NULL,
-    CHECK (price_points > 0)
-);
