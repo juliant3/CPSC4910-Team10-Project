@@ -182,3 +182,27 @@ def test_accepting_existing_driver_adds_a_sponsorship(client, fake_db, monkeypat
     link = next(p for q, p in executed if "INSERT INTO Driver_Sponsors" in q)
     assert link == (20, 3)
     assert not any("SET sponsor_id" in q for q, _ in executed)
+
+
+def test_accepting_new_applicant_emails_a_password_setup_link(client, fake_db, monkeypatch, app_module):
+    sent = []
+    monkeypatch.setattr(app_module, "send_acceptance_email", lambda *args: sent.append(args) or True)
+    application = {
+        "application_id": 5, "status": "Submitted", "driver_id": None, "sponsor_id": 3,
+        "applicant_email": "new@x.com", "applicant_first_name": "Nia",
+        "applicant_last_name": "New", "applicant_dob": None, "applicant_address": None,
+    }
+    conn = fake_db(fetchone_values=[application], lastrowid=61)
+    login(client, "Sponsor", 50, sponsor_id=3)
+
+    client.post("/sponsor/applications/5/accept")
+
+    executed = queries(conn)
+    token_row = next(p for q, p in executed if "INSERT INTO Password_Tokens" in q)
+    assert token_row[1:3] == (61, "Setup")
+    assert token_row[3] == app_module.SETUP_LINK_MINUTES
+    assert conn.committed
+
+    email, first_name, setup_token = sent[0]
+    assert email == "new@x.com"
+    assert app_module.hash_token(setup_token) == token_row[0]

@@ -49,9 +49,84 @@ DB_CONFIG = {
 }
 
 
-# Testing code for password reset.
-# Change this to a randomly generated value later.
-RESET_CODE = "123456"
+SITE_URL = os.environ.get("SITE_URL", "https://cpsc4910team10truckingproject.org")
+
+# ==========================================
+# SINGLE-USE PASSWORD LINKS
+# Reset and first-time setup links carry a random token. The database only
+# stores its SHA-256 hash, and a link stops working once used or expired.
+# ==========================================
+
+RESET_LINK_MINUTES = 30
+SETUP_LINK_MINUTES = 72 * 60
+MIN_PASSWORD_LENGTH = 8
+
+
+def hash_token(token):
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def create_password_token(cursor, user_id, purpose):
+    """A new link token for 'Reset' or 'Setup'; older unused links of that kind stop working."""
+    cursor.execute(
+        """
+        UPDATE Password_Tokens
+        SET used_at = NOW()
+        WHERE user_id = %s
+          AND purpose = %s
+          AND used_at IS NULL
+        """,
+        (user_id, purpose)
+    )
+
+    token = secrets.token_urlsafe(32)
+    minutes = RESET_LINK_MINUTES if purpose == "Reset" else SETUP_LINK_MINUTES
+
+    cursor.execute(
+        """
+        INSERT INTO Password_Tokens
+            (token_hash, user_id, purpose, expires_at)
+        VALUES
+            (%s, %s, %s, NOW() + INTERVAL %s MINUTE)
+        """,
+        (hash_token(token), user_id, purpose, minutes)
+    )
+
+    return token
+
+
+def find_password_token(cursor, token):
+    """The user a link belongs to, or None if it is unknown, used, or expired."""
+    if not token or len(token) > 100:
+        return None
+
+    cursor.execute(
+        """
+        SELECT
+            Password_Tokens.user_id,
+            Password_Tokens.purpose,
+            Users.email,
+            Users.first_name
+        FROM Password_Tokens
+        JOIN Users
+            ON Users.user_id = Password_Tokens.user_id
+        WHERE Password_Tokens.token_hash = %s
+          AND Password_Tokens.used_at IS NULL
+          AND Password_Tokens.expires_at > NOW()
+        """,
+        (hash_token(token),)
+    )
+    return cursor.fetchone()
+
+
+def password_link(token, purpose):
+    path = "reset-password" if purpose == "Reset" else "set-password"
+    return f"{SITE_URL}/{path}/{token}"
+
+
+def unusable_password_hash():
+    """For new accounts: nobody knows this password, so the setup link is the only way in."""
+    return generate_password_hash(secrets.token_urlsafe(32), method="pbkdf2:sha256")
 
 # ==========================================
 # SESSION TIMEOUT - 5 MINUTES
@@ -219,6 +294,13 @@ def inject_driver_sponsorships():
     except Exception:
         return {}
 
+    # A sponsor viewing as this driver only sees their own program.
+    if session.get("assumed_driver_id"):
+        sponsorships = [
+            s for s in sponsorships
+            if s["sponsor_id"] == session.get("assumed_driver_sponsor_id")
+        ]
+
     return {
         "driver_sponsorships": sponsorships,
         "driver_sponsorship": pick_driver_sponsorship(sponsorships),
@@ -301,15 +383,15 @@ def send_email(to_email, subject, body):
         return False
 
 
-def send_acceptance_email(email, first_name, temp_password=None):
-    login_link = "https://cpsc4910team10truckingproject.org/login"
+def send_acceptance_email(email, first_name, setup_token=None):
+    login_link = f"{SITE_URL}/login"
 
-    if temp_password:
+    if setup_token:
         details = (
-            f"Log in here: {login_link}\n"
-            f"Email: {email}\n"
-            f"Temporary password: {temp_password}\n\n"
-            "Please log in and change your password as soon as possible."
+            "Set your password here to finish creating your account:\n"
+            f"{password_link(setup_token, 'Setup')}\n\n"
+            f"The link works once and expires in {SETUP_LINK_MINUTES // 60} hours. "
+            f"If it expires, use Forgot Password on {login_link} to get a new one."
         )
     else:
         details = f"Log in with your existing account here: {login_link}"
@@ -353,16 +435,14 @@ def send_sponsor_request_link(email, first_name, token):
     return send_email(email, "Your Drivers Advantage sponsor application link", body)
 
 
-def send_sponsor_approved_email(email, first_name, company_name, temp_password):
-    login_link = "https://cpsc4910team10truckingproject.org/login"
-
+def send_sponsor_approved_email(email, first_name, company_name, setup_token):
     body = (
         f"Hi {first_name or ''},\n\n"
         f"Your sponsor account for {company_name} has been approved.\n\n"
-        f"Log in here: {login_link}\n"
-        f"Email: {email}\n"
-        f"Temporary password: {temp_password}\n\n"
-        "Please log in and change your password as soon as possible."
+        "Set your password here to start using it:\n"
+        f"{password_link(setup_token, 'Setup')}\n\n"
+        f"The link works once and expires in {SETUP_LINK_MINUTES // 60} hours. "
+        f"If it expires, use Forgot Password on {SITE_URL}/login to get a new one."
     )
 
     return send_email(email, "Your Drivers Advantage sponsor account is ready", body)
@@ -428,51 +508,16 @@ def send_application_invite(email, token):
         print(f"Failed to send invite email: {e}")
         return False
     
-def send_reset_code(email):
-    """
-    Sends the password reset code to the user's email.
-
-    SMTP settings should be stored as environment variables:
-
-        SMTP_HOST
-        SMTP_PORT
-        SMTP_USERNAME
-        SMTP_PASSWORD
-        SMTP_FROM
-    """
-
-    smtp_host = os.environ.get("SMTP_HOST")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_username = os.environ.get("SMTP_USERNAME")
-    smtp_password = os.environ.get("SMTP_PASSWORD")
-    smtp_from = os.environ.get("SMTP_FROM", smtp_username)
-
-    # During initial testing, if SMTP isn't configured,
-    # print the code so development can continue.
-    if not smtp_host or not smtp_username or not smtp_password:
-        print(f"[PASSWORD RESET] Code for {email}: {RESET_CODE}")
-        return True
-
-    message = EmailMessage()
-    message["Subject"] = "Trucking Rewards Password Reset"
-    message["From"] = smtp_from
-    message["To"] = email
-    message.set_content(
-        f"Your Trucking Rewards password reset code is: {RESET_CODE}\n\n"
+def send_password_reset_link(email, first_name, token):
+    body = (
+        f"Hi {first_name or ''},\n\n"
+        "Use the link below to reset your Drivers Advantage password. "
+        f"It works once and expires in {RESET_LINK_MINUTES} minutes.\n\n"
+        f"{password_link(token, 'Reset')}\n\n"
         "If you did not request a password reset, you can ignore this email."
     )
 
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.send_message(message)
-
-        return True
-
-    except Exception as e:
-        print(f"Failed to send reset email: {e}")
-        return False
+    return send_email(email, "Reset your Drivers Advantage password", body)
 
 
 # ==========================================
@@ -836,74 +881,45 @@ def login():
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
 
-    # User has submitted their email.
-    if request.method == "POST":
+    if request.method == "GET":
+        return render_template("shared/login.html", step="email")
 
-        email = request.form.get("email", "").strip().lower()
+    email = request.form.get("email", "").strip().lower()[:255]
 
-        if not email:
-            return render_template(
-                "shared/login.html",
-                step="email",
-                error="Please enter your email address."
-            )
-
-        conn = get_db()
-
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT user_id, email
-                    FROM Users
-                    WHERE LOWER(email) = %s
-                    """,
-                    (email,)
-                )
-
-                user = cursor.fetchone()
-
-        finally:
-            conn.close()
-
-        if not user:
-            return render_template(
-                "shared/login.html",
-                step="email",
-                error="No account was found with that email address.",
-                email=email
-            )
-
-        # Store information needed for the reset process.
-        session["reset_user_id"] = user["user_id"]
-        session["reset_email"] = user["email"]
-
-        # Send the testing code.
-        if not send_reset_code(user["email"]):
-            session.pop("reset_user_id", None)
-            session.pop("reset_email", None)
-
-            return render_template(
-                "shared/login.html",
-                step="email",
-                error="Unable to send the verification email. Please try again.",
-                email=email
-            )
-
+    if not email:
         return render_template(
             "shared/login.html",
-            step="code",
-            email=user["email"]
+            step="email",
+            error="Please enter your email address."
         )
 
-    # User clicked "Forgot Password?"
-    # If we already have an email in the login form, the browser
-    # cannot automatically pass it here because this is a new GET.
-    # Therefore, show the email field.
-    return render_template(
-        "shared/login.html",
-        step="email"
-    )
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT user_id, email, first_name
+                FROM Users
+                WHERE LOWER(email) = %s
+                """,
+                (email,)
+            )
+            user = cursor.fetchone()
+
+            if user:
+                token = create_password_token(cursor, user["user_id"], "Reset")
+                conn.commit()
+
+    finally:
+        conn.close()
+
+    if user:
+        send_password_reset_link(user["email"], user["first_name"], token)
+
+    # Same answer whether or not the account exists, so this page can't be
+    # used to find out who has an account.
+    return render_template("shared/login.html", step="sent", email=email)
 
 
 @app.route("/apply/<token>", methods=["GET", "POST"])
@@ -1057,121 +1073,121 @@ def apply(token):
     finally:
         conn.close()
 
-@app.route("/verify-reset-code", methods=["POST"])
-def verify_reset_code():
-
-    code = request.form.get("code", "").strip()
-
-    if "reset_user_id" not in session:
-        return redirect(url_for("forgot_password"))
-
-    if code != RESET_CODE:
-        return render_template(
-            "shared/login.html",
-            step="code",
-            email=session.get("reset_email"),
-            error="Invalid verification code."
-        )
-
-    # Code is correct.
-    session["reset_verified"] = True
-
-    return render_template(
-        "shared/login.html",
-        step="reset"
-    )
-
-
-@app.route("/reset-password", methods=["POST"])
-def reset_password():
-
-    if "reset_user_id" not in session:
-        return redirect(url_for("forgot_password"))
-
-    if not session.get("reset_verified"):
-        return redirect(url_for("forgot_password"))
-
-    new_password = request.form.get("new_password", "")
-    confirm_password = request.form.get("confirm_password", "")
-
-    if not new_password:
-        return render_template(
-            "shared/login.html",
-            step="reset",
-            error="Please enter a new password."
-        )
-
-    if new_password != confirm_password:
-        return render_template(
-            "shared/login.html",
-            step="reset",
-            error="The passwords do not match."
-        )
-
-    user_id = session["reset_user_id"]
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+@app.route("/set-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
 
     conn = get_db()
 
     try:
         with conn.cursor() as cursor:
 
-            # Get the user's current password hash.
+            link = find_password_token(cursor, token)
+
+            if not link:
+                return render_template("shared/login.html", step="invalid")
+
+            def show_form(error=None):
+                return render_template(
+                    "shared/login.html",
+                    step="reset",
+                    token=token,
+                    purpose=link["purpose"],
+                    error=error
+                )
+
+            if request.method == "GET":
+                return show_form()
+
+            new_password = request.form.get("new_password", "")
+            confirm_password = request.form.get("confirm_password", "")
+
+            if len(new_password) < MIN_PASSWORD_LENGTH:
+                return show_form(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+
+            if new_password != confirm_password:
+                return show_form("The passwords do not match.")
+
+            if link["purpose"] == "Reset":
+                cursor.execute(
+                    "SELECT password_hash FROM Password WHERE user_id = %s",
+                    (link["user_id"],)
+                )
+                current = cursor.fetchone()
+
+                if current and check_password_hash(current["password_hash"], new_password):
+                    return show_form("Your new password must be different from your current password.")
+
+            # Claim the link. Only one request can do this, so a link that is
+            # submitted twice (or raced) changes the password at most once.
             cursor.execute(
                 """
-                SELECT password_hash
-                FROM Password
-                WHERE user_id = %s
+                UPDATE Password_Tokens
+                SET used_at = NOW()
+                WHERE token_hash = %s
+                  AND used_at IS NULL
+                  AND expires_at > NOW()
                 """,
-                (user_id,)
+                (hash_token(token),)
             )
 
-            password_record = cursor.fetchone()
-
-            if not password_record:
-                return render_template(
-                    "shared/login.html",
-                    step="reset",
-                    error="Unable to find your password information."
-                )
-
-            # Check whether the new password is the same
-            # as the existing password.
-            if check_password_hash(
-                password_record["password_hash"],
-                new_password
-            ):
-                return render_template(
-                    "shared/login.html",
-                    step="reset",
-                    error="Your new password must be different from your current password."
-                )
-
-            # Hash the new password.
-            new_password_hash = generate_password_hash(new_password, method='pbkdf2:sha256')
+            if cursor.rowcount != 1:
+                conn.rollback()
+                return render_template("shared/login.html", step="invalid")
 
             cursor.execute(
                 """
-                UPDATE Password
-                SET password_hash = %s
-                WHERE user_id = %s
+                INSERT INTO Password
+                    (user_id, password_hash)
+                VALUES
+                    (%s, %s)
+                ON DUPLICATE KEY UPDATE
+                    password_hash = VALUES(password_hash)
                 """,
-                (new_password_hash, user_id)
+                (link["user_id"], generate_password_hash(new_password, method="pbkdf2:sha256"))
+            )
+
+            # Any other link still sitting in the user's inbox stops working too.
+            cursor.execute(
+                """
+                UPDATE Password_Tokens
+                SET used_at = NOW()
+                WHERE user_id = %s
+                  AND used_at IS NULL
+                """,
+                (link["user_id"],)
+            )
+
+            cursor.execute(
+                """
+                INSERT INTO Audit_Logs
+                    (user_id, category, action, username, success)
+                VALUES
+                    (%s, 'Password Change', %s, %s, 1)
+                """,
+                (
+                    link["user_id"],
+                    "Password reset by email link" if link["purpose"] == "Reset" else "Password set up by email link",
+                    link["email"]
+                )
             )
 
         conn.commit()
 
+    except Exception:
+        conn.rollback()
+        raise
+
     finally:
         conn.close()
 
-    # Clear all password-reset information.
-    session.pop("reset_user_id", None)
-    session.pop("reset_email", None)
-    session.pop("reset_verified", None)
-
+    driver_count, sponsor_count = get_login_stats()
     return render_template(
         "shared/login.html",
         step="login",
-        error="Password reset successfully. Please log in."
+        message="Your password has been saved. Please log in.",
+        driver_count=driver_count,
+        sponsor_count=sponsor_count
     )
 
 
@@ -1612,10 +1628,7 @@ def accept_application(application_id):
 
             user_id = cursor.lastrowid
 
-            # Generate a temporary password.
-            temp_password = secrets.token_urlsafe(9)
-            password_hash = generate_password_hash(temp_password, method="pbkdf2:sha256")
-
+            # The driver chooses their own password from an emailed setup link.
             cursor.execute(
                 """
                 INSERT INTO Password
@@ -1623,8 +1636,9 @@ def accept_application(application_id):
                 VALUES
                     (%s, %s)
                 """,
-                (user_id, password_hash)
+                (user_id, unusable_password_hash())
             )
+            setup_token = create_password_token(cursor, user_id, "Setup")
 
             # Create the Drivers record and their first sponsorship.
             cursor.execute(
@@ -1677,7 +1691,7 @@ def accept_application(application_id):
             send_acceptance_email(
                 application["applicant_email"],
                 application["applicant_first_name"],
-                temp_password
+                setup_token
             )
 
     finally:
@@ -1822,6 +1836,14 @@ def admin_pending_applications():
         applications=applications
     )
 
+# One-click awards on the Drivers page. The amount and reason come from here,
+# never from the form, so a quick award always means the same thing.
+POINT_PRESETS = {
+    "weekly": {"amount": 100, "reason": "Good weekly driving"},
+    "above_beyond": {"amount": 500, "reason": "Above and beyond skills"},
+}
+
+
 @app.route("/sponsor/drivers")
 def sponsor_drivers():
 
@@ -1864,6 +1886,8 @@ def sponsor_drivers():
                     Driver_Sponsors.driver_id,
                     Driver_Sponsors.points_balance,
                     Driver_Sponsors.status,
+                    Driver_Sponsors.redeem_suspended,
+                    Driver_Sponsors.suspend_reason,
 
                     Users.first_name,
                     Users.last_name,
@@ -1910,7 +1934,8 @@ def sponsor_drivers():
         sort_key=sort_key,
         min_points=min_points,
         max_points=max_points, 
-        search=search
+        search=search,
+        point_presets=POINT_PRESETS
     )
 
 @app.route("/sponsor/drivers/<int:driver_id>/points", methods=["POST"])
@@ -1922,13 +1947,20 @@ def change_driver_points(driver_id):
     if session["role"].lower() != "sponsor":
         return redirect(url_for("home"))
 
-    action = request.form.get("action", "")
-    reason = request.form.get("reason", "").strip()[:255]
+    preset = POINT_PRESETS.get(request.form.get("preset", ""))
 
-    try:
-        amount = int(request.form.get("amount", ""))
-    except ValueError:
-        amount = 0
+    if preset:
+        action = "add"
+        amount = preset["amount"]
+        reason = preset["reason"]
+    else:
+        action = request.form.get("action", "")
+        reason = request.form.get("reason", "").strip()[:255]
+
+        try:
+            amount = int(request.form.get("amount", ""))
+        except ValueError:
+            amount = 0
 
     if action not in ("add", "deduct") or amount <= 0 or not reason:
         flash("Enter a whole number of points above 0 and a reason.", "error")
@@ -2018,9 +2050,94 @@ def change_driver_points(driver_id):
         conn.close()
 
     if action == "add":
-        flash(f"Added {amount} points.", "success")
+        flash(f"Added {amount} points ({reason}).", "success")
     else:
         flash(f"Deducted {amount} points.", "success")
+
+    return redirect(url_for("sponsor_drivers"))
+
+
+@app.route("/sponsor/drivers/<int:driver_id>/redemption", methods=["POST"])
+def set_driver_redemption(driver_id):
+    """Suspend or restore a driver's ability to spend this sponsor's points."""
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    action = request.form.get("action", "")
+    reason = request.form.get("reason", "").strip()[:255]
+
+    if action not in ("suspend", "resume"):
+        return redirect(url_for("sponsor_drivers"))
+
+    if action == "suspend" and not reason:
+        flash("Enter a reason for suspending redemption.", "error")
+        return redirect(url_for("sponsor_drivers"))
+
+    suspended = action == "suspend"
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                UPDATE Driver_Sponsors
+                SET
+                    redeem_suspended = %s,
+                    suspend_reason = %s
+                WHERE driver_id = %s
+                  AND sponsor_id = %s
+                """,
+                (1 if suspended else 0, reason if suspended else None,
+                 driver_id, current_sponsor_id())
+            )
+
+            # Only this sponsor's drivers can be changed.
+            if cursor.rowcount == 0:
+                conn.rollback()
+                return redirect(url_for("sponsor_drivers"))
+
+            cursor.execute(
+                "SELECT company_name FROM Sponsors WHERE sponsor_id = %s",
+                (current_sponsor_id(),)
+            )
+            sponsor = cursor.fetchone()
+            sponsor_name = sponsor["company_name"] if sponsor else "Your sponsor"
+
+            if suspended:
+                subject = "Point redemption paused"
+                message = (
+                    f"{sponsor_name} has paused redeeming your points while an issue "
+                    f"is reviewed. Reason: {reason}. You can still earn points."
+                )
+            else:
+                subject = "Point redemption restored"
+                message = f"{sponsor_name} has restored your ability to redeem points."
+
+            cursor.execute(
+                """
+                INSERT INTO Notifications
+                    (user_id, notification_type, subject, message)
+                VALUES
+                    (%s, 'Point Change', %s, %s)
+                """,
+                (driver_id, subject, message)
+            )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+    if suspended:
+        flash("Point redemption suspended for this driver.", "success")
+    else:
+        flash("Point redemption restored for this driver.", "success")
 
     return redirect(url_for("sponsor_drivers"))
                                     
@@ -3449,11 +3566,9 @@ def approve_sponsor_request(request_id):
 
             user_id = cursor.lastrowid
 
-            temp_password = secrets.token_urlsafe(9)
-
             cursor.execute(
                 "INSERT INTO Password (user_id, password_hash) VALUES (%s, %s)",
-                (user_id, generate_password_hash(temp_password, method="pbkdf2:sha256"))
+                (user_id, unusable_password_hash())
             )
 
             # Same shape as /register: the sponsor's org id is its first user's id.
@@ -3485,6 +3600,8 @@ def approve_sponsor_request(request_id):
                 (user_id, session["user_id"], request_id)
             )
 
+            setup_token = create_password_token(cursor, user_id, "Setup")
+
             conn.commit()
 
     except Exception as e:
@@ -3500,11 +3617,11 @@ def approve_sponsor_request(request_id):
         sponsor_req["email"],
         sponsor_req["first_name"],
         sponsor_req["company_name"],
-        temp_password
+        setup_token
     )
 
     flash(
-        f"Approved {sponsor_req['company_name']}. Login details were emailed to {sponsor_req['email']}.",
+        f"Approved {sponsor_req['company_name']}. A password setup link was emailed to {sponsor_req['email']}.",
         "success"
     )
     return redirect(url_for("admin_sponsor_requests"))
@@ -3593,45 +3710,23 @@ def sponsor_assume_driver(driver_id):
     if session.get("assumed_driver_id"):
         return "You are already viewing a driver.", 400
 
-    sponsor_user_id = session["user_id"]
-    preferred_sponsor_id = session.get("sponsor_id")
+    sponsor_id = current_sponsor_id()
 
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            # Verify that the logged-in user belongs to this sponsor.
-            cursor.execute(
-                """
-                SELECT sponsor_id
-                FROM Sponsor_Users
-                WHERE user_id = %s
-                  AND (%s IS NULL OR sponsor_id = %s)
-                LIMIT 1
-                """,
-                (sponsor_user_id, preferred_sponsor_id, preferred_sponsor_id),
-            )
-            sponsor_row = cursor.fetchone()
-
-            if not sponsor_row:
-                return "Your account is not associated with a sponsor.", 403
-
-            sponsor_id = sponsor_row["sponsor_id"]
-
-            # Verify the driver is associated with this sponsor.
-            # Do not trust the driver_id supplied by the browser by itself.
+            # Only drivers in this sponsor's program, whatever the browser sent.
             cursor.execute(
                 """
                 SELECT
-                    d.driver_id,
-                    d.user_id,
-                    u.first_name,
-                    u.last_name
-                FROM Drivers AS d
-                JOIN Users AS u ON u.user_id = d.user_id
-                JOIN Driver_Sponsors AS ds ON ds.driver_id = d.driver_id
-                WHERE d.driver_id = %s
-                  AND ds.sponsor_id = %s
-                LIMIT 1
+                    Users.user_id,
+                    Users.first_name,
+                    Users.last_name
+                FROM Driver_Sponsors
+                JOIN Users
+                    ON Users.user_id = Driver_Sponsors.driver_id
+                WHERE Driver_Sponsors.driver_id = %s
+                  AND Driver_Sponsors.sponsor_id = %s
                 """,
                 (driver_id, sponsor_id),
             )
@@ -3648,23 +3743,23 @@ def sponsor_assume_driver(driver_id):
 
     # Switch the active session to the driver's identity.
     # Existing driver routes can now use their usual session fields.
-    session["role"] = "driver"
+    session["role"] = "Driver"
     session["user_id"] = driver["user_id"]
-    session["driver_id"] = driver["driver_id"]
     session["driver_sponsor_id"] = sponsor_id
     session["first_name"] = driver["first_name"]
     session["last_name"] = driver["last_name"] or ""
 
     # Keep explicit support-mode metadata for the banner and safety checks.
     session["_assume_driver_original"] = original_session
-    session["assumed_driver_id"] = driver["driver_id"]
+    session["assumed_driver_id"] = driver["user_id"]
     session["assumed_driver_name"] = (
         f"{driver['first_name']} {driver['last_name'] or ''}".strip()
     )
-    session["assumed_sponsor_id"] = sponsor_id
+    session["assumed_driver_sponsor_id"] = sponsor_id
 
     flash(
-        f"Now viewing {session['assumed_driver_name']}'s account in read-only mode.",
+        f"Now viewing {session['assumed_driver_name']}'s account. "
+        "You can browse the catalog and buy items for them; other changes are off.",
         "info",
     )
     return redirect(url_for("driver_dashboard"))
@@ -3682,33 +3777,10 @@ def sponsor_exit_assumed_driver():
     # Restore the original sponsor identity and all of its session values.
     session.clear()
     session.update(original_session)
+    session["last_activity"] = datetime.now(timezone.utc).isoformat()
 
     flash("You have returned to your sponsor account.", "success")
     return redirect(url_for("sponsor_drivers"))
-
-@app.before_request
-def enforce_assumed_driver_read_only():
-    if not session.get("assumed_driver_id"):
-        return None
-
-    # The one operation allowed to end support mode.
-    if request.endpoint == "sponsor_exit_assumed_driver":
-        return None
-
-    # Preserve the existing session keep-alive endpoint.
-    # This endpoint should only refresh session activity, not alter account data.
-    if request.path == "/session/keep-alive":
-        return None
-
-    # Block POST, PUT, PATCH and DELETE requests during support mode.
-    if request.method not in ("GET", "HEAD", "OPTIONS"):
-        return (
-            "This is a read-only support session. Exit driver view to make changes.",
-            403,
-        )
-
-    return None
-
 
 @app.route("/admin/assume-sponsor/<int:sponsor_id>", methods=["POST"])
 def admin_assume_sponsor(sponsor_id):
@@ -3781,6 +3853,7 @@ def admin_exit_assumed_sponsor():
 
     session.clear()
     session.update(original)
+    session["last_activity"] = datetime.now(timezone.utc).isoformat()
 
     flash("Returned to your admin account.", "success")
     return redirect(url_for("home"))
@@ -3811,6 +3884,13 @@ def admin_sponsors():
     return render_template("admin/admin_sponsors.html", sponsors=sponsors)
 
 
+SPONSOR_SHOPPING_ENDPOINTS = {
+    "ebay_catalog.add_to_cart",
+    "ebay_catalog.remove_from_cart",
+    "ebay_catalog.checkout",
+}
+
+
 @app.before_request
 def enforce_assumed_account_read_only():
     assumed_driver = session.get("assumed_driver_id") is not None
@@ -3819,12 +3899,17 @@ def enforce_assumed_account_read_only():
     if not assumed_driver and not assumed_sponsor:
         return None
 
-    allowed_exit_endpoints = {
+    allowed_endpoints = {
         "sponsor_exit_assumed_driver",
         "admin_exit_assumed_sponsor",
+        "session_keep_alive",
     }
 
-    if request.endpoint in allowed_exit_endpoints:
+    # A sponsor viewing a driver may shop the catalog on that driver's behalf.
+    if assumed_driver:
+        allowed_endpoints |= SPONSOR_SHOPPING_ENDPOINTS
+
+    if request.endpoint in allowed_endpoints:
         return None
 
     if request.method not in ("GET", "HEAD", "OPTIONS"):

@@ -49,6 +49,20 @@ ITEM = {
 }
 
 
+REAL_POINT_OVERRIDES = ebay_catalog._point_overrides
+
+
+@pytest.fixture(autouse=True)
+def point_overrides(monkeypatch):
+    """No sponsor-set point costs unless a test adds some: {item_id: points}."""
+    overrides = {}
+    monkeypatch.setattr(
+        ebay_catalog, "_point_overrides",
+        lambda sponsor_id, item_ids: {i: overrides[i] for i in item_ids if i in overrides},
+    )
+    return overrides
+
+
 @pytest.fixture
 def selected_sponsor(monkeypatch):
     """Mock the sponsor association for rendering; other tests exercise it directly."""
@@ -98,9 +112,27 @@ def test_driver_defaults_to_first_item_type_and_can_filter(client, set_session, 
 def test_driver_cannot_filter_to_a_type_the_sponsor_did_not_choose(client, set_session, selected_sponsor, saved_types, fake_ebay):
     calls = fake_ebay(SEARCH_RESULT)
     set_session(role="Driver", user_id=20)
-    client.get("/driver/catalog?type=gaming+pc&q=gaming+pc")
+    client.get("/driver/catalog?type=gaming+pc")
     assert calls[-1][1]["q"] == "hat"
     assert client.post("/driver/catalog", data={"item_types": "Cars"}).status_code == 405
+
+
+def test_driver_search_narrows_within_the_sponsors_item_type(client, set_session, selected_sponsor, saved_types, fake_ebay):
+    calls = fake_ebay(SEARCH_RESULT)
+    set_session(role="Driver", user_id=20)
+
+    resp = client.get("/driver/catalog?type=Hats&q=++trucker%0Amesh  ")
+
+    # The sponsor's type always leads the eBay search, so keywords can only narrow it.
+    assert calls[-1][1]["q"] == "hat trucker mesh"
+    assert b'value="trucker mesh"' in resp.data
+
+
+def test_search_keywords_are_capped(client, set_session, selected_sponsor, saved_types, fake_ebay):
+    calls = fake_ebay(SEARCH_RESULT)
+    set_session(role="Driver", user_id=20)
+    client.get("/driver/catalog?type=Hats&q=" + "x" * 500)
+    assert calls[-1][1]["q"] == "hat " + "x" * ebay_catalog.MAX_SEARCH_LENGTH
 
 
 def test_driver_sees_add_to_cart_but_not_catalog_settings(client, set_session, selected_sponsor, saved_types, fake_ebay):
@@ -404,3 +436,224 @@ def test_cart_is_separate_for_each_sponsor(client, set_session, saved_types, fak
     client.post("/driver/cart/checkout", data={"catalog_csrf": "tok"})
     assert not any("UPDATE Driver_Sponsors" in q for q, p in conn.cursor().executed)
     assert cart_in_session(client) == {"3": {ITEM_A: 1}}
+
+
+# ------------------------------------------------------------------
+# Sponsor point costs
+# ------------------------------------------------------------------
+
+def test_sponsor_point_cost_replaces_default_price_everywhere(client, set_session, selected_sponsor, saved_types, fake_ebay, point_overrides):
+    point_overrides[ITEM_A] = 300
+    fake_ebay(SEARCH_RESULT)
+    set_session(role="Sponsor", user_id=50, sponsor_id=3)
+
+    resp = client.get("/sponsor/catalog?type=Hats")
+    assert b"300 pts" in resp.data and b"your price" in resp.data
+    assert b"4,999 pts" not in resp.data
+
+    fake_ebay(ITEM)
+    resp = client.get(f"/sponsor/catalog/item/{ITEM_A}")
+    assert b"300 points" in resp.data
+    assert b"The default from your point value is 1,250 points" in resp.data
+
+
+def test_checkout_charges_the_sponsor_point_cost(client, set_session, selected_sponsor, saved_types, fake_db, fake_ebay, point_overrides):
+    point_overrides[ITEM_A] = 300
+    fake_ebay(ITEM)
+    conn = fake_db(fetchone_values=[{"product_id": 77}], lastrowid=501)
+    set_session(role="Driver", user_id=20)
+    put_in_cart(client, {ITEM_A: 2})
+
+    client.post("/driver/cart/checkout", data={"catalog_csrf": "tok"})
+
+    executed = conn.cursor().executed
+    assert next(p for q, p in executed if "UPDATE Driver_Sponsors" in q) == (600, 20, 3, 600)
+    line = next(p for q, p in executed if "INSERT INTO Order_Items" in q)
+    assert line[4] == 300 and line[5] == Decimal("12.50")
+
+
+@pytest.mark.parametrize("points", ["0", "-5", "abc", "", str(ebay_catalog.MAX_POINT_COST + 1)])
+def test_bad_point_cost_is_rejected(client, set_session, fake_db, points):
+    conn = fake_db()
+    set_session(role="Sponsor", user_id=50, sponsor_id=3, catalog_csrf="tok")
+
+    resp = client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"points": points, "catalog_csrf": "tok"})
+
+    assert resp.status_code == 302
+    assert conn.cursor().executed == []
+
+
+def test_sponsor_can_set_and_reset_a_point_cost(client, set_session, fake_db):
+    set_session(role="Sponsor", user_id=50, sponsor_id=3, catalog_csrf="tok")
+
+    conn = fake_db()
+    resp = client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"points": "750", "catalog_csrf": "tok"})
+    assert resp.status_code == 302 and "/sponsor/catalog/item/" in resp.headers["Location"]
+    query, params = conn.cursor().executed[0]
+    assert "INSERT INTO Sponsor_Item_Points" in query and params == (3, ITEM_A, 750, 50)
+    assert conn.committed
+
+    conn = fake_db()
+    client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"action": "reset", "catalog_csrf": "tok"})
+    query, params = conn.cursor().executed[0]
+    assert query.startswith("DELETE FROM Sponsor_Item_Points") and params == (3, ITEM_A)
+
+
+def test_only_sponsors_can_set_point_costs(client, set_session, fake_db):
+    conn = fake_db()
+    set_session(role="Driver", user_id=20, catalog_csrf="tok")
+    client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"points": "1", "catalog_csrf": "tok"})
+    assert conn.cursor().executed == []
+
+    set_session(role="Sponsor", user_id=50, sponsor_id=3, catalog_csrf="tok")
+    assert client.post(f"/sponsor/catalog/item/{ITEM_A}/points", data={"points": "1"}).status_code == 403
+
+
+def test_point_overrides_query_is_scoped_to_the_sponsor(fake_db, app):
+    conn = fake_db(fetchall_values=[[{"external_product_id": ITEM_A, "price_points": 42}]])
+    assert REAL_POINT_OVERRIDES(3, [ITEM_A, ITEM_B]) == {ITEM_A: 42}
+    query, params = conn.cursor().executed[0]
+    assert "sponsor_id = %s" in query and params == (3, ITEM_A, ITEM_B)
+
+
+def test_point_overrides_never_silently_fall_back_to_default(app):
+    with pytest.raises(ebay_catalog.CatalogError):
+        REAL_POINT_OVERRIDES(3, [ITEM_A])  # conftest's get_db raises
+
+
+# ------------------------------------------------------------------
+# Out of stock items
+# ------------------------------------------------------------------
+
+def ebay_by_item(listings):
+    """fake_ebay response: a different listing per item id, or an exception."""
+    def respond(path):
+        for item_id, listing in listings.items():
+            if path.endswith(ebay_catalog.quote(item_id, safe="")):
+                if isinstance(listing, Exception):
+                    raise listing
+                return listing
+        raise AssertionError(path)
+    return respond
+
+
+SOLD_OUT = dict(ITEM, title="Sold Out Hat", estimatedAvailabilities=[{"estimatedAvailabilityStatus": "OUT_OF_STOCK"}])
+
+
+def test_cart_removes_sold_out_and_ended_items_and_says_so(client, set_session, selected_sponsor, saved_types, fake_db, fake_ebay):
+    fake_ebay(ebay_by_item({
+        ITEM_A: SOLD_OUT,
+        ITEM_B: ebay_catalog.ItemUnavailable("gone"),
+        "v1|777777777|0": ITEM,
+    }))
+    fake_db(fetchone_values=[{"points_balance": 5000}])
+    set_session(role="Driver", user_id=20)
+    put_in_cart(client, {ITEM_A: 1, ITEM_B: 1, "v1|777777777|0": 1})
+
+    resp = client.get("/driver/cart")
+
+    assert b"Sold Out Hat&#34; is out of stock and was removed" in resp.data
+    assert b"no longer available on eBay and was removed" in resp.data
+    assert b"1,250 points" in resp.data
+    assert cart_in_session(client) == {"3": {"v1|777777777|0": 1}}
+
+
+def test_cart_lowers_quantity_to_what_is_left(client, set_session, selected_sponsor, saved_types, fake_db, fake_ebay):
+    fake_ebay(dict(ITEM, estimatedAvailabilities=[{"estimatedAvailabilityStatus": "LIMITED_STOCK", "estimatedAvailableQuantity": 2}]))
+    fake_db(fetchone_values=[{"points_balance": 5000}])
+    set_session(role="Driver", user_id=20)
+    put_in_cart(client, {ITEM_A: 4})
+
+    resp = client.get("/driver/cart")
+
+    assert b"Only 2 of" in resp.data
+    assert cart_in_session(client) == {"3": {ITEM_A: 2}}
+
+
+def test_checkout_stops_when_an_item_sold_out(client, set_session, selected_sponsor, saved_types, fake_db, fake_ebay):
+    fake_ebay(ebay_by_item({ITEM_A: SOLD_OUT, ITEM_B: ITEM}))
+    conn = fake_db()
+    set_session(role="Driver", user_id=20)
+    put_in_cart(client, {ITEM_A: 1, ITEM_B: 1})
+
+    resp = client.post("/driver/cart/checkout", data={"catalog_csrf": "tok"})
+
+    assert resp.headers["Location"].endswith("/driver/cart")
+    assert conn.cursor().executed == []
+    assert cart_in_session(client) == {"3": {ITEM_B: 1}}
+    with client.session_transaction() as sess:
+        assert any("Review it before purchasing" in message for _, message in sess["_flashes"])
+
+
+def test_out_of_stock_item_page_has_no_add_to_cart(client, set_session, selected_sponsor, saved_types, fake_ebay):
+    fake_ebay(SOLD_OUT)
+    set_session(role="Driver", user_id=20)
+    resp = client.get(f"/driver/catalog/item/{ITEM_A}")
+    assert b"Out of stock" in resp.data
+    assert b"Add to cart" not in resp.data
+
+
+# ------------------------------------------------------------------
+# Paused redemption and buying for a driver
+# ------------------------------------------------------------------
+
+def test_paused_redemption_disables_purchase(client, set_session, selected_sponsor, saved_types, fake_db, fake_ebay):
+    fake_ebay(ITEM)
+    fake_db(fetchone_values=[{"points_balance": 5000, "redeem_suspended": 1, "suspend_reason": "Trip review"}])
+    set_session(role="Driver", user_id=20)
+    put_in_cart(client, {ITEM_A: 1})
+
+    resp = client.get("/driver/cart")
+
+    assert b"Point redemption is paused" in resp.data and b"Trip review" in resp.data
+    assert b"disabled>Purchase<" in resp.data
+
+
+def test_checkout_refuses_paused_redemption(client, set_session, selected_sponsor, saved_types, fake_db, fake_ebay):
+    fake_ebay(ITEM)
+    conn = fake_db(fetchone_values=[{"points_balance": 5000, "redeem_suspended": 1, "suspend_reason": "x"}])
+    conn.cursor().rowcount = 0
+    set_session(role="Driver", user_id=20)
+    put_in_cart(client, {ITEM_A: 1})
+
+    client.post("/driver/cart/checkout", data={"catalog_csrf": "tok"})
+
+    update = next(q for q, p in conn.cursor().executed if q.startswith("UPDATE Driver_Sponsors"))
+    assert "redeem_suspended = 0" in update
+    assert not conn.committed and conn.rolled_back
+    with client.session_transaction() as sess:
+        assert any("redemption is paused" in message for _, message in sess["_flashes"])
+
+
+def test_sponsor_checkout_for_driver_records_who_placed_it(client, set_session, selected_sponsor, saved_types, fake_db, fake_ebay):
+    fake_ebay(ITEM)
+    conn = fake_db(fetchone_values=[{"product_id": 77}], lastrowid=501)
+    set_session(role="Driver", user_id=20, assumed_driver_id=20, assumed_driver_name="Dana Diaz",
+                assumed_driver_sponsor_id=3, _assume_driver_original={"user_id": 50, "role": "Sponsor"})
+    put_in_cart(client, {ITEM_A: 1})
+
+    resp = client.post("/driver/cart/checkout", data={"catalog_csrf": "tok"})
+
+    assert resp.status_code == 302
+    assert conn.committed
+    executed = conn.cursor().executed
+    assert next(p for q, p in executed if "UPDATE Driver_Sponsors" in q)[1] == 20  # driver's points
+    assert next(p for q, p in executed if "INSERT INTO Point_Transactions" in q)[:3] == (20, 3, 50)
+    assert next(p for q, p in executed if "INSERT INTO Orders" in q)[1:4] == (20, 3, 50)
+    note = next(p for q, p in executed if "'Order Placed'" in q)
+    assert note[0] == 20 and "Your sponsor placed an order for you" in note[2]
+    with client.session_transaction() as sess:
+        assert any("placed for Dana Diaz" in message for _, message in sess["_flashes"])
+
+
+def test_cart_page_says_who_the_sponsor_is_shopping_for(client, set_session, selected_sponsor, saved_types, fake_db, fake_ebay):
+    fake_ebay(ITEM)
+    fake_db(fetchone_values=[{"points_balance": 5000}])
+    set_session(role="Driver", user_id=20, assumed_driver_id=20, assumed_driver_name="Dana Diaz",
+                _assume_driver_original={"user_id": 50})
+    put_in_cart(client, {ITEM_A: 1})
+
+    resp = client.get("/driver/cart")
+
+    assert b"Dana Diaz's cart" in resp.data
+    assert b"Purchase for Dana Diaz" in resp.data

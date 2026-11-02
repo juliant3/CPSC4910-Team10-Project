@@ -178,7 +178,8 @@ def test_admin_approval_creates_sponsor_account(client, fake_db, sent_emails):
 
     assert response.status_code == 302
     queries = executed_sql(conn)
-    for table in ("INSERT INTO Users", "INSERT INTO Password", "INSERT INTO Sponsors", "INSERT INTO Sponsor_Users"):
+    for table in ("INSERT INTO Users", "INSERT INTO Password", "INSERT INTO Sponsors", "INSERT INTO Sponsor_Users",
+                  "INSERT INTO Password_Tokens"):
         assert any(table in q for q in queries), table
     assert any("UPDATE Sponsor_Requests" in q and "'Approved'" in q for q in queries)
     assert conn.committed
@@ -186,7 +187,7 @@ def test_admin_approval_creates_sponsor_account(client, fake_db, sent_emails):
     name, args = sent_emails[0]
     assert name == "send_sponsor_approved_email"
     assert args[0] == "sam@fleet.com"
-    assert args[3]  # temporary password
+    assert args[3]  # password setup link token
 
 
 def test_admin_approval_skips_when_account_exists(client, fake_db, sent_emails):

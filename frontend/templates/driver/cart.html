@@ -1,15 +1,21 @@
 {% extends "shared/base.html" %}
-{% block title %}My Cart{% endblock %}
+{% block title %}{% set shopper = session.get('assumed_driver_name') %}{{ shopper ~ "'s Cart" if shopper else 'My Cart' }}{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/catalog.css') }}">
 {% endblock %}
 {% block content %}
+{% set shopper = session.get('assumed_driver_name') %}
 <main class="catalog-page">
     <a class="catalog-back" href="{{ url_for('ebay_catalog.driver_catalog') }}">← Back to catalog</a>
     <header class="catalog-heading">
         <span class="catalog-eyebrow">DRIVER · CART{% if driver_sponsorship %} · {{ driver_sponsorship.company_name|upper }}{% endif %}</span>
+        {% if shopper %}
+        <h1>{{ shopper }}'s cart</h1>
+        <p>You're shopping for {{ shopper }}. Purchases use their points; they have <strong>{{ "{:,}".format(balance or 0) }}</strong> points.</p>
+        {% else %}
         <h1>My cart</h1>
         <p>Items are paid for with points from the sponsor you're viewing. You have <strong>{{ "{:,}".format(balance or 0) }}</strong> points.</p>
+        {% endif %}
     </header>
 
     {% for category, message in get_flashed_messages(with_categories=true) %}
@@ -17,6 +23,13 @@
     {% endfor %}
     {% if notice %}<div class="catalog-alert" role="alert">{{ notice }}</div>{% endif %}
     {% if error %}<div class="catalog-alert" role="alert">{{ error }}</div>{% endif %}
+    {% for note in stock_notes %}<div class="catalog-alert" role="alert">{{ note }}</div>{% endfor %}
+    {% if suspended %}
+    <div class="cart-paused" role="status">
+        <strong>Point redemption is paused.</strong>
+        Your sponsor is reviewing an issue{% if suspend_reason %} ({{ suspend_reason }}){% endif %}. You can keep items in your cart and earn points, but purchases are off until it's restored.
+    </div>
+    {% endif %}
 
     <section class="cart-section" aria-labelledby="cart-heading">
         <h2 id="cart-heading">In your cart</h2>
@@ -47,7 +60,7 @@
             </div>
             <form action="{{ url_for('ebay_catalog.checkout') }}" method="post">
                 <input type="hidden" name="catalog_csrf" value="{{ csrf_token }}">
-                <button type="submit" class="catalog-add cart-purchase" {% if total_points > balance %}disabled{% endif %}>Purchase</button>
+                <button type="submit" class="catalog-add cart-purchase" {% if total_points > balance or suspended %}disabled{% endif %}>{{ 'Purchase for ' ~ shopper if shopper else 'Purchase' }}</button>
             </form>
         </div>
         {% elif not error %}

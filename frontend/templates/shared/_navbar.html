@@ -7,10 +7,11 @@
 
 {% if role_key == 'sponsor' %}
     {% set nav_items = [
-        ('Dashboard', 'sponsor_dashboard', ['home', 'sponsor_team']),
+        ('Dashboard', 'sponsor_dashboard', ['home']),
         ('Drivers', 'sponsor_drivers', ['sponsor_driver_profile', 'sponsor_edit_driver', 'sponsor_recurring']),
         ('Applications', 'sponsor_applications', []),
-        ('Catalog', 'ebay_catalog.sponsor_catalog', ['ebay_catalog.catalog_item'])
+        ('Catalog', 'ebay_catalog.sponsor_catalog', ['ebay_catalog.catalog_item']),
+        ('Team', 'sponsor_team', [])
     ] %}
 {% elif role_key == 'driver' %}
     {% set nav_items = [
@@ -154,8 +155,8 @@
 {% elif assumed_driver %}
 <div class="support-mode-banner">
     <div class="support-mode-message">
-        <strong>Read-only support mode</strong>
-        <span>Viewing driver: {{ session.get('assumed_driver_name', 'Driver') }}</span>
+        <strong>Driver view</strong>
+        <span>Viewing as {{ session.get('assumed_driver_name', 'Driver') }}. You can shop the catalog for them; other changes are off.</span>
     </div>
     <form method="POST" action="{{ url_for('sponsor_exit_assumed_driver') }}">
         <button type="submit" class="btn btn-secondary btn-sm">

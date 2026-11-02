@@ -44,7 +44,6 @@ def test_core_routes_are_registered(app):
         "logout",
         "register",
         "forgot_password",
-        "verify_reset_code",
         "reset_password",
         "apply",
         "sponsor_applications",

@@ -10,7 +10,7 @@
 
 <div class="login-page-wrapper">
 
-{% if step == "email" or step == "code" or step == "reset" %}
+{% if step in ("email", "sent", "invalid", "reset") %}
 
 <div class="login-form-side" style="max-width: none; width: 100%;">
 <div class="login-container">
@@ -18,7 +18,7 @@
     {% if step == "email" %}
         <h1>Forgot Password</h1>
 
-        <p>Enter your email address to receive a verification code.</p>
+        <p>Enter your email address and we'll send you a link to reset your password.</p>
 
         {% if error %}
             <div class="error">{{ error }}</div>
@@ -33,50 +33,53 @@
                 required
             >
 
-            <button type="submit">Send Code</button>
+            <button type="submit">Send Reset Link</button>
         </form>
 
         <p>
             <a href="{{ url_for('login') }}">Back to Login</a>
         </p>
 
-    {% elif step == "code" %}
-        <h1>Verify Your Email</h1>
+    {% elif step == "sent" %}
+        <h1>Check Your Email</h1>
 
         <p>
-            A 6-digit verification code has been sent to
-            <strong>{{ email }}</strong>.
+            If an account exists for <strong>{{ email }}</strong>, we've sent it a
+            password reset link. The link works once and expires in 30 minutes.
         </p>
 
-        {% if error %}
-            <div class="error">{{ error }}</div>
-        {% endif %}
+        <p>
+            <a href="{{ url_for('forgot_password') }}">Send another link</a>
+            &middot;
+            <a href="{{ url_for('login') }}">Back to Login</a>
+        </p>
 
-        <form method="POST" action="{{ url_for('verify_reset_code') }}">
-            <input
-                type="text"
-                name="code"
-                placeholder="6-digit code"
-                maxlength="6"
-                inputmode="numeric"
-                required
-            >
-
-            <button type="submit">Verify Code</button>
-        </form>
+    {% elif step == "invalid" %}
+        <h1>Link Expired</h1>
 
         <p>
+            This password link has already been used or has expired.
+            Request a new one to continue.
+        </p>
+
+        <p>
+            <a href="{{ url_for('forgot_password') }}">Get a new link</a>
+            &middot;
             <a href="{{ url_for('login') }}">Back to Login</a>
         </p>
 
     {% elif step == "reset" %}
-        <h1>Reset Password</h1>
+        <h1>{{ 'Set Your Password' if purpose == 'Setup' else 'Reset Password' }}</h1>
+
+        {% if purpose == 'Setup' %}
+            <p>Choose a password to finish setting up your account.</p>
+        {% endif %}
 
         {% if error %}
             <div class="error">{{ error }}</div>
         {% endif %}
 
-        <form method="POST" action="{{ url_for('reset_password') }}">
+        <form method="POST" action="{{ request.path }}">
 
             <div class="password-wrapper">
                 <input
@@ -84,6 +87,7 @@
                     name="new_password"
                     id = "new_password"
                     placeholder="New Password"
+                    minlength="8"
                     required
                 >
                 <button type="button" class="toggle-password" onclick="togglePassword('new_password', this)">Show</button>
@@ -104,7 +108,7 @@
                 <button type="button" class="toggle-password" onclick="togglePassword('confirm_password', this)">Show</button>
             </div>
 
-            <button type="submit">Reset Password</button>
+            <button type="submit">{{ 'Set Password' if purpose == 'Setup' else 'Reset Password' }}</button>
         </form>
 
     {% endif %}
@@ -149,6 +153,10 @@
 
     <h1>Log In</h1>
     <p class="motto">Sign in to your account</p>
+
+    {% if message %}
+        <div class="success-box" role="status">{{ message }}</div>
+    {% endif %}
 
     {% if error %}
         <div class="error">{{ error }}</div>

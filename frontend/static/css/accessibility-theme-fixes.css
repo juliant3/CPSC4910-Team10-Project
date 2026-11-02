@@ -274,7 +274,8 @@
 :root[data-theme="dark"] .catalog-empty,
 :root[data-theme="dark"] .catalog-item-content,
 :root[data-theme="dark"] .catalog-type-option,
-:root[data-theme="dark"] .catalog-filter {
+:root[data-theme="dark"] .catalog-filter,
+:root[data-theme="dark"] .cart-list {
     background: var(--surface);
     color: var(--ink);
 }

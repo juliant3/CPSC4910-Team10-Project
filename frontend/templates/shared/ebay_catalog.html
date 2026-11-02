@@ -56,16 +56,25 @@
         </div>
         {% endif %}
     </div>
+    <form class="catalog-keyword-search" action="{{ url_for('ebay_catalog.' + role + '_catalog') }}" method="get" role="search">
+        <input type="hidden" name="type" value="{{ selected_type }}">
+        <label for="catalog-q">Search {{ selected_type }}</label>
+        <div class="catalog-search-row">
+            <input id="catalog-q" type="search" name="q" value="{{ keywords }}" maxlength="80" placeholder="e.g. trucker, waterproof, size L">
+            <button type="submit">Search</button>
+            {% if keywords %}<a class="catalog-clear" href="{{ url_for('ebay_catalog.' + role + '_catalog', type=selected_type) }}">Clear</a>{% endif %}
+        </div>
+    </form>
     {% if error %}
     <div class="catalog-alert" role="alert">{{ error }}</div>
     {% elif items %}
         <div class="catalog-results-info">
-            <p>Showing {{ (page - 1) * 10 + 1 }}–{{ (page - 1) * 10 + items|length }} of {{ "{:,}".format(total) }} listings for <strong>{{ selected_type }}</strong></p>
+            <p>Showing {{ (page - 1) * 10 + 1 }}–{{ (page - 1) * 10 + items|length }} of {{ "{:,}".format(total) }} listings for <strong>{{ selected_type }}</strong>{% if keywords %} matching <strong>“{{ keywords }}”</strong>{% endif %}</p>
             <span>10 items per page</span>
         </div>
         <section class="catalog-grid" aria-label="Catalog items">
             {% for product in items %}
-            {% set details_url = url_for('ebay_catalog.catalog_item', role=role, item_id=product.id, type=selected_type, page=page) %}
+            {% set details_url = url_for('ebay_catalog.catalog_item', role=role, item_id=product.id, type=selected_type, page=page, q=keywords or None) %}
             <article class="catalog-card">
                 <a href="{{ details_url }}" class="catalog-image-link" aria-label="View {{ product.title }}">
                     {% if product.image %}<img src="{{ product.image }}" alt="{{ product.title }}" loading="lazy">{% else %}<span>No image available</span>{% endif %}
@@ -81,7 +90,7 @@
                     {% if product.condition %}<div class="catalog-condition">Condition: {{ product.condition }}</div>{% endif %}
                     <div class="catalog-card-bottom">
                         <div class="catalog-price">
-                            {% if product.points is not none %}{{ "{:,}".format(product.points) }} pts{% else %}Price unavailable{% endif %}
+                            {% if product.points is not none %}{{ "{:,}".format(product.points) }} pts{% if role == 'sponsor' and product.custom_points %} <small class="catalog-custom-price">your price</small>{% endif %}{% else %}Price unavailable{% endif %}
                             {% if product.shipping == '0.00' %}<small>Free shipping</small>{% endif %}
                         </div>
                         <a class="catalog-details" href="{{ details_url }}">View details →</a>
@@ -98,12 +107,12 @@
             {% endfor %}
         </section>
         <nav class="catalog-pagination" aria-label="Results pages">
-            {% if page > 1 %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', type=selected_type, page=page-1) }}">← Previous</a>{% else %}<span class="disabled">← Previous</span>{% endif %}
+            {% if page > 1 %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', type=selected_type, page=page-1, q=keywords or None) }}">← Previous</a>{% else %}<span class="disabled">← Previous</span>{% endif %}
             <span>Page {{ page }}</span>
-            {% if has_next %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', type=selected_type, page=page+1) }}">Next →</a>{% else %}<span class="disabled">Next →</span>{% endif %}
+            {% if has_next %}<a href="{{ url_for('ebay_catalog.' + role + '_catalog', type=selected_type, page=page+1, q=keywords or None) }}">Next →</a>{% else %}<span class="disabled">Next →</span>{% endif %}
         </nav>
     {% else %}
-        <div class="catalog-empty">No products found for {{ selected_type }}.</div>
+        <div class="catalog-empty">No products found for {{ selected_type }}{% if keywords %} matching “{{ keywords }}”{% endif %}.</div>
     {% endif %}
     {% endif %}
 </main>

@@ -432,3 +432,52 @@ WHERE TRIM(COALESCE(search_term, '')) <> '';
 -- Catalog purchases use the existing Products, Orders and Order_Items tables:
 -- the driver pays in points (Driver_Sponsors.points_balance) and nothing is
 -- ordered from eBay.
+
+
+-- Single-use password links (2026-11-02)
+-- Password reset and first-time password setup both email a link holding a
+-- random token. Only a SHA-256 hash of the token is stored; a link stops
+-- working once used_at is set or expires_at passes.
+CREATE TABLE IF NOT EXISTS Password_Tokens (
+    token_hash CHAR(64) PRIMARY KEY,
+    user_id INT NOT NULL,
+    purpose ENUM('Reset', 'Setup') NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id)
+        REFERENCES Users(user_id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_password_tokens_user
+    ON Password_Tokens(user_id, purpose);
+
+
+-- Suspend point redemption (2026-11-02)
+-- A sponsor can stop a driver from spending that sponsor's points while an
+-- issue is reviewed. Points can still be earned while suspended.
+ALTER TABLE Driver_Sponsors
+    ADD COLUMN redeem_suspended TINYINT(1) NOT NULL DEFAULT 0,
+    ADD COLUMN suspend_reason VARCHAR(255) NULL;
+
+
+-- Sponsor point cost overrides (2026-11-02)
+-- By default an item costs its eBay price / Sponsors.point_value. A sponsor
+-- can set a different point cost for one listing.
+CREATE TABLE IF NOT EXISTS Sponsor_Item_Points (
+    sponsor_id INT NOT NULL,
+    external_product_id VARCHAR(255) NOT NULL,
+    price_points INT NOT NULL,
+    updated_by_user_id INT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (sponsor_id, external_product_id),
+    FOREIGN KEY (sponsor_id)
+        REFERENCES Sponsors(sponsor_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (updated_by_user_id)
+        REFERENCES Users(user_id)
+        ON DELETE SET NULL,
+    CHECK (price_points > 0)
+);
