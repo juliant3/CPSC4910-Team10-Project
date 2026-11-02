@@ -1,3 +1,22 @@
+// Navbar: put the nav links on their own row when they don't fit beside
+// the brand and header icons. Measured unwrapped so it can un-wrap too.
+(function () {
+    const header = document.querySelector('.site-header');
+    const nav = header && header.querySelector('.primary-nav');
+    if (!nav) return;
+
+    function fit() {
+        header.classList.remove('nav-wrapped');
+        if (nav.scrollWidth > nav.clientWidth + 1) {
+            header.classList.add('nav-wrapped');
+        }
+    }
+
+    fit();
+    window.addEventListener('resize', fit);
+    if (document.fonts) document.fonts.ready.then(fit);
+})();
+
 // Navbar notifications dropdown.
 // Opening it marks everything as read on the server and clears the badge;
 // the "new" highlights stay visible until the next page load.
