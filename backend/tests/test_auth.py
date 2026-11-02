@@ -113,47 +113,6 @@ class FakeConnection:
         self.closed = True
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-@pytest.fixture
-def flask_app(monkeypatch):
-    """
-    Configure the Flask application for testing.
-
-    The database is replaced by individual tests as needed.
-    """
-
-    app_module.app.config.update(
-        TESTING=True,
-        SECRET_KEY="test-secret-key",
-    )
-
-    yield app_module.app
-
-
-@pytest.fixture
-def client(flask_app):
-    """Return Flask's test client."""
-    return flask_app.test_client()
-
-
-@pytest.fixture
-def password():
-    """Known plaintext password used by login tests."""
-    return "SecurePassword123!"
-
-
-@pytest.fixture
-def password_hash(password):
-    """Werkzeug hash corresponding to the known test password."""
-    return generate_password_hash(
-        password,
-        method="pbkdf2:sha256"
-    )
-
-
 def make_user(
     user_id=1,
     email="driver@example.com",
