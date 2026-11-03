@@ -52,10 +52,8 @@ def process_bulk_upload(
         return organizations[0]["sponsor_id"]
 
     reader = io.TextIOWrapper(
-        stream,
-        encoding="utf-8-sig",
-        errors="strict",
-        newline=""
+        line.decode("utf-8-sig")
+        for line in stream
     )
 
     try:
@@ -458,10 +456,8 @@ def process_bulk_upload(
                     "skipped",
                     "Database error; record rolled back."
                 )
-
-    finally:
-        reader.detach()
-
+    finally: 
+        pass
     return {
         "summary": summary,
         "results": results
