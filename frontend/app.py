@@ -9,6 +9,7 @@ from email.message import EmailMessage
 from markupsafe import Markup
 from zoneinfo import ZoneInfo
 from werkzeug.security import check_password_hash, generate_password_hash
+from services.bulk_upload import process_bulk_upload
 
 
 app = Flask(__name__)
@@ -1240,6 +1241,122 @@ def reset_password(token):
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+# ==========================================
+# BULK USER UPLOAD
+# ==========================================
+
+@app.route("/bulk-upload", methods=["GET", "POST"])
+def bulk_upload_page():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    role = (session.get("role") or "").lower()
+
+    if role not in ("admin", "sponsor"):
+        abort(403)
+
+    # Disable bulk uploading during support/assumed-user mode.
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    csrf_token = session.get("bulk_upload_csrf")
+
+    if not csrf_token:
+        csrf_token = secrets.token_urlsafe(32)
+        session["bulk_upload_csrf"] = csrf_token
+
+    results = None
+
+    if request.method == "POST":
+
+        submitted_token = request.form.get("csrf_token", "")
+
+        if not secrets.compare_digest(
+            submitted_token, csrf_token
+        ):
+            abort(400, "Invalid upload form token.")
+
+        uploaded = request.files.get("upload_file")
+
+        if (
+            not uploaded
+            or not uploaded.filename
+            or not uploaded.filename.lower().endswith(".txt")
+        ):
+            flash("Please select a .txt file.", "error")
+
+            return render_template(
+                "shared/bulk_upload.html",
+                csrf_token=csrf_token,
+                results=None
+            )
+
+        def send_setup(email, first_name, token):
+            body = (
+                f"Hi {first_name},\n\n"
+                "An account has been created for you "
+                "in Drivers Advantage.\n\n"
+                "Set your password using this link:\n"
+                f"{password_link(token, 'Setup')}\n\n"
+                "If you were not expecting this, "
+                "contact your program administrator."
+            )
+
+            return send_email(
+                email,
+                "Set up your Drivers Advantage account",
+                body
+            )
+
+        conn = get_db()
+
+        try:
+            target_sponsor_id = None
+
+            if role == "sponsor":
+                # Your app already stores the sponsor organization
+                # ID in the session when the sponsor logs in.
+                target_sponsor_id = current_sponsor_id()
+
+                # Verify that the organization exists.
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        SELECT sponsor_id
+                        FROM Sponsors
+                        WHERE sponsor_id = %s
+                        """,
+                        (target_sponsor_id,)
+                    )
+
+                    if not cursor.fetchone():
+                        abort(403)
+
+            results = process_bulk_upload(
+                uploaded.stream,
+                conn,
+                role,
+                session["user_id"],
+                target_sponsor_id,
+                create_password_token,
+                unusable_password_hash,
+                send_setup
+            )
+
+        finally:
+            conn.close()
+
+    return render_template(
+        "shared/bulk_upload.html",
+        csrf_token=csrf_token,
+        results=results
+    )
+
 @app.route("/about")
 def about():
     conn = get_db()

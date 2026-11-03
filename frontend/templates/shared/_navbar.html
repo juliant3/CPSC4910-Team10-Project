@@ -6,6 +6,7 @@
 {% set support_mode = assumed_driver or assumed_sponsor %}
 {% set admin_driver_view = assumed_driver and session.get('assumed_driver_by') == 'admin' %}
 
+
 {% if role_key == 'sponsor' %}
     {% set nav_items = [
         ('Dashboard', 'sponsor_dashboard', ['home']),
@@ -13,8 +14,19 @@
         ('Applications', 'sponsor_applications', []),
         ('Catalog', 'ebay_catalog.sponsor_catalog', ['ebay_catalog.catalog_item']),
         ('Messages', 'chat.inbox', ['chat.conversation']),
-        ('Team', 'sponsor_team', [])
+        ('Team', 'sponsor_team', []),
+        ('Bulk Upload', 'bulk_upload_page', [])
     ] %}
+{% elif role_key == 'admin' %}
+    {% set nav_items = [
+        ('Dashboard', 'home', []),
+        ('Sponsors', 'admin_sponsors', []),
+        ('Drivers', 'admin_drivers', []),
+        ('Driver Applications', 'admin_pending_applications', []),
+        ('Sponsor Requests', 'admin_sponsor_requests', []),
+        ('Bulk Upload', 'bulk_upload_page', [])
+    ] %}
+
 {% elif role_key == 'driver' %}
     {% set nav_items = [
         ('Dashboard', 'driver_dashboard', ['home']),
@@ -23,15 +35,7 @@
         ('Messages', 'chat.inbox', ['chat.conversation']),
         ('Sponsors', 'driver_sponsors', []),
         ('My Profile', 'driver_profile', ['driver_edit_profile'])
-    ] %}
-{% elif role_key == 'admin' %}
-    {% set nav_items = [
-        ('Dashboard', 'home', []),
-        ('Sponsors', 'admin_sponsors', []),
-        ('Drivers', 'admin_drivers', []),
-        ('Driver Applications', 'admin_pending_applications', []),
-        ('Sponsor Requests', 'admin_sponsor_requests', [])
-    ] %}
+] %}
 {% else %}
     {% set nav_items = [] %}
 {% endif %}
@@ -46,15 +50,22 @@
         </a>
 
         <nav class="primary-nav" aria-label="Main navigation">
-            {% for label, endpoint, also in nav_items %}
-                <a href="{{ url_for(endpoint) }}"
-                   class="{{ 'active' if request.endpoint == endpoint or request.endpoint in also else '' }}">
-                    {{ label }}
-                    {%- if endpoint == 'chat.inbox' and unread_messages %}
-                    <span class="nav-count" aria-label="{{ unread_messages }} unread">{{ unread_messages if unread_messages < 100 else '99+' }}</span>
-                    {%- endif %}
-                </a>
-            {% endfor %}
+            
+{% for label, endpoint, also in nav_items %}
+    {% if not (support_mode and endpoint == 'bulk_upload_page') %}
+        <a href="{{ url_for(endpoint) }}"
+           class="{{ 'active' if request.endpoint == endpoint or request.endpoint in also else '' }}">
+            {{ label }}
+            {%- if endpoint == 'chat.inbox' and unread_messages %}
+                <span class="nav-count"
+                      aria-label="{{ unread_messages }} unread">
+                    {{ unread_messages if unread_messages < 100 else '99+' }}
+                </span>
+            {%- endif %}
+        </a>
+    {% endif %}
+{% endfor %}
+
 
             <a href="{{ url_for('about') }}"
                class="{{ 'active' if request.endpoint == 'about' else '' }}">

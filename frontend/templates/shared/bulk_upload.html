@@ -1,0 +1,115 @@
+
+{% extends "shared/base.html" %}
+
+{% block title %}Bulk Upload Users{% endblock %}
+
+{% block content %}
+
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/bulk-upload.css') }}">
+
+<section class="bulk-upload-page">
+
+    <h1>Bulk Upload Users</h1>
+
+    <p>
+        Upload a UTF-8 text file containing
+        pipe-delimited user records.
+    </p>
+
+    <h3>Accepted Formats</h3>
+
+    <p>
+        <strong>Driver:</strong><br>
+        <code>D|organization|first|last|email|points|reason</code>
+    </p>
+
+    <p>
+        <strong>Sponsor:</strong><br>
+        <code>S|organization|first|last|email</code>
+    </p>
+
+    {% if session.get("role", "").lower() == "admin" %}
+
+        <p>
+            <strong>Organization:</strong><br>
+            <code>O|Organization Name</code>
+        </p>
+
+    {% else %}
+
+        <p>
+            Sponsor uploads must leave the organization
+            field blank.
+        </p>
+
+        <code>
+            D||Joe|Driver|joe@example.com|100|Welcome
+        </code>
+
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
+
+        <input type="hidden"
+               name="csrf_token"
+               value="{{ csrf_token }}">
+
+        <label for="upload-file">
+            Select a text file
+        </label>
+
+        <input type="file"
+               id="upload-file"
+               name="upload_file"
+               accept=".txt,text/plain"
+               required>
+
+        <button type="submit" class="btn-primary">
+            Upload Users
+        </button>
+
+    </form>
+
+    {% if results %}
+
+        <h2>Upload Results</h2>
+
+        <div class="bulk-summary">
+            <p>Processed: {{ results.summary.processed }}</p>
+            <p>Successful: {{ results.summary.successful }}</p>
+            <p>Skipped: {{ results.summary.skipped }}</p>
+            <p>Warnings: {{ results.summary.warnings }}</p>
+        </div>
+
+        <div class="bulk-results">
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Line</th>
+                        <th>Status</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in results.results %}
+
+                    <tr>
+                        <td>{{ row.line }}</td>
+                        <td>{{ row.status }}</td>
+                        <td>{{ row.message }}</td>
+                    </tr>
+
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+
+    {% endif %}
+
+</section>
+
+{% endblock %}
