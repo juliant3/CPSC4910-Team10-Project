@@ -3,112 +3,261 @@
 
 {% block title %}Bulk Upload Users{% endblock %}
 
-{% block content %}
-
+{% block head %}
 <link rel="stylesheet"
       href="{{ url_for('static', filename='css/bulk-upload.css') }}">
+{% endblock %}
+
+{% block content %}
 
 <section class="bulk-upload-page">
 
-    <h1>Bulk Upload Users</h1>
+    <header class="bulk-hero">
+        <div class="bulk-hero-icon" aria-hidden="true">↑</div>
+        <div>
+            <p class="bulk-eyebrow">USER MANAGEMENT</p>
+            <h1>Bulk Upload Users</h1>
+            <p>
+                Import multiple drivers and sponsor users
+                using a single text file.
+            </p>
+        </div>
+    </header>
 
-    <p>
-        Upload a UTF-8 text file containing
-        pipe-delimited user records.
-    </p>
+    <div class="bulk-layout">
 
-    <h3>Accepted Formats</h3>
+        <div class="bulk-main-column">
 
-    <p>
-        <strong>Driver:</strong><br>
-        <code>D|organization|first|last|email|points|reason</code>
-    </p>
+            <section class="bulk-card"
+                     aria-labelledby="bulk-upload-title">
 
-    <p>
-        <strong>Sponsor:</strong><br>
-        <code>S|organization|first|last|email</code>
-    </p>
+                <div class="bulk-card-heading">
+                    <span class="bulk-step">01</span>
+                    <div>
+                        <h2 id="bulk-upload-title">
+                            Upload Your File
+                        </h2>
+                        <p>
+                            Select a UTF-8 text file containing
+                            pipe-delimited records.
+                        </p>
+                    </div>
+                </div>
 
-    {% if session.get("role", "").lower() == "admin" %}
+                <form method="POST"
+                      enctype="multipart/form-data"
+                      class="bulk-upload-form">
 
-        <p>
-            <strong>Organization:</strong><br>
-            <code>O|Organization Name</code>
-        </p>
+                    <input type="hidden"
+                           name="csrf_token"
+                           value="{{ csrf_token }}">
 
-    {% else %}
+                    <label for="upload-file"
+                           class="bulk-file-label">
+                        Choose a text file
+                    </label>
 
-        <p>
-            Sponsor uploads must leave the organization
-            field blank.
-        </p>
+                    <div class="bulk-file-area">
+                        <span class="bulk-file-icon"
+                              aria-hidden="true">↑</span>
 
-        <code>
-            D||Joe|Driver|joe@example.com|100|Welcome
-        </code>
+                        <input type="file"
+                               id="upload-file"
+                               name="upload_file"
+                               accept=".txt,text/plain"
+                               aria-describedby="bulk-file-help"
+                               required>
 
-    {% endif %}
+                        <p id="bulk-file-help">
+                            Accepted format: .txt
+                        </p>
+                    </div>
 
-    <form method="POST" enctype="multipart/form-data">
+                    <button type="submit"
+                            class="bulk-submit">
+                        Upload Users
+                        <span aria-hidden="true">→</span>
+                    </button>
 
-        <input type="hidden"
-               name="csrf_token"
-               value="{{ csrf_token }}">
+                </form>
+            </section>
 
-        <label for="upload-file">
-            Select a text file
-        </label>
+            {% if results %}
 
-        <input type="file"
-               id="upload-file"
-               name="upload_file"
-               accept=".txt,text/plain"
-               required>
+            <section class="bulk-card bulk-results-section"
+                     aria-labelledby="bulk-results-title">
 
-        <button type="submit" class="btn-primary">
-            Upload Users
-        </button>
+                <div class="bulk-card-heading">
+                    <span class="bulk-step">02</span>
+                    <div>
+                        <h2 id="bulk-results-title">
+                            Upload Results
+                        </h2>
+                        <p>
+                            Review the outcome of each record
+                            in your uploaded file.
+                        </p>
+                    </div>
+                </div>
 
-    </form>
+                <div class="bulk-summary">
 
-    {% if results %}
+                    <div class="bulk-stat">
+                        <span class="bulk-stat-number">
+                            {{ results.summary.processed }}
+                        </span>
+                        <span class="bulk-stat-label">
+                            Processed
+                        </span>
+                    </div>
 
-        <h2>Upload Results</h2>
+                    <div class="bulk-stat bulk-stat-success">
+                        <span class="bulk-stat-number">
+                            {{ results.summary.successful }}
+                        </span>
+                        <span class="bulk-stat-label">
+                            Successful
+                        </span>
+                    </div>
 
-        <div class="bulk-summary">
-            <p>Processed: {{ results.summary.processed }}</p>
-            <p>Successful: {{ results.summary.successful }}</p>
-            <p>Skipped: {{ results.summary.skipped }}</p>
-            <p>Warnings: {{ results.summary.warnings }}</p>
+                    <div class="bulk-stat bulk-stat-skipped">
+                        <span class="bulk-stat-number">
+                            {{ results.summary.skipped }}
+                        </span>
+                        <span class="bulk-stat-label">
+                            Skipped
+                        </span>
+                    </div>
+
+                    <div class="bulk-stat bulk-stat-warning">
+                        <span class="bulk-stat-number">
+                            {{ results.summary.warnings }}
+                        </span>
+                        <span class="bulk-stat-label">
+                            Warnings
+                        </span>
+                    </div>
+
+                </div>
+
+                <div class="bulk-results" tabindex="0"
+                     aria-label="Upload results table">
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th scope="col">Line</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Message</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for row in results.results %}
+                            <tr>
+                                <td>{{ row.line }}</td>
+
+                                <td>
+                                    <span class="bulk-status bulk-status-{{ row.status }}">
+                                        {{ row.status|capitalize }}
+                                    </span>
+                                </td>
+
+                                <td>{{ row.message }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                </div>
+            </section>
+
+            {% endif %}
+
         </div>
 
-        <div class="bulk-results">
+        <aside class="bulk-side-column">
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Line</th>
-                        <th>Status</th>
-                        <th>Message</th>
-                    </tr>
-                </thead>
+            <section class="bulk-card bulk-guide"
+                     aria-labelledby="bulk-guide-title">
 
-                <tbody>
-                    {% for row in results.results %}
+                <div class="bulk-card-heading">
+                    <span class="bulk-step">?</span>
+                    <div>
+                        <h2 id="bulk-guide-title">
+                            Accepted File Formats
+                        </h2>
+                        <p>
+                            Use a vertical bar (|) to
+                            separate each field.
+                        </p>
+                    </div>
+                </div>
 
-                    <tr>
-                        <td>{{ row.line }}</td>
-                        <td>{{ row.status }}</td>
-                        <td>{{ row.message }}</td>
-                    </tr>
+                <div class="bulk-format">
+                    <span class="bulk-format-label">
+                        Driver Record
+                    </span>
+                    <code>D|organization|first|last|email|points|reason</code>
+                </div>
 
-                    {% endfor %}
-                </tbody>
-            </table>
+                <div class="bulk-format">
+                    <span class="bulk-format-label">
+                        Sponsor Record
+                    </span>
+                    <code>S|organization|first|last|email</code>
+                </div>
 
-        </div>
+                {% if session.get("role", "").lower() == "admin" %}
 
-    {% endif %}
+                <div class="bulk-format">
+                    <span class="bulk-format-label">
+                        Organization Record
+                    </span>
+                    <code>O|Organization Name</code>
+                </div>
+
+                <div class="bulk-tip">
+                    <strong>Admin Tip</strong>
+                    <p>
+                        Specify the organization name for
+                        driver and sponsor records. Create
+                        a new organization first if needed.
+                    </p>
+                </div>
+
+                {% else %}
+
+                <div class="bulk-tip">
+                    <strong>Sponsor Tip</strong>
+                    <p>
+                        Leave the organization field blank.
+                        Uploaded users will be associated
+                        with your sponsor organization.
+                    </p>
+
+                    <code>D||Joe|Driver|joe@example.com|100|Welcome</code>
+                </div>
+
+                {% endif %}
+
+            </section>
+
+            <section class="bulk-card bulk-help">
+                <h2>Before You Upload</h2>
+
+                <ul>
+                    <li>Save your file with a .txt extension.</li>
+                    <li>Place each record on a separate line.</li>
+                    <li>Separate fields using the | character.</li>
+                    <li>Include a reason when adding driver points.</li>
+                    <li>Review the results after uploading.</li>
+                </ul>
+            </section>
+
+        </aside>
+
+    </div>
 
 </section>
 
