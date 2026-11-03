@@ -26,6 +26,8 @@
 <link rel="stylesheet"
       href="{{ url_for('static', filename='css/accessibility-theme-fixes.css') }}">
 
+{% block page_accessibility_styles %}{% endblock %}
+
 <!-- NEW: Apply saved preferences before the page displays -->
 <script>
 (function () {
@@ -54,9 +56,11 @@
 </head>
 <body>
 
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
     {% include "shared/_navbar.html" %}
 
-    <main class="site-main">
+    <main class="site-main" id="main-content" tabindex="-1">
         {% block content %}{% endblock %}
     </main>
 

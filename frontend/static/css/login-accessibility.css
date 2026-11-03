@@ -1,0 +1,428 @@
+/* Login and password-reset flows: WCAG 2.2 Level AA improvements.
+   Loaded after the shared appearance and color-mode overrides. */
+.login-page-wrapper {
+    --auth-text: #252033;
+    --auth-muted: #524A60;
+    --auth-surface: #FFFFFF;
+    --auth-input-surface: #FFFFFF;
+    --auth-input-text: #252033;
+    --auth-input-border: #70667A;
+    --auth-link: #442277;
+    --auth-focus: #155A91;
+    --auth-button-bg: #4C2A85;
+    --auth-button-text: #FFFFFF;
+    --auth-button-hover: #35205D;
+    --auth-status-text: #215C3F;
+    --auth-error-text: #872C2B;
+    --auth-error-bg: #FFF0EE;
+    --auth-status-bg: #EAF5EF;
+    --auth-accent: #D9662C;
+    min-width: 0;
+}
+
+.login-form-side,
+.login-form-side--single {
+    min-width: 0;
+}
+
+.login-form-side--single {
+    width: 100%;
+    max-width: none;
+    padding-inline: 20px;
+}
+
+.login-container {
+    width: min(100%, 440px);
+    max-width: 440px;
+    min-width: 0;
+    background: var(--auth-surface);
+    color: var(--auth-text);
+}
+
+.login-container h1 {
+    font-size: clamp(1.65rem, 2.5vw, 2rem);
+    line-height: 1.25;
+}
+
+.login-container .motto,
+.login-container .auth-intro,
+.login-container .auth-instructions,
+.login-container .account-help,
+.login-container .auth-bottom-links {
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--auth-muted);
+}
+
+.login-container .motto { margin: 0 0 22px; }
+.login-container .auth-intro { margin: 16px 0 24px; }
+.login-container .auth-instructions { margin: 16px 0 16px; }
+.login-container .account-help { margin: 20px 0 0; }
+.login-container .account-help strong { color: var(--auth-text); }
+.login-container .account-help strong:not(:first-child) { display: block; margin-top: 12px; }
+.login-container .auth-bottom-links { margin: 22px 0 0; text-align: center; }
+
+.login-side .login-side-title {
+    color: #FFFFFF;
+    font-size: clamp(1.9rem, 3vw, 2.5rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    max-width: 460px;
+    margin-bottom: 18px;
+}
+.login-side p:not(.login-side-title),
+.login-side .login-stats span {
+    color: #F0EAF7;
+    opacity: 1;
+    font-size: 1rem;
+}
+.login-side .login-stats strong {
+    color: #FFBD8B;
+    font-size: 1.875rem;
+}
+
+.login-container .auth-field { margin-bottom: 18px; }
+.login-container .auth-field > label {
+    display: block;
+    color: var(--auth-text);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 7px;
+}
+
+.login-container .auth-field > input,
+.login-container .auth-field .password-wrapper input {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 11px 14px;
+    margin: 0;
+    background: var(--auth-input-surface);
+    border: 2px solid var(--auth-input-border);
+    border-radius: 6px;
+    color: var(--auth-input-text);
+    font: inherit;
+    font-size: 1rem;
+}
+.login-container .auth-field input::placeholder {
+    color: var(--auth-muted);
+    opacity: 1;
+}
+.login-container .auth-field input[aria-invalid="true"] {
+    border-color: var(--auth-error-text);
+}
+
+.login-container .password-wrapper {
+    position: relative;
+    margin: 0;
+}
+.login-container .auth-field .password-wrapper input {
+    padding-right: 86px;
+}
+.login-container .toggle-password,
+.login-container .toggle-password:hover {
+    position: absolute;
+    top: 50%;
+    right: 3px;
+    transform: translateY(-50%);
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 73px;
+    height: 44px;
+    min-height: 44px;
+    padding: 3px 7px;
+    border: 0;
+    background: transparent;
+    color: var(--auth-link);
+    font-size: 1rem;
+    font-weight: 600;
+}
+.login-container .toggle-password:hover { text-decoration: underline; }
+
+.login-container .remember-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 6px 0;
+    margin-bottom: 13px;
+    cursor: pointer;
+    color: var(--auth-text);
+    font-size: 1rem;
+}
+.login-container .remember-choice input {
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    accent-color: #4C2A85;
+    flex: 0 0 22px;
+}
+
+.login-container .auth-submit,
+.login-container .auth-submit:hover {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 16px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background: var(--auth-button-bg);
+    color: var(--auth-button-text);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+.login-container .auth-submit:hover { background: var(--auth-button-hover); }
+
+.login-container a,
+.login-container a:visited {
+    color: var(--auth-link);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    border-radius: 2px;
+}
+.login-container a:hover { text-decoration-thickness: 2px; }
+.login-container .forgot-link { padding: 10px; font-size: 1rem; }
+
+.login-container .error {
+    border-left: 4px solid var(--auth-error-text);
+    background: var(--auth-error-bg);
+    color: var(--auth-error-text);
+    padding: 12px 14px;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+.login-container .success-box {
+    border-left: 4px solid var(--auth-status-text);
+    background: var(--auth-status-bg);
+    color: var(--auth-status-text);
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.login-container .password-strength {
+    height: 7px;
+    margin: 10px 0 6px;
+    border-radius: 4px;
+    background: var(--auth-input-border);
+}
+.login-container .password-strength-text {
+    min-height: 1.5em;
+    margin: 0;
+    color: var(--auth-text);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* Make focus visible and contrast-safe. The outline is never removed. */
+.login-container :is(input, button, a):focus-visible,
+.login-container :is(input, button, a):focus,
+.login-container .remember-choice:focus-within {
+    outline: 3px solid var(--auth-focus);
+    outline-offset: 3px;
+}
+.login-container .auth-field input:focus,
+.login-container .auth-field input:focus-visible {
+    border-color: var(--auth-focus);
+}
+
+/* Dark and warm modes retain their settings, but all login text and input
+   surfaces get contrast-safe colors rather than inheriting mismatched tokens. */
+:root[data-theme="dark"] .login-page-wrapper {
+    --auth-text: #F5F1FA;
+    --auth-muted: #D7CEDF;
+    --auth-surface: #282231;
+    --auth-input-surface: #171A23;
+    --auth-input-text: #FFFFFF;
+    --auth-input-border: #ADA3BD;
+    --auth-link: #D9C5FF;
+    --auth-focus: #FFCF8E;
+    --auth-button-bg: #6042A0;
+    --auth-button-text: #FFFFFF;
+    --auth-button-hover: #7657B7;
+    --auth-status-bg: #203E32;
+    --auth-status-text: #A2E7C0;
+    --auth-error-bg: #46292B;
+    --auth-error-text: #FFB9B2;
+}
+
+:root[data-theme="warm"] .login-page-wrapper {
+    --auth-text: #F6E5D0;
+    --auth-muted: #E1CDB7;
+    --auth-surface: #302621;
+    --auth-input-surface: #3C3029;
+    --auth-input-text: #F6E5D0;
+    --auth-input-border: #B9A28D;
+    --auth-link: #F2C38F;
+    --auth-focus: #F8C98D;
+    --auth-button-bg: #C98955;
+    --auth-button-text: #211B19;
+    --auth-button-hover: #E9B47A;
+    --auth-status-bg: #293B2C;
+    --auth-status-text: #C6F0C0;
+    --auth-error-bg: #482C2B;
+    --auth-error-text: #FFBAB0;
+}
+:root[data-theme="warm"] .login-side .login-stats strong { color: #F2C38F; }
+
+/* High contrast overrides the chosen appearance mode. */
+:root[data-color-mode="high-contrast"] .login-page-wrapper {
+    --auth-text: #FFFFFF;
+    --auth-muted: #FFFFFF;
+    --auth-surface: #000000;
+    --auth-input-surface: #000000;
+    --auth-input-text: #FFFFFF;
+    --auth-input-border: #FFFFFF;
+    --auth-link: #FFFF00;
+    --auth-focus: #FFFF00;
+    --auth-button-bg: #FFFF00;
+    --auth-button-text: #000000;
+    --auth-button-hover: #FFFFFF;
+    --auth-status-bg: #000000;
+    --auth-status-text: #FFFFFF;
+    --auth-error-bg: #000000;
+    --auth-error-text: #FFB3B3;
+}
+:root[data-color-mode="high-contrast"] .login-side .login-stats strong { color: #FFFF00; }
+:root[data-color-mode="high-contrast"] .login-container .toggle-password,
+:root[data-color-mode="high-contrast"] .login-container .toggle-password:hover {
+    color: #FFFF00;
+    background: #000000;
+    border: 1px solid #FFFF00;
+}
+:root[data-color-mode="high-contrast"] .login-container .auth-submit,
+:root[data-color-mode="high-contrast"] .login-container .auth-submit:hover {
+    color: #000000 !important;
+    background: var(--auth-button-bg);
+    border-color: #FFFF00;
+}
+:root[data-color-mode="high-contrast"] .login-container .remember-choice input { accent-color: #FFFF00; }
+
+@media (max-width: 600px) {
+    .login-page-wrapper .login-side { padding: 28px 22px; }
+    .login-page-wrapper .login-form-side { padding: 26px 14px; }
+    .login-page-wrapper .login-container { padding: 26px 18px; }
+    .login-side .login-stats { flex-wrap: wrap; gap: 18px; }
+    .login-page-wrapper .login-logo { width: 150px; margin-bottom: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .login-page-wrapper *, .login-page-wrapper *::before, .login-page-wrapper *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}
+
+/* Keep the page-level improvements ahead of shared theme rules in specificity,
+   without changing styles for the rest of the application. */
+:root .login-page-wrapper .login-side .login-side-title {
+    font-size: clamp(1.9rem, 3vw, 2.5rem);
+    line-height: 1.2;
+    font-weight: 700;
+    color: #FFFFFF;
+}
+:root .login-page-wrapper .login-side p:not(.login-side-title),
+:root .login-page-wrapper .login-side .login-stats span {
+    font-size: 1rem;
+    color: #F0EAF7;
+}
+:root .login-page-wrapper .login-side .login-stats strong {
+    color: #FFBD8B;
+}
+:root[data-theme="warm"] .login-page-wrapper .login-side .login-stats strong {
+    color: #F2C38F;
+}
+:root[data-color-mode="high-contrast"] .login-page-wrapper .login-side .login-stats strong {
+    color: #FFFF00;
+}
+:root .login-page-wrapper .login-container .auth-field > input,
+:root .login-page-wrapper .login-container .auth-field .password-wrapper input {
+    min-height: 48px;
+    margin-bottom: 0;
+    background: var(--auth-input-surface);
+    color: var(--auth-input-text);
+    border: 2px solid var(--auth-input-border);
+    font-size: 1rem;
+}
+:root .login-page-wrapper .login-container .auth-field .password-wrapper input {
+    padding-right: 86px;
+}
+:root .login-page-wrapper .login-container .auth-field input:focus,
+:root .login-page-wrapper .login-container .auth-field input:focus-visible {
+    border-color: var(--auth-focus);
+    outline: 3px solid var(--auth-focus);
+    outline-offset: 3px;
+}
+:root .login-page-wrapper .login-container button.toggle-password,
+:root .login-page-wrapper .login-container button.toggle-password:hover {
+    width: 73px;
+    height: 44px;
+    min-height: 44px;
+    padding: 3px 7px;
+    background: transparent;
+    color: var(--auth-link);
+    font-size: 1rem;
+    line-height: 1.3;
+    border: 0;
+}
+:root[data-color-mode="high-contrast"] .login-page-wrapper .login-container button.toggle-password {
+    background: #000000;
+    color: #FFFF00;
+    border: 1px solid #FFFF00;
+}
+:root .login-page-wrapper .login-container button.auth-submit,
+:root .login-page-wrapper .login-container button.auth-submit:hover {
+    min-height: 48px;
+    padding: 10px 16px;
+    background: var(--auth-button-bg);
+    color: var(--auth-button-text);
+    font-size: 1rem;
+    line-height: 1.4;
+}
+:root .login-page-wrapper .login-container button.auth-submit:hover {
+    background: var(--auth-button-hover);
+}
+:root .login-page-wrapper .login-container a,
+:root .login-page-wrapper .login-container a:visited {
+    color: var(--auth-link);
+}
+:root .login-page-wrapper .login-container .error {
+    background: var(--auth-error-bg);
+    color: var(--auth-error-text);
+    border-color: var(--auth-error-text);
+    font-size: 1rem;
+}
+:root .login-page-wrapper .login-container .success-box {
+    background: var(--auth-status-bg);
+    color: var(--auth-status-text);
+    border-color: var(--auth-status-text);
+    font-size: 1rem;
+}
+:root .login-page-wrapper .login-container .remember-choice {
+    color: var(--auth-text);
+}
+:root .login-page-wrapper .login-container .password-strength-text {
+    color: var(--auth-text);
+    font-size: 0.95rem;
+}
+
+/* Prevent the persistent accessibility-settings launcher from covering the
+   login/password-reset controls at narrow widths or 400% browser zoom. */
+body:has(.login-page-wrapper) #accessibility-button {
+    position: static;
+    align-self: flex-end;
+    flex: 0 0 auto;
+    margin: 12px 16px 16px;
+    transform: none;
+}
+body:has(.login-page-wrapper) #accessibility-panel {
+    bottom: 16px;
+}
+
+/* Avoid momentary foreground/background contrast failures when themes switch. */
+:root .login-page-wrapper .login-container button.auth-submit {
+    transition: none;
+}

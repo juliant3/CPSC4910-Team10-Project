@@ -317,3 +317,27 @@ body {
         width: calc(100vw - 24px);
     }
 }
+
+/* A bypass link visible when reached by keyboard. */
+.skip-link {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 10000;
+    transform: translateY(-200%);
+    padding: 12px 16px;
+    border: 3px solid #FFFFFF;
+    border-radius: 6px;
+    background: #24123E;
+    color: #FFFFFF;
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: none;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+    transform: translateY(0);
+    outline: 3px solid #F3B778;
+    outline-offset: 2px;
+    color: #FFFFFF;
+}

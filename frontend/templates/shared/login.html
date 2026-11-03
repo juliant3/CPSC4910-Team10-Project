@@ -1,262 +1,219 @@
 {% extends "shared/base.html" %}
 
-{% block title %}Login{% endblock %}
+{% block title %}{{ 'Forgot Password' if step == 'email' else 'Check Your Email' if step == 'sent' else 'Link Expired' if step == 'invalid' else ('Set Your Password' if purpose == 'Setup' else 'Reset Password') if step == 'reset' else 'Log In' }}{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 {% endblock %}
 
-{% block content %}
+{% block page_accessibility_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login-accessibility.css') }}">
+{% endblock %}
 
+{% block content %}
 <div class="login-page-wrapper">
 
 {% if step in ("email", "sent", "invalid", "reset") %}
-
-<div class="login-form-side" style="max-width: none; width: 100%;">
-<div class="login-container">
+<section class="login-form-side login-form-side--single" aria-labelledby="auth-page-heading">
+    <div class="login-container">
 
     {% if step == "email" %}
-        <h1>Forgot Password</h1>
-
-        <p>Enter your email address and we'll send you a link to reset your password.</p>
+        <h1 id="auth-page-heading">Forgot Password</h1>
+        <p class="auth-intro">Enter your email address and we'll send you a link to reset your password.</p>
 
         {% if error %}
-            <div class="error">{{ error }}</div>
+            <div class="error" id="forgot-error" role="alert">{{ error }}</div>
         {% endif %}
 
         <form method="POST" action="{{ url_for('forgot_password') }}">
-            <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value="{{ email or '' }}"
-                required
-            >
-
-            <button type="submit">Send Reset Link</button>
+            <div class="auth-field">
+                <label for="forgot-email">Email address</label>
+                <input type="email" name="email" id="forgot-email"
+                       autocomplete="email" inputmode="email" placeholder="name@example.com"
+                       value="{{ email or '' }}" required
+                       {% if error %}aria-invalid="true" aria-describedby="forgot-error"{% endif %}>
+            </div>
+            <button type="submit" class="auth-submit">Send Reset Link</button>
         </form>
-
-        <p>
-            <a href="{{ url_for('login') }}">Back to Login</a>
-        </p>
+        <p class="auth-bottom-links"><a href="{{ url_for('login') }}">Back to Login</a></p>
 
     {% elif step == "sent" %}
-        <h1>Check Your Email</h1>
-
-        <p>
+        <h1 id="auth-page-heading">Check Your Email</h1>
+        <p class="auth-intro" role="status">
             If an account exists for <strong>{{ email }}</strong>, we've sent it a
             password reset link. The link works once and expires in 30 minutes.
         </p>
-
-        <p>
+        <p class="auth-bottom-links">
             <a href="{{ url_for('forgot_password') }}">Send another link</a>
-            &middot;
+            <span aria-hidden="true"> · </span>
             <a href="{{ url_for('login') }}">Back to Login</a>
         </p>
 
     {% elif step == "invalid" %}
-        <h1>Link Expired</h1>
-
-        <p>
+        <h1 id="auth-page-heading">Link Expired</h1>
+        <p class="auth-intro" role="alert">
             This password link has already been used or has expired.
             Request a new one to continue.
         </p>
-
-        <p>
+        <p class="auth-bottom-links">
             <a href="{{ url_for('forgot_password') }}">Get a new link</a>
-            &middot;
+            <span aria-hidden="true"> · </span>
             <a href="{{ url_for('login') }}">Back to Login</a>
         </p>
 
     {% elif step == "reset" %}
-        <h1>{{ 'Set Your Password' if purpose == 'Setup' else 'Reset Password' }}</h1>
-
+        <h1 id="auth-page-heading">{{ 'Set Your Password' if purpose == 'Setup' else 'Reset Password' }}</h1>
         {% if purpose == 'Setup' %}
-            <p>Choose a password to finish setting up your account.</p>
+            <p class="auth-intro">Choose a password to finish setting up your account.</p>
         {% endif %}
+        <p id="password-requirements" class="auth-instructions">Use at least 8 characters for your new password.</p>
 
         {% if error %}
-            <div class="error">{{ error }}</div>
+            <div class="error" id="reset-error" role="alert">{{ error }}</div>
         {% endif %}
 
         <form method="POST" action="{{ request.path }}">
-
-            <div class="password-wrapper">
-                <input
-                    type="password"
-                    name="new_password"
-                    id = "new_password"
-                    placeholder="New Password"
-                    minlength="8"
-                    required
-                >
-                <button type="button" class="toggle-password" onclick="togglePassword('new_password', this)">Show</button>
-            </div>
-            <div class = "password-strength">
-                <div id = "strength-bar"></div>
-            </div>
-            <p id = "strength-text"></p>
-
-            <div class="password-wrapper">
-                <input
-                    type="password"
-                    name="confirm_password"
-                    id="confirm_password"
-                    placeholder="Confirm New Password"
-                    required
-                >
-                <button type="button" class="toggle-password" onclick="togglePassword('confirm_password', this)">Show</button>
+            <div class="auth-field">
+                <label for="new_password">New password</label>
+                <div class="password-wrapper">
+                    <input type="password" name="new_password" id="new_password"
+                           autocomplete="new-password" minlength="8" required
+                           aria-describedby="password-requirements strength-text{% if error %} reset-error{% endif %}"
+                           {% if error %}aria-invalid="true"{% endif %}>
+                    <button type="button" class="toggle-password" aria-label="Show new password"
+                            aria-controls="new_password" data-password-label="new password">Show</button>
+                </div>
+                <div class="password-strength" aria-hidden="true"><div id="strength-bar"></div></div>
+                <p id="strength-text" class="password-strength-text" role="status" aria-live="polite" aria-atomic="true"></p>
             </div>
 
-            <button type="submit">{{ 'Set Password' if purpose == 'Setup' else 'Reset Password' }}</button>
+            <div class="auth-field">
+                <label for="confirm_password">Confirm new password</label>
+                <div class="password-wrapper">
+                    <input type="password" name="confirm_password" id="confirm_password"
+                           autocomplete="new-password" required
+                           {% if error %}aria-invalid="true" aria-describedby="reset-error"{% endif %}>
+                    <button type="button" class="toggle-password" aria-label="Show confirmation password"
+                            aria-controls="confirm_password" data-password-label="confirmation password">Show</button>
+                </div>
+            </div>
+            <button type="submit" class="auth-submit">{{ 'Set Password' if purpose == 'Setup' else 'Reset Password' }}</button>
         </form>
-
     {% endif %}
-
-</div>
-</div>
+    </div>
+</section>
 
 {% else %}
-
-<div class="login-side">
-    <svg class="route-line" viewBox="0 0 500 600" preserveAspectRatio="none">
-        <path d="M -20 80 Q 150 40, 280 160 T 300 340 Q 250 480, 450 560" 
-              fill="none" 
-              stroke="#D9662C" 
-              stroke-width="2.5" 
-              stroke-dasharray="10 8" 
-              opacity="0.35" />
+<section class="login-side" aria-label="About Drivers Advantage">
+    <svg class="route-line" viewBox="0 0 500 600" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <path d="M -20 80 Q 150 40, 280 160 T 300 340 Q 250 480, 450 560"
+              fill="none" stroke="#D9662C" stroke-width="2.5"
+              stroke-dasharray="10 8" opacity="0.35" />
         <circle cx="-20" cy="80" r="5" fill="#D9662C" opacity="0.6" />
         <circle cx="450" cy="560" r="5" fill="#D9662C" opacity="0.6" />
     </svg>
-    <h2>Welcome to Drivers Advantage</h2>
+    <p class="login-side-title">Welcome to Drivers Advantage</p>
     <p>Your miles. Your Rewards. Your Advantage.</p>
     <div class="login-stats">
-        <div class="stat">
-            <strong>{{ driver_count }}</strong>
-            <span>Active Drivers</span>
-        </div>
-        <div class="stat">
-            <strong>{{ sponsor_count }}</strong>
-            <span>Sponsor Fleets</span>
-        </div>
+        <div class="stat"><strong>{{ driver_count }}</strong><span>Active Drivers</span></div>
+        <div class="stat"><strong>{{ sponsor_count }}</strong><span>Sponsor Fleets</span></div>
     </div>
-</div>
+</section>
 
-<div class="login-form-side">
-    <img
-            src = "{{ url_for('static', filename='images/drivers-advantage-logo.png') }}"
-            alt = "Drivers Advantage Logo"
-            class = "login-logo"
-        >
-<div class="login-container">
+<section class="login-form-side" aria-labelledby="auth-page-heading">
+    <img src="{{ url_for('static', filename='images/drivers-advantage-logo.png') }}"
+         alt="Drivers Advantage" class="login-logo">
+    <div class="login-container">
+        <h1 id="auth-page-heading">Log In</h1>
+        <p class="motto">Sign in to your account</p>
 
-    <h1>Log In</h1>
-    <p class="motto">Sign in to your account</p>
+        {% if message %}
+            <div class="success-box" role="status">{{ message }}</div>
+        {% endif %}
+        {% if error %}
+            <div class="error" id="login-error" role="alert">{{ error }}</div>
+        {% endif %}
 
-    {% if message %}
-        <div class="success-box" role="status">{{ message }}</div>
-    {% endif %}
-
-    {% if error %}
-        <div class="error">{{ error }}</div>
-    {% endif %}
-
-    <form method="POST" action="{{ url_for('login') }}">
-        <input
-            type="text"
-            name="username"
-            placeholder="Email/Username"
-            required
-        >
-
-        <div class="password-wrapper">
-            <input
-                type="password"
-                name="password"
-                id="password"
-                placeholder="Password"
-                required
-            >
-            <button type="button" class="toggle-password" onclick="togglePassword('password', this)">Show</button>
-        </div>
-
-        <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0 16px; color: #555; font-size: 14px;">
-            <input type="checkbox" name="remember" style="width: auto;">
-            Remember me
-        </label>
-
-        <button type="submit">Log In</button>
-    </form>
-
-    <a href="{{ url_for('forgot_password') }}" class="forgot-link">
-        Forgot password?
-    </a>
-
-    <p class="account-help">
-        <strong>New driver?</strong> Use the invitation link your sponsor emailed you.<br>
-        <strong>Want to become a sponsor?</strong>
-        <a href="{{ url_for('sponsor_request') }}">Request access</a>
-    </p>
-
-</div>
-</div>
-
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="auth-field">
+                <label for="login-username">Email address</label>
+                <input type="email" name="username" id="login-username"
+                       autocomplete="username" inputmode="email" placeholder="name@example.com" required
+                       {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}>
+            </div>
+            <div class="auth-field">
+                <label for="password">Password</label>
+                <div class="password-wrapper">
+                    <input type="password" name="password" id="password"
+                           autocomplete="current-password" required
+                           {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}>
+                    <button type="button" class="toggle-password" aria-label="Show password"
+                            aria-controls="password" data-password-label="password">Show</button>
+                </div>
+            </div>
+            <label class="remember-choice" for="remember-me">
+                <input type="checkbox" name="remember" id="remember-me">
+                <span>Remember me</span>
+            </label>
+            <button type="submit" class="auth-submit">Log In</button>
+        </form>
+        <a href="{{ url_for('forgot_password') }}" class="forgot-link">Forgot password?</a>
+        <p class="account-help">
+            <strong>New driver?</strong> Use the invitation link your sponsor emailed you.
+            <strong>Want to become a sponsor?</strong>
+            <a href="{{ url_for('sponsor_request') }}">Request access</a>
+        </p>
+    </div>
+</section>
 {% endif %}
-
 </div>
 
 <script>
-    function togglePassword(inputId, btn) {
-        const input = document.getElementById(inputId);
-        if (input.type === "password") {
-            input.type = "text";
-            btn.textContent = "Hide";
-        } else {
-            input.type = "password";
-            btn.textContent = "Show";
-        }
-    }
-
-    const passwordInput = document.getElementById("new_password");
-    const strengthBar = document.getElementById("strength-bar");
-    const strengthText = document.getElementById("strength-text");
-
-    if (passwordInput) {
-        passwordInput.addEventListener("input", function () {
-            const password = passwordInput.value;
-            let strength = 0;
-
-            if (password.length >= 8) strength++;
-            if (/[A-Z]/.test(password)) strength++;
-            if (/[a-z]/.test(password)) strength++;
-            if (/[0-9]/.test(password)) strength++;
-            if (/[^A-Za-z0-9]/.test(password)) strength++;
-
-            if (password.length === 0) {
-                strengthBar.style.width = "0%";
-                strengthText.textContent = "";
-            }
-            else if (strength <= 2) {
-                strengthBar.style.width = "33%";
-                strengthBar.style.backgroundColor = "#dc3545";
-                strengthText.textContent = "Weak password";
-                strengthText.style.color = "#dc3545";
-            }
-            else if (strength <= 4) {
-                strengthBar.style.width = "66%";
-                strengthBar.style.backgroundColor = "#ffc107";
-                strengthText.textContent = "Medium password";
-                strengthText.style.color = "#b38600";
-            }
-            else {
-                strengthBar.style.width = "100%";
-                strengthBar.style.backgroundColor = "#28a745";
-                strengthText.textContent = "Strong password";
-                strengthText.style.color = "#28a745";
-            }
+(function () {
+    document.querySelectorAll('.login-container .toggle-password').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const input = document.getElementById(button.getAttribute('aria-controls'));
+            if (!input) return;
+            const showing = input.type === 'password';
+            input.type = showing ? 'text' : 'password';
+            button.textContent = showing ? 'Hide' : 'Show';
+            button.setAttribute('aria-label', (showing ? 'Hide ' : 'Show ') + button.dataset.passwordLabel);
         });
-    }
-</script>
+    });
 
+    const passwordInput = document.getElementById('new_password');
+    const strengthBar = document.getElementById('strength-bar');
+    const strengthText = document.getElementById('strength-text');
+    if (!passwordInput || !strengthBar || !strengthText) return;
+
+    passwordInput.addEventListener('input', function () {
+        const password = passwordInput.value;
+        let strength = 0;
+        if (password.length >= 8) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[a-z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+        let newLevel = '';
+        if (!password.length) {
+            strengthBar.style.width = '0%';
+        } else if (strength <= 2) {
+            strengthBar.style.width = '33%';
+            strengthBar.style.backgroundColor = '#B64242';
+            newLevel = 'Password strength: weak';
+        } else if (strength <= 4) {
+            strengthBar.style.width = '66%';
+            strengthBar.style.backgroundColor = '#BD7C22';
+            newLevel = 'Password strength: medium';
+        } else {
+            strengthBar.style.width = '100%';
+            strengthBar.style.backgroundColor = '#287B54';
+            newLevel = 'Password strength: strong';
+        }
+        // Announce a change in category, not every keystroke.
+        if (strengthText.textContent !== newLevel) strengthText.textContent = newLevel;
+    });
+})();
+</script>
 {% endblock %}
