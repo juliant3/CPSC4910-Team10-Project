@@ -1,7 +1,7 @@
 
 """Bulk upload for Drivers Advantage."""
 
-import io
+
 import re
 import secrets
 
@@ -51,7 +51,7 @@ def process_bulk_upload(
 
         return organizations[0]["sponsor_id"]
 
-    reader = io.TextIOWrapper(
+    reader = (
         line.decode("utf-8-sig")
         for line in stream
     )
