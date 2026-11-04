@@ -27,7 +27,7 @@ import pymysql
 DB_CONFIG = {
     "host": os.environ.get("DB_HOST", "cpsc4910-f26.cobd8enwsupz.us-east-1.rds.amazonaws.com"),
     "user": os.environ.get("DB_USER", "Team10"),
-    "password": os.environ.get("DB_PASSWORD", "CPSC4910TEAM10"),
+    "password": os.environ.get("DB_PASSWORD"),
     "database": os.environ.get("DB_NAME", "Team10_DB"),
 }
 

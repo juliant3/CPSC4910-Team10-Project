@@ -46,10 +46,10 @@ def to_local_time(value):
     return value.astimezone(LOCAL_TZ)
 
 DB_CONFIG = {
-    "host": "cpsc4910-f26.cobd8enwsupz.us-east-1.rds.amazonaws.com",
-    "user": "Team10",
-    "password": "CPSC4910TEAM10",
-    "database": "Team10_DB",
+    "host": os.environ.get("DB_HOST", "cpsc4910-f26.cobd8enwsupz.us-east-1.rds.amazonaws.com"),
+    "user": os.environ.get("DB_USER", "Team10"),
+    "password": os.environ.get("DB_PASSWORD"),
+    "database": os.environ.get("DB_NAME", "Team10_DB"),
 }
 
 
