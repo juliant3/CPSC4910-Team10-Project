@@ -4384,14 +4384,159 @@ def admin_invoices():
             )
 
             invoices = cursor.fetchall()
+            # Get sponsors for the manual invoice form
+            cursor.execute(
+                """
+                SELECT sponsor_id, company_name
+                FROM Sponsors
+                ORDER BY company_name
+                """
+            )
+            sponsors = cursor.fetchall()
+
+            # Security token for the manual invoice form
+            csrf_token = session.get("invoice_csrf")
+
+            if not csrf_token:
+                csrf_token = secrets.token_urlsafe(32)
+                session["invoice_csrf"] = csrf_token
+
 
     finally:
         conn.close()
 
     return render_template(
         "admin/invoices.html",
-        invoices=invoices
+        invoices=invoices,
+        sponsors=sponsors,
+        csrf_token=csrf_token
     )
+
+
+
+@app.route("/admin/invoices/create", methods=["POST"])
+def admin_create_invoice():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    # Do not allow changes while viewing another user's account
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+     # Check the form security token
+    submitted_token = request.form.get("csrf_token", "")
+    expected_token = session.get("invoice_csrf", "")
+
+    if not expected_token or not secrets.compare_digest(
+        submitted_token, expected_token
+    ):
+        abort(400, "Invalid invoice form token.")
+
+
+    sponsor_id = request.form.get("sponsor_id")
+    description = request.form.get("description", "").strip()
+    amount = request.form.get("amount", "").strip()
+
+    # Check that the required fields were entered
+    if not sponsor_id or not description or not amount:
+        flash("Please fill out all fields.", "error")
+        return redirect(url_for("admin_invoices"))
+
+    from decimal import Decimal, InvalidOperation
+
+    try:
+        amount = Decimal(amount)
+
+        if not amount.is_finite() or amount <= 0:
+            raise ValueError()
+
+        if amount.as_tuple().exponent < -2:
+            raise ValueError()
+
+        amount = amount.quantize(Decimal("0.01"))
+
+        if amount > Decimal("9999999999.99"):
+            raise ValueError()
+
+        sponsor_id = int(sponsor_id)
+
+        if sponsor_id <= 0:
+            raise ValueError()
+
+    except (ValueError, InvalidOperation):
+        flash("Please enter a valid sponsor and amount.", "error")
+        return redirect(url_for("admin_invoices"))
+
+    if len(description) > 255:
+        flash("Description must be 255 characters or fewer.", "error")
+        return redirect(url_for("admin_invoices"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Make sure the sponsor exists
+            cursor.execute(
+                "SELECT sponsor_id FROM Sponsors WHERE sponsor_id = %s",
+                (sponsor_id,)
+            )
+
+            if not cursor.fetchone():
+                flash("Sponsor not found.", "error")
+                return redirect(url_for("admin_invoices"))
+
+            # Create the manual invoice
+            cursor.execute(
+                """
+                INSERT INTO Invoices
+                    (sponsor_id, invoice_type, description,
+                     total_amount, created_by_user_id)
+                VALUES
+                    (%s, 'Manual', %s, %s, %s)
+                """,
+                (
+                    sponsor_id,
+                    description,
+                    amount,
+                    session["user_id"]
+                )
+            )
+
+            invoice_id = cursor.lastrowid
+
+            # Add the expense as an invoice item
+            cursor.execute(
+                """
+                INSERT INTO Invoice_Items
+                    (invoice_id, description, quantity,
+                     unit_cost, line_total)
+                VALUES
+                    (%s, %s, 1, %s, %s)
+                """,
+                (invoice_id, description, amount, amount)
+            )
+
+        conn.commit()
+        flash("Manual invoice created successfully!", "success")
+
+    except Exception:
+        conn.rollback()
+        app.logger.exception("Could not create manual invoice")
+        flash("Could not create the invoice.", "error")
+
+    finally:
+        conn.close()
+
+    return redirect(url_for("admin_invoices"))
+
 
 @app.route("/admin/sponsors")
 def admin_sponsors():
