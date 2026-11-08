@@ -1,0 +1,63 @@
+
+{% extends "shared/base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h1>Invoice Management</h1>
+    <p>View and manage sponsor invoices and expenses.</p>
+
+    <div class="card mt-4">
+        <div class="card-body">
+
+            <h2>All Invoices</h2>
+
+            <div style="overflow-x: auto;">
+                <table class="table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Date</th>
+                            <th>Sponsor</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Order #</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for invoice in invoices %}
+                        <tr>
+                            <td>{{ invoice.invoice_id }}</td>
+                            <td>{{ invoice.invoice_date | local }}</td>
+                            <td>{{ invoice.company_name }}</td>
+                            <td>{{ invoice.invoice_type }}</td>
+                            <td>{{ invoice.description }}</td>
+                            <td>
+                                {{ invoice.order_number or "—" }}
+                            </td>
+                            <td>
+                                ${{ "%.2f"|format(invoice.total_amount) }}
+                            </td>
+                            <td>{{ invoice.status }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" style="text-align: center;">
+                                No invoices have been created yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

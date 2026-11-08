@@ -4345,6 +4345,53 @@ def admin_exit_assumed_sponsor():
     flash("Returned to your admin account.", "success")
     return redirect(url_for("home"))
 
+@app.route("/admin/invoices")
+def admin_invoices():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "admin":
+        abort(403)
+
+    # Only allow admins in their own account
+    if session.get("assumed_driver_id") or session.get("assumed_sponsor_id"):
+        abort(403)
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    Invoices.invoice_id,
+                    Invoices.invoice_date,
+                    Invoices.invoice_type,
+                    Invoices.description,
+                    Invoices.total_amount,
+                    Invoices.status,
+                    Sponsors.company_name,
+                    Orders.order_number
+                FROM Invoices
+                JOIN Sponsors
+                    ON Invoices.sponsor_id = Sponsors.sponsor_id
+                LEFT JOIN Orders
+                    ON Invoices.order_id = Orders.order_id
+                ORDER BY Invoices.invoice_date DESC,
+                         Invoices.invoice_id DESC
+                """
+            )
+
+            invoices = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "admin/invoices.html",
+        invoices=invoices
+    )
 
 @app.route("/admin/sponsors")
 def admin_sponsors():
