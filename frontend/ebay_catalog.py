@@ -803,6 +803,64 @@ def checkout():
                      item["points"], item["dollars"]),
                 )
 
+            # Calculate each invoice item and its total
+            invoice_lines = []
+            for item in items:
+                unit_cost = (
+                    Decimal(item["points"]) * Decimal(str(point_value))
+                ).quantize(Decimal("0.01"))
+
+                line_total = unit_cost * item["quantity"]
+
+                invoice_lines.append((
+                    item["title"][:500],
+                    item["quantity"],
+                    unit_cost,
+                    line_total
+                ))
+
+            # Add up the invoice item totals
+            invoice_total = sum(
+                (line[3] for line in invoice_lines),
+                Decimal("0.00")
+            )
+
+            # Create the invoice
+            cursor.execute(
+                """
+                INSERT INTO Invoices
+                    (sponsor_id, order_id, invoice_type, description,
+                     total_amount, created_by_user_id)
+                VALUES (%s, %s, 'Automatic', %s, %s, %s)
+                """,
+                (
+                    sponsor_id,
+                    order_id,
+                    f"Reward redemption - Order {order_number}",
+                    invoice_total,
+                    placed_by
+                )
+            )
+
+            invoice_id = cursor.lastrowid
+
+            # Add each reward to the invoice
+            for description, quantity, unit_cost, line_total in invoice_lines:
+                cursor.execute(
+                    """
+                    INSERT INTO Invoice_Items
+                        (invoice_id, description, quantity,
+                         unit_cost, line_total)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        invoice_id,
+                        description,
+                        quantity,
+                        unit_cost,
+                        line_total
+                    )
+                )
             cursor.execute(
                 """
                 INSERT INTO Notifications

@@ -522,3 +522,49 @@ CREATE TABLE IF NOT EXISTS Messages (
 
 CREATE INDEX idx_messages_conversation
     ON Messages(driver_id, sponsor_id, message_id);
+
+
+-- Invoices for reward orders and manual expenses
+
+CREATE TABLE IF NOT EXISTS Invoices (
+    invoice_id INT AUTO_INCREMENT PRIMARY KEY,
+    sponsor_id INT NOT NULL,
+    order_id INT NULL UNIQUE,
+    invoice_type ENUM('Automatic', 'Manual') NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    invoice_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    status ENUM('Pending', 'Paid', 'Cancelled')
+        NOT NULL DEFAULT 'Pending',
+    created_by_user_id INT NULL,
+
+    FOREIGN KEY (sponsor_id)
+        REFERENCES Sponsors(sponsor_id),
+
+    FOREIGN KEY (order_id)
+        REFERENCES Orders(order_id),
+
+    FOREIGN KEY (created_by_user_id)
+        REFERENCES Users(user_id),
+
+    CHECK (total_amount >= 0)
+);
+
+-- Individual reward charges and expenses
+
+CREATE TABLE IF NOT EXISTS Invoice_Items (
+    invoice_item_id INT AUTO_INCREMENT PRIMARY KEY,
+    invoice_id INT NOT NULL,
+    description VARCHAR(500) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    unit_cost DECIMAL(12,2) NOT NULL,
+    line_total DECIMAL(12,2) NOT NULL,
+
+    FOREIGN KEY (invoice_id)
+        REFERENCES Invoices(invoice_id)
+        ON DELETE CASCADE,
+
+    CHECK (quantity > 0),
+    CHECK (unit_cost >= 0),
+    CHECK (line_total >= 0)
+);
