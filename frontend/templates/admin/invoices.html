@@ -88,7 +88,11 @@
                     <tbody>
                         {% for invoice in invoices %}
                         <tr>
-                            <td>{{ invoice.invoice_id }}</td>
+                            <td>
+    <a href="{{ url_for('admin_invoice_details', invoice_id=invoice.invoice_id) }}">
+        #{{ invoice.invoice_id }}
+    </a>
+</td>
                             <td>{{ invoice.invoice_date | local }}</td>
                             <td>{{ invoice.company_name }}</td>
                             <td>{{ invoice.invoice_type }}</td>

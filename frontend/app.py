@@ -4538,6 +4538,81 @@ def admin_create_invoice():
     return redirect(url_for("admin_invoices"))
 
 
+@app.route("/admin/invoices/<int:invoice_id>")
+def admin_invoice_details(invoice_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    # Do not allow access while viewing another account
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Get the invoice information
+            cursor.execute(
+                """
+                SELECT
+                    Invoices.invoice_id,
+                    Invoices.invoice_date,
+                    Invoices.invoice_type,
+                    Invoices.description,
+                    Invoices.total_amount,
+                    Invoices.status,
+                    Sponsors.company_name,
+                    Orders.order_number
+                FROM Invoices
+                JOIN Sponsors
+                    ON Invoices.sponsor_id = Sponsors.sponsor_id
+                LEFT JOIN Orders
+                    ON Invoices.order_id = Orders.order_id
+                WHERE Invoices.invoice_id = %s
+                """,
+                (invoice_id,)
+            )
+
+            invoice = cursor.fetchone()
+
+            if not invoice:
+                abort(404)
+
+            # Get the individual invoice items
+            cursor.execute(
+                """
+                SELECT
+                    description,
+                    quantity,
+                    unit_cost,
+                    line_total
+                FROM Invoice_Items
+                WHERE invoice_id = %s
+                ORDER BY invoice_item_id
+                """,
+                (invoice_id,)
+            )
+
+            items = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "admin/invoice_details.html",
+        invoice=invoice,
+        items=items
+    )
+
+
 @app.route("/admin/sponsors")
 def admin_sponsors():
     if (

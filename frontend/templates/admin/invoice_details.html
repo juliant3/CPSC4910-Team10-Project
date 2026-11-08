@@ -1,0 +1,104 @@
+
+{% extends "shared/base.html" %}
+
+{% block title %}Invoice Details{% endblock %}
+
+{% block content %}
+
+<div class="page">
+
+    <div style="margin-bottom: 24px;">
+        <a href="{{ url_for('admin_invoices') }}"
+           class="btn btn-secondary">
+            Back to Invoices
+        </a>
+    </div>
+
+    <h1>Invoice #{{ invoice.invoice_id }}</h1>
+    <p>View invoice information and individual expenses.</p>
+
+    <div class="card" style="padding: 24px; margin-top: 24px;">
+
+        <h2>Invoice Information</h2>
+
+        <p><strong>Invoice Number:</strong>
+            {{ invoice.invoice_id }}
+        </p>
+
+        <p><strong>Date:</strong>
+            {{ invoice.invoice_date | local }}
+        </p>
+
+        <p><strong>Sponsor:</strong>
+            {{ invoice.company_name }}
+        </p>
+
+        <p><strong>Type:</strong>
+            {{ invoice.invoice_type }}
+        </p>
+
+        <p><strong>Description:</strong>
+            {{ invoice.description }}
+        </p>
+
+        <p><strong>Order Number:</strong>
+            {{ invoice.order_number or "N/A" }}
+        </p>
+
+        <p><strong>Status:</strong>
+            {{ invoice.status }}
+        </p>
+
+    </div>
+
+    <div class="card" style="padding: 24px; margin-top: 24px;">
+
+        <h2>Invoice Items</h2>
+
+        <div style="overflow-x: auto;">
+            <table class="table" style="width: 100%;">
+
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>Unit Cost</th>
+                        <th>Line Total</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.description }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>
+                            ${{ "%.2f"|format(item.unit_cost) }}
+                        </td>
+                        <td>
+                            ${{ "%.2f"|format(item.line_total) }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4">
+                            No invoice items found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            </table>
+        </div>
+
+        <div style="text-align: right; margin-top: 24px;">
+            <h2>
+                Total: ${{ "%.2f"|format(invoice.total_amount) }}
+            </h2>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
