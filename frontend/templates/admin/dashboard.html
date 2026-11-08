@@ -21,10 +21,21 @@
                 {% endif %}
             </p>
         </div>
-        <div class="welcome-actions">
-            <a href="{{ url_for('admin_sponsor_requests') }}" class="btn btn-light">Sponsor Requests</a>
-            <a href="{{ url_for('admin_pending_applications') }}" class="btn btn-outline-light">Driver Applications</a>
-        </div>
+        
+<div class="welcome-actions">
+    <a href="{{ url_for('admin_sponsor_requests') }}" class="btn btn-light">
+        Sponsor Requests
+    </a>
+
+    <a href="{{ url_for('admin_pending_applications') }}" class="btn btn-outline-light">
+        Driver Applications
+    </a>
+
+    <a href="{{ url_for('admin_invoices') }}" class="btn btn-outline-light">
+        Invoice Management
+    </a>
+</div>
+
     </section>
 
     <div class="stat-grid" style="margin-bottom: 24px;">
