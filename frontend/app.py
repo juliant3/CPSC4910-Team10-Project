@@ -4606,10 +4606,92 @@ def admin_invoice_details(invoice_id):
     finally:
         conn.close()
 
+    csrf_token = session.get("invoice_csrf")
+
+    if not csrf_token:
+        csrf_token = secrets.token_urlsafe(32)
+        session["invoice_csrf"] = csrf_token
+
     return render_template(
         "admin/invoice_details.html",
         invoice=invoice,
-        items=items
+        items=items,
+        csrf_token=csrf_token
+    )
+
+
+
+@app.route("/admin/invoices/<int:invoice_id>/status", methods=["POST"])
+def admin_update_invoice_status(invoice_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    # Prevent changes while viewing another account
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    # Check the form security token
+    submitted_token = request.form.get("csrf_token", "")
+    expected_token = session.get("invoice_csrf", "")
+
+    if not expected_token or not secrets.compare_digest(
+        submitted_token, expected_token
+    ):
+        abort(400, "Invalid invoice form token.")
+
+    # Get the selected status
+    new_status = request.form.get("status", "")
+
+    if new_status not in ("Pending", "Paid", "Cancelled"):
+        flash("Invalid invoice status.", "error")
+        return redirect(
+            url_for("admin_invoice_details", invoice_id=invoice_id)
+        )
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Make sure the invoice exists
+            cursor.execute(
+                "SELECT invoice_id FROM Invoices WHERE invoice_id = %s",
+                (invoice_id,)
+            )
+
+            if not cursor.fetchone():
+                abort(404)
+
+            # Update the invoice status
+            cursor.execute(
+                """
+                UPDATE Invoices
+                SET status = %s
+                WHERE invoice_id = %s
+                """,
+                (new_status, invoice_id)
+            )
+
+        conn.commit()
+        flash("Invoice status updated successfully!", "success")
+
+    except Exception:
+        conn.rollback()
+        app.logger.exception("Could not update invoice status")
+        flash("Could not update invoice status.", "error")
+
+    finally:
+        conn.close()
+
+    return redirect(
+        url_for("admin_invoice_details", invoice_id=invoice_id)
     )
 
 

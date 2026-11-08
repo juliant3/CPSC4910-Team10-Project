@@ -45,9 +45,59 @@
             {{ invoice.order_number or "N/A" }}
         </p>
 
-        <p><strong>Status:</strong>
-            {{ invoice.status }}
-        </p>
+        <p>
+    <strong>Current Status:</strong>
+    <span class="badge
+        {% if invoice.status == 'Paid' %}
+            badge-success
+        {% elif invoice.status == 'Cancelled' %}
+            badge-danger
+        {% else %}
+            badge-warn
+        {% endif %}">
+        {{ invoice.status }}
+    </span>
+</p>
+
+<form action="{{ url_for('admin_update_invoice_status', invoice_id=invoice.invoice_id) }}"
+      method="POST"
+      style="margin-top: 20px;">
+
+    <input type="hidden"
+           name="csrf_token"
+           value="{{ csrf_token }}">
+
+    <label for="status">
+        <strong>Update Invoice Status</strong>
+    </label>
+
+    <select id="status"
+            name="status"
+            required
+            style="display: block; width: 100%; max-width: 300px; padding: 10px; margin-top: 8px; margin-bottom: 16px;">
+
+        <option value="Pending"
+            {% if invoice.status == 'Pending' %}selected{% endif %}>
+            Pending
+        </option>
+
+        <option value="Paid"
+            {% if invoice.status == 'Paid' %}selected{% endif %}>
+            Paid
+        </option>
+
+        <option value="Cancelled"
+            {% if invoice.status == 'Cancelled' %}selected{% endif %}>
+            Cancelled
+        </option>
+
+    </select>
+
+    <button type="submit" class="btn btn-primary">
+        Save Status
+    </button>
+
+</form>
 
     </div>
 
