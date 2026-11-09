@@ -1,4 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response
+import csv
+import io
 import pymysql
 import os
 import hashlib
@@ -4412,6 +4414,198 @@ def admin_invoices():
         csrf_token=csrf_token
     )
 
+
+@app.route("/admin/invoices/export")
+def admin_export_invoices():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    Invoices.invoice_id,
+                    Invoices.invoice_date,
+                    Sponsors.company_name,
+                    Invoices.invoice_type,
+                    Invoices.description,
+                    Orders.order_number,
+                    Invoices.total_amount,
+                    Invoices.status
+                FROM Invoices
+                JOIN Sponsors
+                    ON Invoices.sponsor_id = Sponsors.sponsor_id
+                LEFT JOIN Orders
+                    ON Invoices.order_id = Orders.order_id
+                ORDER BY Invoices.invoice_id DESC
+                """
+            )
+
+            invoices = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "Invoice Number",
+        "Date",
+        "Sponsor",
+        "Type",
+        "Description",
+        "Order Number",
+        "Amount",
+        "Status"
+    ])
+
+    # Prevent spreadsheet programs from interpreting text as formulas
+    def safe_csv_text(value):
+        value = str(value or "")
+        if value.lstrip().startswith(("=", "+", "-", "@")):
+            return "'" + value
+        return value
+
+    for invoice in invoices:
+        writer.writerow([
+            invoice["invoice_id"],
+            invoice["invoice_date"],
+            safe_csv_text(invoice["company_name"]),
+            invoice["invoice_type"],
+            safe_csv_text(invoice["description"]),
+            safe_csv_text(invoice["order_number"]),
+            invoice["total_amount"],
+            invoice["status"]
+        ])
+
+    return Response(
+        "\ufeff" + output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=invoices.csv"
+        }
+    )
+
+
+@app.route("/admin/invoices/<int:invoice_id>/export")
+def admin_export_invoice(invoice_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    Invoices.invoice_id,
+                    Invoices.invoice_date,
+                    Sponsors.company_name,
+                    Invoices.invoice_type,
+                    Invoices.description,
+                    Orders.order_number,
+                    Invoices.total_amount,
+                    Invoices.status
+                FROM Invoices
+                JOIN Sponsors
+                    ON Invoices.sponsor_id = Sponsors.sponsor_id
+                LEFT JOIN Orders
+                    ON Invoices.order_id = Orders.order_id
+                WHERE Invoices.invoice_id = %s
+                """,
+                (invoice_id,)
+            )
+
+            invoice = cursor.fetchone()
+
+            if not invoice:
+                abort(404)
+
+            cursor.execute(
+                """
+                SELECT description, quantity, unit_cost, line_total
+                FROM Invoice_Items
+                WHERE invoice_id = %s
+                ORDER BY invoice_item_id
+                """,
+                (invoice_id,)
+            )
+
+            items = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    def safe_csv_text(value):
+        value = str(value or "")
+        if value.lstrip().startswith(("=", "+", "-", "@")):
+            return "'" + value
+        return value
+
+    writer.writerow(["Invoice Number", invoice["invoice_id"]])
+    writer.writerow(["Date", invoice["invoice_date"]])
+    writer.writerow(["Sponsor", safe_csv_text(invoice["company_name"])])
+    writer.writerow(["Type", invoice["invoice_type"]])
+    writer.writerow(["Description", safe_csv_text(invoice["description"])])
+    writer.writerow(["Order Number", safe_csv_text(invoice["order_number"])])
+    writer.writerow(["Status", invoice["status"]])
+    writer.writerow([])
+
+    writer.writerow([
+        "Item Description",
+        "Quantity",
+        "Unit Cost",
+        "Line Total"
+    ])
+
+    for item in items:
+        writer.writerow([
+            safe_csv_text(item["description"]),
+            item["quantity"],
+            item["unit_cost"],
+            item["line_total"]
+        ])
+
+    writer.writerow([])
+    writer.writerow(["Invoice Total", invoice["total_amount"]])
+
+    return Response(
+        "\ufeff" + output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition":
+                f"attachment; filename=invoice_{invoice_id}.csv"
+        }
+    )
 
 
 @app.route("/admin/invoices/create", methods=["POST"])

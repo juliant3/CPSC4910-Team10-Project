@@ -8,10 +8,21 @@
 <div class="page">
 
     <div style="margin-bottom: 24px;">
-        <a href="{{ url_for('admin_invoices') }}"
-           class="btn btn-secondary">
-            Back to Invoices
-        </a>
+        
+<div style="display: flex; gap: 12px; flex-wrap: wrap;">
+
+    <a href="{{ url_for('admin_invoices') }}"
+       class="btn btn-secondary">
+        Back to Invoices
+    </a>
+
+    <a href="{{ url_for('admin_export_invoice', invoice_id=invoice.invoice_id) }}"
+       class="btn btn-primary">
+        Download CSV
+    </a>
+
+</div>
+
     </div>
 
     <h1>Invoice #{{ invoice.invoice_id }}</h1>
