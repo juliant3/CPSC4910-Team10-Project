@@ -5016,6 +5016,172 @@ def export_driver_points_report():
 
 
 
+@app.route("/reports/sales-by-sponsor")
+def sales_by_sponsor_report():
+
+    # Require login
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    # Admin only
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    # Prevent access while impersonating another user
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    from datetime import datetime, timedelta
+
+    # Get report filters
+    sponsor_id = request.args.get("sponsor_id", "all")
+    start_date = request.args.get("start_date", "")
+    end_date = request.args.get("end_date", "")
+    report_type = request.args.get("report_type", "summary")
+
+    reports = []
+    generated = False
+
+    # Only allow summary or detail
+    if report_type not in ("summary", "detail"):
+        abort(400, "Invalid report type.")
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Get sponsors for dropdown
+            cursor.execute("""
+                SELECT sponsor_id, company_name
+                FROM Sponsors
+                ORDER BY company_name
+            """)
+
+            sponsors = cursor.fetchall()
+
+            # Generate report when dates are provided
+            if start_date and end_date:
+
+                try:
+                    start = datetime.strptime(start_date, "%Y-%m-%d")
+                    end = datetime.strptime(end_date, "%Y-%m-%d")
+                except ValueError:
+                    abort(400, "Invalid date.")
+
+                if start > end:
+                    abort(400, "End date cannot be before start date.")
+
+                end_exclusive = end + timedelta(days=1)
+
+                # Validate sponsor selection
+                if sponsor_id != "all":
+                    if not any(
+                        str(sponsor["sponsor_id"]) == sponsor_id
+                        for sponsor in sponsors
+                    ):
+                        abort(400, "Invalid sponsor.")
+
+                # Summary Report
+                if report_type == "summary":
+
+                    query = """
+                        SELECT
+                            Sponsors.company_name,
+                            COUNT(Orders.order_id) AS total_orders,
+                            COALESCE(SUM(Orders.total_points), 0) AS total_points,
+                            COALESCE(SUM(Orders.total_dollars), 0) AS total_sales
+
+                        FROM Orders
+
+                        JOIN Sponsors
+                            ON Orders.sponsor_id = Sponsors.sponsor_id
+
+                        WHERE Orders.order_date >= %s
+                            AND Orders.order_date < %s
+                            AND Orders.status <> 'Cancelled'
+                    """
+
+                    params = [start, end_exclusive]
+
+                    if sponsor_id != "all":
+                        query += """
+                            AND Orders.sponsor_id = %s
+                        """
+                        params.append(int(sponsor_id))
+
+                    query += """
+                        GROUP BY
+                            Sponsors.sponsor_id,
+                            Sponsors.company_name
+
+                        ORDER BY Sponsors.company_name
+                    """
+
+                # Detail Report
+                else:
+
+                    query = """
+                        SELECT
+                            Orders.order_number,
+                            Orders.order_date,
+                            Sponsors.company_name,
+                            Users.first_name,
+                            Users.last_name,
+                            Orders.total_points,
+                            Orders.total_dollars,
+                            Orders.status
+
+                        FROM Orders
+
+                        JOIN Sponsors
+                            ON Orders.sponsor_id = Sponsors.sponsor_id
+
+                        JOIN Users
+                            ON Orders.driver_id = Users.user_id
+
+                        WHERE Orders.order_date >= %s
+                            AND Orders.order_date < %s
+                            AND Orders.status <> 'Cancelled'
+                    """
+
+                    params = [start, end_exclusive]
+
+                    if sponsor_id != "all":
+                        query += """
+                            AND Orders.sponsor_id = %s
+                        """
+                        params.append(int(sponsor_id))
+
+                    query += """
+                        ORDER BY
+                            Sponsors.company_name,
+                            Orders.order_date DESC
+                    """
+
+                cursor.execute(query, params)
+                reports = cursor.fetchall()
+                generated = True
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "reports/sales_by_sponsor.html",
+        sponsors=sponsors,
+        reports=reports,
+        generated=generated,
+        selected_sponsor=sponsor_id,
+        start_date=start_date,
+        end_date=end_date,
+        report_type=report_type
+    )
+
+
+
 
 @app.route("/admin/invoices/export")
 def admin_export_invoices():
