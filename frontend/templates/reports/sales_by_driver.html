@@ -1,0 +1,318 @@
+
+{% extends "shared/base.html" %}
+
+{% block title %}Sales by Driver Report{% endblock %}
+
+{% block content %}
+
+<div class="page" style="max-width: 1200px; margin: 40px auto; padding: 0 20px;">
+
+    <h1>Sales by Driver Report</h1>
+
+    <p>View driver purchases and sales by sponsor and date.</p>
+
+    <!-- Report Filters -->
+    <div class="card report-form" style="padding: 30px; margin-top: 25px;">
+
+        <h2>Generate Report</h2>
+
+        <form method="GET" action="{{ url_for('sales_by_driver_report') }}">
+
+            <div class="driver-report-grid">
+
+                <!-- Sponsor -->
+                <div>
+                    <label for="sponsor_id"><strong>Select Sponsor</strong></label>
+
+                    <select id="sponsor_id" name="sponsor_id">
+                        <option value="all">All Sponsors</option>
+
+                        {% for sponsor in sponsors %}
+                        <option value="{{ sponsor.sponsor_id }}"
+                            {% if selected_sponsor == sponsor.sponsor_id|string %}selected{% endif %}>
+                            {{ sponsor.company_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Driver -->
+                <div>
+                    <label for="driver_id"><strong>Select Driver</strong></label>
+
+                    <select id="driver_id" name="driver_id">
+                        <option value="all">All Drivers</option>
+
+                        {% for driver in drivers %}
+                        <option value="{{ driver.user_id }}"
+                            {% if selected_driver == driver.user_id|string %}selected{% endif %}>
+                            {{ driver.first_name }} {{ driver.last_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Report Type -->
+                <div>
+                    <label for="report_type"><strong>Report Type</strong></label>
+
+                    <select id="report_type" name="report_type">
+                        <option value="summary"
+                            {% if report_type == 'summary' %}selected{% endif %}>
+                            Summary
+                        </option>
+
+                        <option value="detail"
+                            {% if report_type == 'detail' %}selected{% endif %}>
+                            Detail
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Start Date -->
+                <div>
+                    <label for="start_date"><strong>Start Date</strong></label>
+
+                    <input type="date"
+                           id="start_date"
+                           name="start_date"
+                           value="{{ start_date }}"
+                           required>
+                </div>
+
+                <!-- End Date -->
+                <div>
+                    <label for="end_date"><strong>End Date</strong></label>
+
+                    <input type="date"
+                           id="end_date"
+                           name="end_date"
+                           value="{{ end_date }}"
+                           required>
+                </div>
+
+            </div>
+
+            <button type="submit"
+                    class="btn btn-primary"
+                    style="margin-top: 25px;">
+                Generate Report
+            </button>
+
+        </form>
+    </div>
+
+    {% if generated %}
+
+    <!-- Report Actions -->
+    <div class="report-actions" style="margin: 30px 0 20px;">
+
+        <button type="button"
+                class="btn btn-primary"
+                onclick="window.print()">
+            Print / Save as PDF
+        </button>
+
+    </div>
+
+    <!-- Report Results -->
+    <div class="card report-results" style="padding: 30px;">
+
+        {% if report_type == 'summary' %}
+            <h2>Sales by Driver Summary</h2>
+        {% else %}
+            <h2>Sales by Driver Detail</h2>
+        {% endif %}
+
+        <p>
+            Reporting Period:
+            {{ start_date }} through {{ end_date }}
+        </p>
+
+        <div style="overflow-x: auto;">
+
+            <table class="table driver-report-table">
+
+                {% if report_type == 'summary' %}
+
+                <thead>
+                    <tr>
+                        <th>Driver</th>
+                        <th>Sponsor</th>
+                        <th>Total Orders</th>
+                        <th>Total Points Spent</th>
+                        <th>Total Sales ($)</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td>{{ report.first_name }} {{ report.last_name }}</td>
+                        <td>{{ report.company_name }}</td>
+                        <td>{{ report.total_orders }}</td>
+                        <td>{{ report.total_points }}</td>
+                        <td>${{ "%.2f"|format(report.total_sales) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5">No sales found for this period.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+                {% else %}
+
+                <thead>
+                    <tr>
+                        <th>Driver</th>
+                        <th>Sponsor</th>
+                        <th>Order #</th>
+                        <th>Date</th>
+                        <th>Points Spent</th>
+                        <th>Sales ($)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td>{{ report.first_name }} {{ report.last_name }}</td>
+                        <td>{{ report.company_name }}</td>
+                        <td>{{ report.order_number }}</td>
+                        <td>{{ report.order_date | local }}</td>
+                        <td>{{ report.total_points }}</td>
+                        <td>${{ "%.2f"|format(report.total_dollars) }}</td>
+                        <td>{{ report.status }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7">No sales found for this period.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+                {% endif %}
+
+            </table>
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+<style>
+
+.driver-report-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+    margin-top: 25px;
+}
+
+.driver-report-grid label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.driver-report-grid select,
+.driver-report-grid input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #d7cfe3;
+    border-radius: 7px;
+    background: white;
+    color: #211c2e;
+    font: inherit;
+}
+
+.driver-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.driver-report-table th,
+.driver-report-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e3deec;
+}
+
+.driver-report-table th {
+    background: #f4f0f8;
+    color: #2e1a4d;
+}
+
+@media (max-width: 700px) {
+    .driver-report-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media print {
+
+    @page {
+        size: landscape;
+        margin: 0.5in;
+    }
+
+    .site-header,
+    .site-footer,
+    #accessibility-button,
+    #accessibility-panel,
+    .skip-link,
+    .report-form,
+    .report-actions,
+    .page > h1,
+    .page > p {
+        display: none !important;
+    }
+
+    body,
+    .site-main,
+    .page {
+        background: white !important;
+        color: black !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .report-results {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .driver-report-table {
+        width: 100%;
+        font-size: 11px;
+    }
+
+    .driver-report-table th,
+    .driver-report-table td {
+        padding: 7px;
+    }
+
+    .driver-report-table thead {
+        display: table-header-group;
+    }
+
+    .driver-report-table tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+}
+
+</style>
+
+{% endblock %}

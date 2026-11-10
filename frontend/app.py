@@ -5362,6 +5362,184 @@ def export_sales_by_sponsor_report():
     )
 
 
+@app.route("/reports/sales-by-driver")
+def sales_by_driver_report():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    from datetime import datetime, timedelta
+
+    sponsor_id = request.args.get("sponsor_id", "all")
+    driver_id = request.args.get("driver_id", "all")
+    report_type = request.args.get("report_type", "summary")
+    start_date = request.args.get("start_date", "")
+    end_date = request.args.get("end_date", "")
+
+    if report_type not in ("summary", "detail"):
+        abort(400, "Invalid report type.")
+
+    reports = []
+    generated = False
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Sponsors for the dropdown
+            cursor.execute("""
+                SELECT sponsor_id, company_name
+                FROM Sponsors
+                ORDER BY company_name
+            """)
+            sponsors = cursor.fetchall()
+
+            # Drivers for the dropdown
+            cursor.execute("""
+                SELECT DISTINCT
+                    Users.user_id,
+                    Users.first_name,
+                    Users.last_name
+                FROM Users
+                JOIN Orders
+                    ON Users.user_id = Orders.driver_id
+                ORDER BY Users.last_name, Users.first_name
+            """)
+            drivers = cursor.fetchall()
+
+            # Generate the report when dates are selected
+            if start_date and end_date:
+
+                try:
+                    start = datetime.strptime(start_date, "%Y-%m-%d")
+                    end = datetime.strptime(end_date, "%Y-%m-%d")
+                except ValueError:
+                    abort(400, "Invalid date.")
+
+                if start > end:
+                    abort(400, "End date cannot be before start date.")
+
+                end_exclusive = end + timedelta(days=1)
+
+                if sponsor_id != "all":
+                    if not any(
+                        str(s["sponsor_id"]) == sponsor_id
+                        for s in sponsors
+                    ):
+                        abort(400, "Invalid sponsor.")
+
+                if driver_id != "all":
+                    if not any(
+                        str(d["user_id"]) == driver_id
+                        for d in drivers
+                    ):
+                        abort(400, "Invalid driver.")
+
+                if report_type == "summary":
+
+                    query = """
+                        SELECT
+                            Users.first_name,
+                            Users.last_name,
+                            Sponsors.company_name,
+                            COUNT(Orders.order_id) AS total_orders,
+                            SUM(Orders.total_points) AS total_points,
+                            SUM(Orders.total_dollars) AS total_sales
+                        FROM Orders
+                        JOIN Users
+                            ON Orders.driver_id = Users.user_id
+                        JOIN Sponsors
+                            ON Orders.sponsor_id = Sponsors.sponsor_id
+                        WHERE Orders.order_date >= %s
+                            AND Orders.order_date < %s
+                            AND Orders.status <> 'Cancelled'
+                    """
+
+                else:
+
+                    query = """
+                        SELECT
+                            Users.first_name,
+                            Users.last_name,
+                            Sponsors.company_name,
+                            Orders.order_number,
+                            Orders.order_date,
+                            Orders.total_points,
+                            Orders.total_dollars,
+                            Orders.status
+                        FROM Orders
+                        JOIN Users
+                            ON Orders.driver_id = Users.user_id
+                        JOIN Sponsors
+                            ON Orders.sponsor_id = Sponsors.sponsor_id
+                        WHERE Orders.order_date >= %s
+                            AND Orders.order_date < %s
+                            AND Orders.status <> 'Cancelled'
+                    """
+
+                params = [start, end_exclusive]
+
+                # Optional sponsor filter
+                if sponsor_id != "all":
+                    query += " AND Orders.sponsor_id = %s"
+                    params.append(int(sponsor_id))
+
+                # Optional driver filter
+                if driver_id != "all":
+                    query += " AND Orders.driver_id = %s"
+                    params.append(int(driver_id))
+
+                if report_type == "summary":
+                    query += """
+                        GROUP BY
+                            Users.user_id,
+                            Users.first_name,
+                            Users.last_name,
+                            Sponsors.sponsor_id,
+                            Sponsors.company_name
+                        ORDER BY
+                            Users.last_name,
+                            Users.first_name,
+                            Sponsors.company_name
+                    """
+                else:
+                    query += """
+                        ORDER BY
+                            Users.last_name,
+                            Users.first_name,
+                            Orders.order_date DESC
+                    """
+
+                cursor.execute(query, params)
+                reports = cursor.fetchall()
+                generated = True
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "reports/sales_by_driver.html",
+        sponsors=sponsors,
+        drivers=drivers,
+        reports=reports,
+        generated=generated,
+        selected_sponsor=sponsor_id,
+        selected_driver=driver_id,
+        report_type=report_type,
+        start_date=start_date,
+        end_date=end_date
+    )
+
 
 
 @app.route("/admin/invoices/export")
