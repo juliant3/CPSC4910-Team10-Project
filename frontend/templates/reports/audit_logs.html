@@ -8,7 +8,6 @@
 <div class="page audit-report-page">
 
     <h1>Audit Log Report</h1>
-
     <p>View system activity and audit history by date.</p>
 
     <!-- Report Filters -->
@@ -21,12 +20,9 @@
 
             <div class="audit-report-grid">
 
-                <!-- Sponsor Filter (Admin Only) -->
                 {% if role == 'admin' %}
                 <div>
-                    <label for="sponsor_id">
-                        <strong>Select Sponsor</strong>
-                    </label>
+                    <label for="sponsor_id">Select Sponsor</label>
 
                     <select id="sponsor_id" name="sponsor_id">
 
@@ -46,11 +42,8 @@
                 </div>
                 {% endif %}
 
-                <!-- Start Date -->
                 <div>
-                    <label for="start_date">
-                        <strong>Start Date</strong>
-                    </label>
+                    <label for="start_date">Start Date</label>
 
                     <input type="date"
                            id="start_date"
@@ -59,11 +52,8 @@
                            required>
                 </div>
 
-                <!-- End Date -->
                 <div>
-                    <label for="end_date">
-                        <strong>End Date</strong>
-                    </label>
+                    <label for="end_date">End Date</label>
 
                     <input type="date"
                            id="end_date"
@@ -81,7 +71,6 @@
             </button>
 
         </form>
-
     </div>
 
     {% if generated %}
@@ -95,15 +84,13 @@
             Print / Save as PDF
         </button>
 
-<a href="{{ url_for('export_audit_log_report',
-                    sponsor_id=selected_sponsor,
-                    start_date=start_date,
-                    end_date=end_date) }}"
-   class="btn btn-primary"
-   style="margin-left: 10px;">
-    Download CSV
-</a>
-
+        <a href="{{ url_for('export_audit_log_report',
+                            sponsor_id=selected_sponsor,
+                            start_date=start_date,
+                            end_date=end_date) }}"
+           class="btn btn-primary">
+            Download CSV
+        </a>
 
     </div>
 
@@ -112,7 +99,7 @@
 
         <h2>Audit Log History</h2>
 
-        <p>
+        <p class="audit-report-period">
             Reporting Period:
             {{ start_date }} through {{ end_date }}
         </p>
@@ -145,11 +132,12 @@
                     {% for report in reports %}
 
                     <tr>
-                        <td>
+
+                        <td class="audit-date">
                             {{ report.timestamp | local }}
                         </td>
 
-                        <td>
+                        <td class="audit-username">
                             {{ report.username or '—' }}
                         </td>
 
@@ -169,33 +157,45 @@
                             {{ report.status or '—' }}
                         </td>
 
-                        <td>
+                        <td class="audit-reason">
                             {{ report.reason or '—' }}
                         </td>
 
                         <td>
                             {% if report.success == 1 %}
-                                <span class="audit-success">
-                                    Yes
-                                </span>
+                                <span class="audit-success">Yes</span>
                             {% elif report.success == 0 %}
-                                <span class="audit-failure">
-                                    No
-                                </span>
+                                <span class="audit-failure">No</span>
                             {% else %}
                                 —
                             {% endif %}
                         </td>
 
-                        <td>
-                            {{ report.details or '—' }}
+                        <td class="audit-details-cell">
+
+                            {% if report.details %}
+
+                            <details class="audit-details">
+                                <summary>View Details</summary>
+
+                                <div class="audit-details-content">
+                                    {{ report.details }}
+                                </div>
+                            </details>
+
+                            {% else %}
+                                —
+                            {% endif %}
+
                         </td>
+
                     </tr>
 
                     {% else %}
 
                     <tr>
-                        <td colspan="9" style="text-align: center;">
+                        <td colspan="9"
+                            class="audit-empty">
                             No audit logs found for this period.
                         </td>
                     </tr>
@@ -216,17 +216,23 @@
 
 <style>
 
+/* Main Page */
+
 .audit-report-page {
     max-width: 1400px;
     margin: 40px auto;
     padding: 0 20px;
 }
 
+/* Cards */
+
 .audit-report-form,
 .audit-report-results {
     padding: 30px;
     margin-top: 25px;
 }
+
+/* Report Filters */
 
 .audit-report-grid {
     display: grid;
@@ -238,6 +244,7 @@
 .audit-report-grid label {
     display: block;
     margin-bottom: 8px;
+    font-weight: 600;
 }
 
 .audit-report-grid select,
@@ -253,9 +260,16 @@
     font: inherit;
 }
 
+/* Action Buttons */
+
 .audit-report-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
     margin: 30px 0 20px;
 }
+
+/* Table Container */
 
 .audit-table-wrapper {
     width: 100%;
@@ -263,41 +277,115 @@
     margin-top: 20px;
 }
 
+/* Table */
+
 .audit-report-table {
     width: 100%;
+    min-width: 1250px;
     border-collapse: collapse;
     font-size: 13px;
 }
 
 .audit-report-table th,
 .audit-report-table td {
-    padding: 12px;
+    padding: 14px 12px;
     text-align: left;
     border-bottom: 1px solid #e3deec;
     vertical-align: top;
-    overflow-wrap: anywhere;
 }
 
 .audit-report-table th {
     background: #f4f0f8;
     color: #2e1a4d;
+    font-weight: 700;
+    white-space: nowrap;
 }
+
+.audit-report-table tbody tr:hover {
+    background: #faf9fc;
+}
+
+/* Column Formatting */
+
+.audit-date {
+    min-width: 185px;
+    white-space: nowrap;
+}
+
+.audit-username {
+    min-width: 200px;
+    overflow-wrap: anywhere;
+}
+
+.audit-reason {
+    min-width: 120px;
+    max-width: 200px;
+    overflow-wrap: break-word;
+}
+
+.audit-empty {
+    text-align: center !important;
+    padding: 25px !important;
+}
+
+/* Success / Failure */
 
 .audit-success {
     color: #2f7d5c;
-    font-weight: bold;
+    font-weight: 700;
 }
 
 .audit-failure {
     color: #a3413a;
-    font-weight: bold;
+    font-weight: 700;
 }
 
+/* Expandable Details */
+
+.audit-details-cell {
+    min-width: 130px;
+}
+
+.audit-details summary {
+    color: #4c2a85;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.audit-details summary:hover {
+    text-decoration: underline;
+}
+
+.audit-details-content {
+    margin-top: 10px;
+    padding: 12px;
+    background: #f4f0f8;
+    border: 1px solid #e3deec;
+    border-radius: 6px;
+    color: #211c2e;
+    max-width: 350px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+}
+
+/* Mobile Layout */
+
 @media (max-width: 800px) {
+
     .audit-report-grid {
         grid-template-columns: 1fr;
     }
+
+    .audit-report-form,
+    .audit-report-results {
+        padding: 20px;
+    }
+
 }
+
+/* Print Layout */
 
 @media print {
 
@@ -341,6 +429,7 @@
 
     .audit-report-table {
         width: 100%;
+        min-width: 0;
         table-layout: fixed;
         font-size: 9px;
     }
@@ -349,6 +438,8 @@
     .audit-report-table td {
         padding: 5px;
         overflow-wrap: anywhere;
+        white-space: normal;
+        min-width: 0;
     }
 
     .audit-report-table thead {
@@ -358,6 +449,26 @@
     .audit-report-table tr {
         break-inside: avoid;
         page-break-inside: avoid;
+    }
+
+    /* Print full audit details */
+
+    .audit-details summary {
+        display: none;
+    }
+
+    .audit-details-content {
+        display: block;
+        padding: 0;
+        margin: 0;
+        border: none;
+        background: white;
+        max-width: none;
+        font-size: 8px;
+    }
+
+    .audit-details:not([open]) .audit-details-content {
+        display: block;
     }
 
 }
