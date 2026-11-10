@@ -1,0 +1,327 @@
+
+{% extends "shared/base.html" %}
+
+{% block title %}Invoice Reports{% endblock %}
+
+{% block content %}
+
+<div class="page">
+
+    <!-- Back Button -->
+    <div class="report-back" style="margin-bottom: 24px;">
+        <a href="{{ url_for('admin_invoices') }}"
+           class="btn btn-secondary">
+            Back to Invoice Management
+        </a>
+    </div>
+
+    <h1>Invoice Reports</h1>
+
+    <p>
+        Generate billing reports by sponsor and date range.
+    </p>
+
+    <!-- Report Selection Form -->
+    <div class="card report-form"
+         style="padding: 24px; margin-top: 24px; max-width: 650px;">
+
+        <h2>Generate Invoice Report</h2>
+
+        <form action="{{ url_for('admin_invoice_report') }}"
+              method="GET">
+
+            <!-- Sponsor Selection -->
+            <div style="margin-top: 20px;">
+
+                <label for="sponsor_id">
+                    <strong>Select Sponsor</strong>
+                </label>
+
+                <select id="sponsor_id"
+                        name="sponsor_id"
+                        required
+                        style="display: block; width: 100%; padding: 10px; margin-top: 8px;">
+
+                    <option value="all"
+                        {% if selected_sponsor == 'all' %}selected{% endif %}>
+                        All Sponsors
+                    </option>
+
+                    {% for sponsor in sponsors %}
+                    <option value="{{ sponsor.sponsor_id }}"
+                        {% if selected_sponsor == sponsor.sponsor_id|string %}selected{% endif %}>
+                        {{ sponsor.company_name }}
+                    </option>
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+            <!-- Start Month -->
+            <div style="margin-top: 20px;">
+
+                <label for="start_month">
+                    <strong>Start Month and Year</strong>
+                </label>
+
+                <input type="month"
+                       id="start_month"
+                       name="start_month"
+                       value="{{ start_month or '' }}"
+                       required
+                       style="display: block; width: 100%; padding: 10px; margin-top: 8px;">
+
+            </div>
+
+            <!-- End Month -->
+            <div style="margin-top: 20px;">
+
+                <label for="end_month">
+                    <strong>End Month and Year</strong>
+                </label>
+
+                <input type="month"
+                       id="end_month"
+                       name="end_month"
+                       value="{{ end_month or '' }}"
+                       required
+                       style="display: block; width: 100%; padding: 10px; margin-top: 8px;">
+
+            </div>
+
+            <!-- Generate Button -->
+            <div style="margin-top: 25px;">
+
+                <button type="submit" class="btn btn-primary">
+                    Generate Report
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+    <!-- Generated Reports -->
+    {% if generated %}
+
+    <div class="report-actions"
+         style="margin-top: 30px; margin-bottom: 20px;">
+
+        <h2>Generated Invoice Reports</h2>
+
+        <button type="button"
+                class="btn btn-primary"
+                onclick="window.print()">
+            Print / Save as PDF
+        </button>
+
+    </div>
+
+    {% for report in reports %}
+
+    <!-- Individual Sponsor Report -->
+    <div class="card invoice-report-page"
+         style="padding: 30px; margin-top: 25px;">
+
+        <h2>Good Driver Program</h2>
+
+        <h3>Sponsor Invoice Report</h3>
+
+        <!-- Sponsor Information -->
+        <p>
+            <strong>Sponsor:</strong>
+            {{ report.sponsor.company_name }}
+        </p>
+
+        <p>
+            <strong>Billing Period:</strong>
+            {{ start_month }} through {{ end_month }}
+        </p>
+
+        <!-- Driver Fees -->
+        <h3 style="margin-top: 25px;">Driver Fees</h3>
+
+        <table class="table" style="width: 100%;">
+
+            <thead>
+                <tr>
+                    <th>Driver</th>
+                    <th>Fee Due</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for driver in report.drivers %}
+
+                <tr>
+                    <td>
+                        {{ driver.first_name }}
+                        {{ driver.last_name }}
+                    </td>
+
+                    <td>
+                        ${{ "%.2f"|format(driver.fee_due) }}
+                    </td>
+                </tr>
+
+                {% else %}
+
+                <tr>
+                    <td colspan="2">
+                        No driver fees for this billing period.
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        <!-- Additional Charges -->
+        <h3 style="margin-top: 25px;">Additional Charges</h3>
+
+        <table class="table" style="width: 100%;">
+
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for charge in report.manual_charges %}
+
+                <tr>
+                    <td>
+                        {{ charge.description }}
+                    </td>
+
+                    <td>
+                        ${{ "%.2f"|format(charge.total_amount) }}
+                    </td>
+                </tr>
+
+                {% else %}
+
+                <tr>
+                    <td colspan="2">
+                        No additional charges.
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        <!-- Sponsor Total -->
+        <div class="invoice-report-total"
+             style="text-align: right; margin-top: 30px;">
+
+            <h2>
+                Total Fee Due:
+                ${{ "%.2f"|format(report.total) }}
+            </h2>
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+    {% endif %}
+
+</div>
+
+<!-- Print Styling -->
+<style>
+
+@media print {
+
+    @page {
+        size: letter;
+        margin: 0.5in;
+    }
+
+    /* Hide website elements */
+    .site-header,
+    .site-footer,
+    #accessibility-button,
+    #accessibility-panel,
+    .skip-link,
+    .report-back,
+    .report-form,
+    .report-actions,
+    .page > h1,
+    .page > p {
+        display: none !important;
+    }
+
+    /* Clean print layout */
+    body,
+    .site-main,
+    .page {
+        background: white !important;
+        color: black !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: none !important;
+    }
+
+    /* One sponsor per printed section */
+    .invoice-report-page {
+        break-after: page;
+        page-break-after: always;
+        box-shadow: none !important;
+        border: none !important;
+        background: white !important;
+        color: black !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .invoice-report-page:last-of-type {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    /* Table formatting */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 8px;
+        border-bottom: 1px solid #ccc;
+        color: black !important;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Keep sponsor total together */
+    .invoice-report-total {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+}
+
+</style>
+
+{% endblock %}

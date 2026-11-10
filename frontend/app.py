@@ -4476,6 +4476,168 @@ def admin_invoices():
     )
 
 
+
+@app.route("/admin/invoices/report")
+def admin_invoice_report():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    from datetime import datetime
+    from calendar import monthrange
+
+    sponsor_id = request.args.get("sponsor_id", "all")
+    start_month = request.args.get("start_month", "")
+    end_month = request.args.get("end_month", "")
+
+    reports = []
+    generated = False
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Get sponsors for the dropdown
+            cursor.execute("""
+                SELECT sponsor_id, company_name
+                FROM Sponsors
+                ORDER BY company_name
+            """)
+            sponsors = cursor.fetchall()
+
+            # Only generate results when dates are provided
+            if start_month and end_month:
+
+                try:
+                    start = datetime.strptime(start_month, "%Y-%m")
+                    end = datetime.strptime(end_month, "%Y-%m")
+                except ValueError:
+                    flash("Please enter valid months.", "error")
+                    return redirect(url_for("admin_invoice_report"))
+
+                if start > end:
+                    flash("End month cannot be before start month.", "error")
+                    return redirect(url_for("admin_invoice_report"))
+
+                # First day of the month after the selected end month
+                if end.month == 12:
+                    end_exclusive = datetime(end.year + 1, 1, 1)
+                else:
+                    end_exclusive = datetime(end.year, end.month + 1, 1)
+
+                selected_sponsors = sponsors
+
+                if sponsor_id != "all":
+                    selected_sponsors = [
+                        s for s in sponsors
+                        if str(s["sponsor_id"]) == sponsor_id
+                    ]
+
+                    if not selected_sponsors:
+                        abort(400, "Invalid sponsor.")
+
+                for sponsor in selected_sponsors:
+
+                    # Fees associated with driver orders
+                    cursor.execute("""
+                        SELECT
+                            Users.first_name,
+                            Users.last_name,
+                            SUM(Invoices.total_amount) AS fee_due
+                        FROM Invoices
+                        JOIN Orders
+                            ON Invoices.order_id = Orders.order_id
+                        JOIN Users
+                            ON Orders.driver_id = Users.user_id
+                        WHERE Invoices.sponsor_id = %s
+                            AND Invoices.status = 'Pending'
+                            AND Invoices.invoice_date >= %s
+                            AND Invoices.invoice_date < %s
+                        GROUP BY
+                            Users.user_id,
+                            Users.first_name,
+                            Users.last_name
+                        ORDER BY Users.last_name, Users.first_name
+                    """, (
+                        sponsor["sponsor_id"],
+                        start,
+                        end_exclusive
+                    ))
+
+                    drivers = cursor.fetchall()
+
+                    # Manual invoices not associated with orders
+                    cursor.execute("""
+                        SELECT
+                            description,
+                            total_amount
+                        FROM Invoices
+                        WHERE sponsor_id = %s
+                            AND invoice_type = 'Manual'
+                            AND order_id IS NULL
+                            AND status = 'Pending'
+                            AND invoice_date >= %s
+                            AND invoice_date < %s
+                        ORDER BY invoice_date
+                    """, (
+                        sponsor["sponsor_id"],
+                        start,
+                        end_exclusive
+                    ))
+
+                    manual_charges = cursor.fetchall()
+
+                    # Total of all pending sponsor invoices
+                    cursor.execute("""
+                        SELECT
+                            COALESCE(SUM(total_amount), 0) AS total_fee_due
+                        FROM Invoices
+                        WHERE sponsor_id = %s
+                            AND status = 'Pending'
+                            AND invoice_date >= %s
+                            AND invoice_date < %s
+                    """, (
+                        sponsor["sponsor_id"],
+                        start,
+                        end_exclusive
+                    ))
+
+                    total = cursor.fetchone()["total_fee_due"]
+
+                    reports.append({
+                        "sponsor": sponsor,
+                        "drivers": drivers,
+                        "manual_charges": manual_charges,
+                        "total": total
+                    })
+
+                generated = True
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "admin/invoice_report.html",
+        sponsors=sponsors,
+        reports=reports,
+        generated=generated,
+        selected_sponsor=sponsor_id,
+        start_month=start_month,
+        end_month=end_month
+    )
+
+
+
 @app.route("/admin/invoices/export")
 def admin_export_invoices():
 
