@@ -12,6 +12,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for, flash
+from services.audit_service import queue_event
 
 catalog_bp = Blueprint("ebay_catalog", __name__)
 EBAY_ROOT = "https://api.ebay.com"
@@ -428,6 +429,9 @@ def sponsor_catalog():
         try:
             sponsor_id, _ = _catalog_context("sponsor")
             _save_item_types(sponsor_id, types)
+            queue_event("Catalog", "Sponsor catalog updated", success=True,
+                        status="Saved", sponsor_id=sponsor_id,
+                        details={"item_count": len(types)})
         except Exception:
             flash("Could not save the catalog. Check the database connection and migration.", "error")
             return redirect(url_for("ebay_catalog.sponsor_catalog"))
@@ -881,6 +885,10 @@ def checkout():
     finally:
         conn.close()
 
+    queue_event("Order", "Reward order placed", success=True, status="Placed",
+                user_id=placed_by, sponsor_id=sponsor_id, driver_id=driver_id,
+                details={"order_number": order_number, "points": total_points,
+                         "item_count": len(items)})
     _store_cart(sponsor_id, {})
     if placed_by != driver_id:
         flash(f"Order {order_number} was placed for {session.get('assumed_driver_name', 'this driver')} "

@@ -7,6 +7,7 @@ for new messages every few seconds instead of keeping a live connection open.
 """
 
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, session, url_for
+from services.audit_service import queue_event
 
 chat_bp = Blueprint("chat", __name__)
 MAX_MESSAGE_LENGTH = 2000
@@ -296,6 +297,8 @@ def conversation(other_id):
                     )
                     _notify(cursor, convo)
                     conn.commit()
+                    queue_event("Communication", "Message sent", status="Sent", success=True,
+                                sponsor_id=convo["sponsor_id"], driver_id=convo["driver_id"])
                 return redirect(url_for("chat.conversation", other_id=other_id) + "#latest")
 
             messages = _messages(cursor, convo)

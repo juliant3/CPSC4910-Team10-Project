@@ -12,6 +12,7 @@ from markupsafe import Markup
 from zoneinfo import ZoneInfo
 from werkzeug.security import check_password_hash, generate_password_hash
 from services.bulk_upload import process_bulk_upload
+from services.audit_service import queue_event, log_login_attempt, register_audit_hooks
 
 
 app = Flask(__name__)
@@ -153,6 +154,7 @@ def check_session_timeout():
     last_activity = session.get("last_activity")
 
     if not last_activity:
+        queue_event("Security", "Session expired", status="Missing activity timestamp", success=True)
         session.clear()
         return redirect(url_for("login"))
 
@@ -165,12 +167,14 @@ def check_session_timeout():
             )
 
     except (ValueError, TypeError):
+        queue_event("Security", "Session expired", status="Invalid activity timestamp", success=True)
         session.clear()
         return redirect(url_for("login"))
 
     now = datetime.now(timezone.utc)
 
     if now - last_activity_time >= SESSION_TIMEOUT:
+        queue_event("Security", "Session expired", status="Inactive", success=True)
         session.clear()
         return redirect(url_for("login"))
 
@@ -226,6 +230,10 @@ def get_db():
         **DB_CONFIG,
         cursorclass=pymysql.cursors.DictCursor
     )
+
+# Audit hooks use the same database configuration but a separate transaction.
+# The lambda resolves get_db at request time (and can be replaced in tests).
+register_audit_hooks(app, lambda: get_db())
 
 def get_login_stats():
     conn = get_db()
@@ -905,9 +913,11 @@ def login():
             session.permanent = True
 
             session["last_activity"] = datetime.now(timezone.utc).isoformat()
+            log_login_attempt(email, succeeded=True, user_id=user["user_id"])
 
             return redirect(url_for("home"))
         
+        log_login_attempt(email, succeeded=False)
         driver_count, sponsor_count = get_login_stats()
         return render_template(
             "shared/login.html",
@@ -962,6 +972,8 @@ def forgot_password():
     finally:
         conn.close()
 
+    queue_event("Password Change", "Password reset requested", status="Request received",
+                username=email, success=None)
     if user:
         send_password_reset_link(user["email"], user["first_name"], token)
 
@@ -1106,6 +1118,9 @@ def apply(token):
                 )
 
                 conn.commit()
+                queue_event("Driver Application", "Driver application submitted", success=True,
+                            status="Submitted", sponsor_id=application["sponsor_id"],
+                            details={"application_id": application["application_id"]})
 
                 return render_template(
                     "shared/apply.html",
@@ -1241,6 +1256,8 @@ def reset_password(token):
 
 @app.route("/logout")
 def logout():
+    if session.get("user_id") is not None:
+        queue_event("Login Attempt", "Logout", status="Signed out", success=True)
     session.clear()
     return redirect(url_for("login"))
 
@@ -1534,6 +1551,8 @@ def sponsor_applications():
                     )
 
                 conn.commit()
+                queue_event("Driver Application", "Driver invited to apply", success=True,
+                            status="Pending", sponsor_id=sponsor_id)
 
                 send_application_invite(driver_email, token)
 
@@ -1767,6 +1786,9 @@ def accept_application(application_id):
                 )
 
                 conn.commit()
+                queue_event("Driver Application", "Driver application accepted", success=True,
+                            status="Accepted", sponsor_id=application["sponsor_id"],
+                            details={"application_id": application_id})
 
                 send_acceptance_email(
                     application["applicant_email"],
@@ -1851,6 +1873,9 @@ def accept_application(application_id):
             )
 
             conn.commit()
+            queue_event("Driver Application", "Driver application accepted", success=True,
+                        status="Accepted", sponsor_id=application["sponsor_id"],
+                        details={"application_id": application_id, "driver_id": user_id})
 
             send_acceptance_email(
                 application["applicant_email"],
@@ -1912,6 +1937,9 @@ def reject_application(application_id):
             )
 
             conn.commit()
+            queue_event("Driver Application", "Driver application rejected", success=True,
+                        status="Rejected", sponsor_id=application["sponsor_id"],
+                        details={"application_id": application_id})
 
             send_rejection_email(
                 application["applicant_email"],
@@ -2313,6 +2341,9 @@ def change_driver_points(driver_id):
             )
 
         conn.commit()
+        queue_event("Point Change", "Driver points adjusted", status="Committed", success=True,
+                    sponsor_id=current_sponsor_id(), driver_id=driver_id,
+                    details={"driver_id": driver_id, "point_delta": point_change})
 
     finally:
         conn.close()
@@ -2398,6 +2429,9 @@ def set_driver_redemption(driver_id):
             )
 
         conn.commit()
+        queue_event("Point Change", "Driver redemption access changed", status="Committed",
+                    success=True, sponsor_id=current_sponsor_id(), driver_id=driver_id,
+                    details={"driver_id": driver_id, "operation": "suspend" if suspended else "restore"})
 
     finally:
         conn.close()
@@ -2644,6 +2678,8 @@ def driver_edit_profile():
 
                 if not error:
                     conn.commit()
+                    queue_event("Profile", "Driver profile updated", success=True,
+                                status="Saved", driver_id=session["user_id"])
                     session["first_name"] = request.form.get("first_name", "").strip()[:100]
                     session["last_name"] = request.form.get("last_name", "").strip()[:100]
                     return redirect(url_for("driver_profile"))
@@ -2699,6 +2735,9 @@ def sponsor_edit_driver(driver_id):
 
                 if not error:
                     conn.commit()
+                    queue_event("Profile", "Driver profile updated by sponsor", success=True,
+                                status="Saved", sponsor_id=current_sponsor_id(),
+                                driver_id=driver_id)
                     return redirect(url_for("sponsor_driver_profile", driver_id=driver_id))
 
                 posted_form = request.form
@@ -2870,6 +2909,10 @@ def sponsor_recurring():
                         (recurring_id, current_sponsor_id())
                     )
                     conn.commit()
+                    queue_event("Point Change", "Recurring points rule updated", success=True,
+                                status="Committed", sponsor_id=current_sponsor_id(),
+                                details={"recurring_id": recurring_id,
+                                         "operation": action})
                     return redirect(url_for("sponsor_recurring"))
 
                 if action == "delete" and recurring_id:
@@ -2881,6 +2924,10 @@ def sponsor_recurring():
                         (recurring_id, current_sponsor_id())
                     )
                     conn.commit()
+                    queue_event("Point Change", "Recurring points rule updated", success=True,
+                                status="Committed", sponsor_id=current_sponsor_id(),
+                                details={"recurring_id": recurring_id,
+                                         "operation": action})
                     return redirect(url_for("sponsor_recurring"))
 
                 points = request.form.get("point_change", type=int)
@@ -2941,6 +2988,9 @@ def sponsor_recurring():
                         )
 
                     conn.commit()
+                    queue_event("Point Change", "Recurring points rule created", success=True,
+                                status="Committed", sponsor_id=current_sponsor_id(),
+                                details={"recurring_id": new_id})
                     return redirect(url_for("sponsor_recurring"))
 
             cursor.execute(
@@ -3222,7 +3272,10 @@ def switch_driver_sponsor():
     try:
         # Validated on use: pick_driver_sponsorship ignores ids the driver
         # doesn't actually belong to.
-        session["driver_sponsor_id"] = int(request.form.get("sponsor_id", ""))
+        selected = int(request.form.get("sponsor_id", ""))
+        session["driver_sponsor_id"] = selected
+        queue_event("Sponsor Management", "Sponsor view selected", success=True,
+                    status="Preference set", details={"sponsor_id": selected})
     except ValueError:
         pass
 
@@ -3286,6 +3339,8 @@ def settings():
                             (first_name, last_name, user_id)
                         )
                         conn.commit()
+                        queue_event("Account", "Account name updated", success=True,
+                                    status="Saved")
                         session["first_name"] = first_name
                         session["last_name"] = last_name
                         flash("Your name was updated.", "success")
@@ -3562,6 +3617,8 @@ def sponsor_apply(token):
             )
 
             conn.commit()
+            queue_event("Sponsor Management", "Sponsor application submitted", success=True,
+                        status="Submitted", details={"request_id": sponsor_req["request_id"]})
 
             # Let admins know. A failure here should never block the application.
             try:
@@ -3998,6 +4055,8 @@ def approve_sponsor_request(request_id):
     finally:
         conn.close()
 
+    queue_event("Sponsor Management", "Sponsor request approved", success=True,
+                status="Approved", details={"request_id": request_id})
     send_sponsor_approved_email(
         sponsor_req["email"],
         sponsor_req["first_name"],
@@ -4066,6 +4125,8 @@ def reject_sponsor_request(request_id):
     finally:
         conn.close()
 
+    queue_event("Sponsor Management", "Sponsor request rejected", success=True,
+                status="Rejected", details={"request_id": request_id})
     send_sponsor_rejected_email(sponsor_req["email"], sponsor_req["first_name"], reason)
 
     flash(f"Rejected the request for {sponsor_req['company_name']}.", "success")
@@ -4719,6 +4780,9 @@ def admin_create_invoice():
             )
 
         conn.commit()
+        queue_event("Order", "Manual invoice created", success=True,
+                    status="Created", sponsor_id=sponsor_id,
+                    details={"invoice_id": invoice_id})
         flash("Manual invoice created successfully!", "success")
 
     except Exception:
@@ -4874,6 +4938,8 @@ def admin_update_invoice_status(invoice_id):
             )
 
         conn.commit()
+        queue_event("Order", "Invoice status updated", success=True,
+                    status=new_status, details={"invoice_id": invoice_id})
         flash("Invoice status updated successfully!", "success")
 
     except Exception:
@@ -4951,6 +5017,46 @@ def enforce_assumed_account_read_only():
             description="This support session is read-only. Exit the assumed account to make changes.",
         )
 
+
+
+@app.route("/admin/audit-logs")
+def admin_audit_logs():
+    """Read-only audit log for administrators, newest 100 events first."""
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+    if (session.get("role") or "").lower() != "admin":
+        abort(403)
+    if session.get("assumed_driver_id") is not None or session.get("assumed_sponsor_id") is not None:
+        abort(403)
+
+    selected_category = request.args.get("category", "").strip()[:64]
+    selected_user = request.args.get("user_id", "").strip()
+    if selected_user and (not selected_user.isdecimal() or len(selected_user) > 12):
+        abort(400)
+
+    conditions = []
+    params = []
+    if selected_category:
+        conditions.append("category = %s")
+        params.append(selected_category)
+    if selected_user:
+        conditions.append("user_id = %s")
+        params.append(int(selected_user))
+    where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT log_id, timestamp, user_id, category, action, status, "
+                "success, ip_address, details FROM Audit_Logs" + where +
+                " ORDER BY timestamp DESC, log_id DESC LIMIT 100", tuple(params)
+            )
+            events = cursor.fetchall()
+    finally:
+        conn.close()
+    return render_template("admin/audit_logs.html", events=events,
+                           selected_category=selected_category,
+                           selected_user=selected_user)
 
 
 if __name__ == "__main__":
