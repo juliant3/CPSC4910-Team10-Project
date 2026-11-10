@@ -5908,6 +5908,170 @@ def audit_log_report():
 
 
 
+@app.route("/reports/audit-logs/export")
+def export_audit_log_report():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    role = session.get("role", "").lower()
+
+    if role not in ("admin", "sponsor"):
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    import csv
+    import io
+    from datetime import datetime, timedelta
+
+    sponsor_id = request.args.get("sponsor_id", "all")
+    start_date = request.args.get("start_date", "")
+    end_date = request.args.get("end_date", "")
+
+    if not start_date or not end_date:
+        abort(400, "Please select a date range.")
+
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        abort(400, "Invalid date.")
+
+    if start > end:
+        abort(400, "End date cannot be before start date.")
+
+    end_exclusive = end + timedelta(days=1)
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            if role == "admin":
+
+                if sponsor_id != "all":
+                    cursor.execute("""
+                        SELECT sponsor_id
+                        FROM Sponsors
+                        WHERE sponsor_id = %s
+                    """, (sponsor_id,))
+
+                    if not cursor.fetchone():
+                        abort(400, "Invalid sponsor.")
+
+            else:
+
+                cursor.execute("""
+                    SELECT sponsor_id
+                    FROM Sponsor_Users
+                    WHERE user_id = %s
+                """, (session["user_id"],))
+
+                memberships = cursor.fetchall()
+
+                if not memberships:
+                    cursor.execute("""
+                        SELECT sponsor_id
+                        FROM Sponsors
+                        WHERE sponsor_id = %s
+                    """, (session["user_id"],))
+
+                    memberships = cursor.fetchall()
+
+                allowed_ids = {
+                    s["sponsor_id"] for s in memberships
+                }
+
+                active_sponsor = current_sponsor_id()
+
+                if active_sponsor not in allowed_ids:
+                    abort(403)
+
+                sponsor_id = active_sponsor
+
+            query = """
+                SELECT
+                    Audit_Logs.timestamp,
+                    Audit_Logs.username,
+                    Sponsors.company_name,
+                    Audit_Logs.category,
+                    Audit_Logs.action,
+                    Audit_Logs.status,
+                    Audit_Logs.reason,
+                    Audit_Logs.success,
+                    Audit_Logs.details
+                FROM Audit_Logs
+                LEFT JOIN Sponsors
+                    ON Audit_Logs.sponsor_id = Sponsors.sponsor_id
+                WHERE Audit_Logs.timestamp >= %s
+                    AND Audit_Logs.timestamp < %s
+            """
+
+            params = [start, end_exclusive]
+
+            if sponsor_id != "all":
+                query += " AND Audit_Logs.sponsor_id = %s"
+                params.append(sponsor_id)
+
+            query += """
+                ORDER BY
+                    Audit_Logs.timestamp DESC,
+                    Audit_Logs.log_id DESC
+            """
+
+            cursor.execute(query, params)
+            reports = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "Date",
+        "Username",
+        "Sponsor",
+        "Category",
+        "Action",
+        "Status",
+        "Reason",
+        "Success",
+        "Details"
+    ])
+
+    for report in reports:
+
+        writer.writerow([
+            report["timestamp"],
+            report["username"],
+            report["company_name"],
+            report["category"],
+            report["action"],
+            report["status"],
+            report["reason"],
+            report["success"],
+            report["details"]
+        ])
+
+    filename = f"audit_log_report_{start_date}_to_{end_date}.csv"
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+
+
 @app.route("/admin/invoices/export")
 def admin_export_invoices():
 

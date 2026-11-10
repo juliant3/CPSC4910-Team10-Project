@@ -95,6 +95,16 @@
             Print / Save as PDF
         </button>
 
+<a href="{{ url_for('export_audit_log_report',
+                    sponsor_id=selected_sponsor,
+                    start_date=start_date,
+                    end_date=end_date) }}"
+   class="btn btn-primary"
+   style="margin-left: 10px;">
+    Download CSV
+</a>
+
+
     </div>
 
     <!-- Report Results -->
