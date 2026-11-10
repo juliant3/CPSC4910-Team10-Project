@@ -4560,7 +4560,7 @@ def admin_invoice_report():
                         JOIN Users
                             ON Orders.driver_id = Users.user_id
                         WHERE Invoices.sponsor_id = %s
-                            AND Invoices.status = 'Pending'
+                            AND Invoices.status = ('Pending', 'Paid')
                             AND Invoices.invoice_date >= %s
                             AND Invoices.invoice_date < %s
                         GROUP BY
@@ -4585,7 +4585,7 @@ def admin_invoice_report():
                         WHERE sponsor_id = %s
                             AND invoice_type = 'Manual'
                             AND order_id IS NULL
-                            AND status = 'Pending'
+                            AND status = ('Pending', 'Paid')
                             AND invoice_date >= %s
                             AND invoice_date < %s
                         ORDER BY invoice_date
@@ -4597,13 +4597,13 @@ def admin_invoice_report():
 
                     manual_charges = cursor.fetchall()
 
-                    # Total of all pending sponsor invoices
+                    # Total of all pending and paid sponsor invoices
                     cursor.execute("""
                         SELECT
                             COALESCE(SUM(total_amount), 0) AS total_fee_due
                         FROM Invoices
                         WHERE sponsor_id = %s
-                            AND status = 'Pending'
+                            AND status = ('Pending', 'Paid')
                             AND invoice_date >= %s
                             AND invoice_date < %s
                     """, (
