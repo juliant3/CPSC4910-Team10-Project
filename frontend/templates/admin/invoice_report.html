@@ -148,7 +148,7 @@
             <thead>
                 <tr>
                     <th>Driver</th>
-                    <th>Fee Due</th>
+                    <th style="text-align: right;">Fee Due</th>
                 </tr>
             </thead>
 
@@ -162,7 +162,7 @@
                         {{ driver.last_name }}
                     </td>
 
-                    <td>
+                    <td style="text-align: right;">
                         ${{ "%.2f"|format(driver.fee_due) }}
                     </td>
                 </tr>
