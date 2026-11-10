@@ -17,9 +17,7 @@
 
     <h1>Invoice Reports</h1>
 
-    <p>
-        Generate billing reports by sponsor and date range.
-    </p>
+    <p>Generate billing reports by sponsor and date range.</p>
 
     <!-- Report Selection Form -->
     <div class="card report-form"
@@ -92,11 +90,9 @@
 
             <!-- Generate Button -->
             <div style="margin-top: 25px;">
-
                 <button type="submit" class="btn btn-primary">
                     Generate Report
                 </button>
-
             </div>
 
         </form>
@@ -126,7 +122,6 @@
          style="padding: 30px; margin-top: 25px;">
 
         <h2>Good Driver Program</h2>
-
         <h3>Sponsor Invoice Report</h3>
 
         <!-- Sponsor Information -->
@@ -153,7 +148,6 @@
             </thead>
 
             <tbody>
-
                 {% for driver in report.drivers %}
 
                 <tr>
@@ -176,7 +170,6 @@
                 </tr>
 
                 {% endfor %}
-
             </tbody>
 
         </table>
@@ -189,20 +182,17 @@
             <thead>
                 <tr>
                     <th>Description</th>
-                    <th>Amount</th>
+                    <th style="text-align: right;">Amount</th>
                 </tr>
             </thead>
 
             <tbody>
-
                 {% for charge in report.manual_charges %}
 
                 <tr>
-                    <td>
-                        {{ charge.description }}
-                    </td>
+                    <td>{{ charge.description }}</td>
 
-                    <td>
+                    <td style="text-align: right;">
                         ${{ "%.2f"|format(charge.total_amount) }}
                     </td>
                 </tr>
@@ -216,19 +206,48 @@
                 </tr>
 
                 {% endfor %}
-
             </tbody>
 
         </table>
 
-        <!-- Sponsor Total -->
+        <!-- Sponsor Billing Summary -->
         <div class="invoice-report-total"
-             style="text-align: right; margin-top: 30px;">
+             style="margin-top: 30px;">
 
-            <h2>
-                Total Charges:
-                ${{ "%.2f"|format(report.total) }}
-            </h2>
+            <h3>Billing Summary</h3>
+
+            <table class="table" style="width: 100%;">
+
+                <tbody>
+
+                    <tr>
+                        <td><strong>Total Charges</strong></td>
+                        <td style="text-align: right;">
+                            ${{ "%.2f"|format(report.total) }}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td><strong>Total Paid</strong></td>
+                        <td style="text-align: right;">
+                            ${{ "%.2f"|format(report.total_paid) }}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <strong>Remaining Balance Due</strong>
+                        </td>
+                        <td style="text-align: right;">
+                            <strong>
+                                ${{ "%.2f"|format(report.total_pending) }}
+                            </strong>
+                        </td>
+                    </tr>
+
+                </tbody>
+
+            </table>
 
         </div>
 
@@ -275,7 +294,7 @@
         max-width: none !important;
     }
 
-    /* One sponsor per printed section */
+    /* Separate sponsor reports */
     .invoice-report-page {
         break-after: page;
         page-break-after: always;
@@ -314,7 +333,7 @@
         page-break-inside: avoid;
     }
 
-    /* Keep sponsor total together */
+    /* Keep billing summary together */
     .invoice-report-total {
         break-inside: avoid;
         page-break-inside: avoid;

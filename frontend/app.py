@@ -4477,15 +4477,19 @@ def admin_invoices():
 
 
 
+
 @app.route("/admin/invoices/report")
 def admin_invoice_report():
 
+    # Check that the user is logged in
     if "user_id" not in session:
         return redirect(url_for("login"))
 
+    # Only Admin users can access invoice reports
     if session.get("role", "").lower() != "admin":
         abort(403)
 
+    # Prevent access while impersonating another user
     if (
         session.get("assumed_driver_id") is not None
         or session.get("assumed_sponsor_id") is not None
@@ -4493,8 +4497,8 @@ def admin_invoice_report():
         abort(403)
 
     from datetime import datetime
-    from calendar import monthrange
 
+    # Get selected sponsor and billing period
     sponsor_id = request.args.get("sponsor_id", "all")
     start_month = request.args.get("start_month", "")
     end_month = request.args.get("end_month", "")
@@ -4507,67 +4511,85 @@ def admin_invoice_report():
     try:
         with conn.cursor() as cursor:
 
-            # Get sponsors for the dropdown
+            # Get all sponsors for the dropdown
             cursor.execute("""
                 SELECT sponsor_id, company_name
                 FROM Sponsors
                 ORDER BY company_name
             """)
+
             sponsors = cursor.fetchall()
 
-            # Only generate results when dates are provided
+            # Generate reports only when both months are selected
             if start_month and end_month:
 
+                # Convert selected months into dates
                 try:
                     start = datetime.strptime(start_month, "%Y-%m")
                     end = datetime.strptime(end_month, "%Y-%m")
+
                 except ValueError:
                     flash("Please enter valid months.", "error")
                     return redirect(url_for("admin_invoice_report"))
 
+                # Make sure the date range is valid
                 if start > end:
                     flash("End month cannot be before start month.", "error")
                     return redirect(url_for("admin_invoice_report"))
 
-                # First day of the month after the selected end month
+                # Calculate the first day after the end month
                 if end.month == 12:
                     end_exclusive = datetime(end.year + 1, 1, 1)
                 else:
                     end_exclusive = datetime(end.year, end.month + 1, 1)
 
+                # Start with all sponsors
                 selected_sponsors = sponsors
 
+                # Filter to one sponsor if selected
                 if sponsor_id != "all":
+
                     selected_sponsors = [
-                        s for s in sponsors
-                        if str(s["sponsor_id"]) == sponsor_id
+                        sponsor for sponsor in sponsors
+                        if str(sponsor["sponsor_id"]) == sponsor_id
                     ]
 
                     if not selected_sponsors:
                         abort(400, "Invalid sponsor.")
 
+                # Generate a separate report for each sponsor
                 for sponsor in selected_sponsors:
 
-                    # Fees associated with driver orders
+                    # ---------------------------------
+                    # Driver Fees
+                    # ---------------------------------
                     cursor.execute("""
                         SELECT
                             Users.first_name,
                             Users.last_name,
                             SUM(Invoices.total_amount) AS fee_due
+
                         FROM Invoices
+
                         JOIN Orders
                             ON Invoices.order_id = Orders.order_id
+
                         JOIN Users
                             ON Orders.driver_id = Users.user_id
+
                         WHERE Invoices.sponsor_id = %s
                             AND Invoices.status IN ('Pending', 'Paid')
                             AND Invoices.invoice_date >= %s
                             AND Invoices.invoice_date < %s
+
                         GROUP BY
                             Users.user_id,
                             Users.first_name,
                             Users.last_name
-                        ORDER BY Users.last_name, Users.first_name
+
+                        ORDER BY
+                            Users.last_name,
+                            Users.first_name
                     """, (
                         sponsor["sponsor_id"],
                         start,
@@ -4576,18 +4598,23 @@ def admin_invoice_report():
 
                     drivers = cursor.fetchall()
 
-                    # Manual invoices not associated with orders
+                    # ---------------------------------
+                    # Additional Manual Charges
+                    # ---------------------------------
                     cursor.execute("""
                         SELECT
                             description,
                             total_amount
+
                         FROM Invoices
+
                         WHERE sponsor_id = %s
                             AND invoice_type = 'Manual'
                             AND order_id IS NULL
                             AND status IN ('Pending', 'Paid')
                             AND invoice_date >= %s
                             AND invoice_date < %s
+
                         ORDER BY invoice_date
                     """, (
                         sponsor["sponsor_id"],
@@ -4597,11 +4624,32 @@ def admin_invoice_report():
 
                     manual_charges = cursor.fetchall()
 
-                    # Total of all pending and paid sponsor invoices
+                    # ---------------------------------
+                    # Sponsor Totals
+                    # ---------------------------------
                     cursor.execute("""
                         SELECT
-                            COALESCE(SUM(total_amount), 0) AS total_fee_due
+                            COALESCE(SUM(total_amount), 0)
+                                AS total_charges,
+
+                            COALESCE(SUM(
+                                CASE
+                                    WHEN status = 'Paid'
+                                    THEN total_amount
+                                    ELSE 0
+                                END
+                            ), 0) AS total_paid,
+
+                            COALESCE(SUM(
+                                CASE
+                                    WHEN status = 'Pending'
+                                    THEN total_amount
+                                    ELSE 0
+                                END
+                            ), 0) AS total_pending
+
                         FROM Invoices
+
                         WHERE sponsor_id = %s
                             AND status IN ('Pending', 'Paid')
                             AND invoice_date >= %s
@@ -4612,13 +4660,18 @@ def admin_invoice_report():
                         end_exclusive
                     ))
 
-                    total = cursor.fetchone()["total_fee_due"]
+                    totals = cursor.fetchone()
 
+                    # ---------------------------------
+                    # Save Sponsor Report
+                    # ---------------------------------
                     reports.append({
                         "sponsor": sponsor,
                         "drivers": drivers,
                         "manual_charges": manual_charges,
-                        "total": total
+                        "total": totals["total_charges"],
+                        "total_paid": totals["total_paid"],
+                        "total_pending": totals["total_pending"]
                     })
 
                 generated = True
@@ -4626,6 +4679,7 @@ def admin_invoice_report():
     finally:
         conn.close()
 
+    # Display invoice report page
     return render_template(
         "admin/invoice_report.html",
         sponsors=sponsors,
@@ -4635,7 +4689,6 @@ def admin_invoice_report():
         start_month=start_month,
         end_month=end_month
     )
-
 
 
 @app.route("/admin/invoices/export")
