@@ -4852,6 +4852,171 @@ def driver_points_report():
 
 
 
+@app.route("/reports/driver-points/export")
+def export_driver_points_report():
+
+    # Require login
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    role = session.get("role", "").lower()
+
+    # Only Admin and Sponsor users
+    if role not in ("admin", "sponsor"):
+        abort(403)
+
+    # Prevent access while impersonating another user
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    import csv
+    import io
+    from datetime import datetime, timedelta
+    from flask import Response
+
+    # Get selected filters
+    driver_id = request.args.get("driver_id", "all")
+    start_date = request.args.get("start_date", "")
+    end_date = request.args.get("end_date", "")
+
+    # Require both dates
+    if not start_date or not end_date:
+        abort(400, "Please select a start and end date.")
+
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        abort(400, "Invalid date.")
+
+    if start > end:
+        abort(400, "End date cannot be before start date.")
+
+    end_exclusive = end + timedelta(days=1)
+
+    # Restrict sponsor users to their organization
+    sponsor_id = current_sponsor_id() if role == "sponsor" else None
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            query = """
+                SELECT
+                    Users.first_name,
+                    Users.last_name,
+                    Driver_Sponsors.points_balance,
+                    Point_Transactions.point_change,
+                    Point_Transactions.created_at,
+                    Sponsors.company_name,
+                    Point_Transactions.reason
+
+                FROM Point_Transactions
+
+                JOIN Users
+                    ON Point_Transactions.driver_id = Users.user_id
+
+                JOIN Sponsors
+                    ON Point_Transactions.sponsor_id = Sponsors.sponsor_id
+
+                JOIN Driver_Sponsors
+                    ON Point_Transactions.driver_id = Driver_Sponsors.driver_id
+                    AND Point_Transactions.sponsor_id = Driver_Sponsors.sponsor_id
+
+                WHERE Point_Transactions.created_at >= %s
+                    AND Point_Transactions.created_at < %s
+            """
+
+            params = [start, end_exclusive]
+
+            # Sponsor users only see their own transactions
+            if role == "sponsor":
+                query += """
+                    AND Point_Transactions.sponsor_id = %s
+                """
+                params.append(sponsor_id)
+
+            # Optional driver filter
+            if driver_id != "all":
+
+                try:
+                    selected_driver_id = int(driver_id)
+                except ValueError:
+                    abort(400, "Invalid driver.")
+
+                # Confirm sponsor has access to selected driver
+                if role == "sponsor":
+                    cursor.execute("""
+                        SELECT 1
+                        FROM Driver_Sponsors
+                        WHERE driver_id = %s
+                            AND sponsor_id = %s
+                    """, (selected_driver_id, sponsor_id))
+
+                    if cursor.fetchone() is None:
+                        abort(403)
+
+                query += """
+                    AND Point_Transactions.driver_id = %s
+                """
+                params.append(selected_driver_id)
+
+            query += """
+                ORDER BY
+                    Users.last_name,
+                    Users.first_name,
+                    Point_Transactions.created_at DESC,
+                    Point_Transactions.transaction_id DESC
+            """
+
+            cursor.execute(query, params)
+            transactions = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Column headings
+    writer.writerow([
+        "Driver",
+        "Current Balance",
+        "Point Change",
+        "Date",
+        "Sponsor",
+        "Reason"
+    ])
+
+    # Transaction rows
+    for transaction in transactions:
+        writer.writerow([
+            transaction["first_name"] + " " + transaction["last_name"],
+            transaction["points_balance"],
+            transaction["point_change"],
+            transaction["created_at"],
+            transaction["company_name"],
+            transaction["reason"]
+        ])
+
+    # Return downloadable CSV file
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition":
+                "attachment; filename=driver_point_tracking.csv"
+        }
+    )
+
+
+
+
 @app.route("/admin/invoices/export")
 def admin_export_invoices():
 
