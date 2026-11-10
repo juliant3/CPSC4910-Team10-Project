@@ -6072,6 +6072,48 @@ def export_audit_log_report():
 
 
 
+@app.route("/admin/reports")
+def admin_reports():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    return render_template(
+        "reports/dashboard.html",
+        role="admin"
+    )
+
+
+@app.route("/sponsor/reports")
+def sponsor_reports():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "sponsor":
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    return render_template(
+        "reports/dashboard.html",
+        role="sponsor"
+    )
+
+
 @app.route("/admin/invoices/export")
 def admin_export_invoices():
 

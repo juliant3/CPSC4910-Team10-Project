@@ -15,7 +15,8 @@
         ('Catalog', 'ebay_catalog.sponsor_catalog', ['ebay_catalog.catalog_item']),
         ('Messages', 'chat.inbox', ['chat.conversation']),
         ('Team', 'sponsor_team', []),
-        ('Bulk Upload', 'bulk_upload_page', [])
+        ('Bulk Upload', 'bulk_upload_page', []), 
+        ('Reports', 'sponsor_reports', [])
     ] %}
 
 {% elif role_key == 'admin' %}
@@ -27,6 +28,7 @@
         ('Sponsor Requests', 'admin_sponsor_requests', []),
         ('Invoices', 'admin_invoices', ['admin_invoice_details']),
         ('Audit Logs', 'admin_audit_logs', []),
+        ('Reports', 'admin_reports', []),
         ('Bulk Upload', 'bulk_upload_page', [])
     ] %}
 

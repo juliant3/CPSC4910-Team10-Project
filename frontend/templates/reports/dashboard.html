@@ -1,0 +1,151 @@
+
+{% extends "shared/base.html" %}
+
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+
+<div class="page reports-page">
+
+    <h1>Reports</h1>
+
+    <p>
+        View and download reports for the
+        Good Driver Incentive Program.
+    </p>
+
+    <div class="reports-grid">
+
+        <!-- Driver Point Tracking -->
+        <div class="card report-card">
+            <h2>Driver Point Tracking</h2>
+
+            <p>
+                View driver point balances, point changes,
+                sponsors, and transaction history.
+            </p>
+
+            <a href="{{ url_for('driver_points_report') }}"
+               class="btn btn-primary">
+                View Report
+            </a>
+        </div>
+
+        {% if role == 'admin' %}
+
+        <!-- Sales by Sponsor -->
+        <div class="card report-card">
+            <h2>Sales by Sponsor</h2>
+
+            <p>
+                View sponsor sales with summary and
+                detailed reporting options.
+            </p>
+
+            <a href="{{ url_for('sales_by_sponsor_report') }}"
+               class="btn btn-primary">
+                View Report
+            </a>
+        </div>
+
+        <!-- Sales by Driver -->
+        <div class="card report-card">
+            <h2>Sales by Driver</h2>
+
+            <p>
+                View driver sales, purchases, and
+                detailed order information.
+            </p>
+
+            <a href="{{ url_for('sales_by_driver_report') }}"
+               class="btn btn-primary">
+                View Report
+            </a>
+        </div>
+
+        <!-- Invoice Report -->
+        <div class="card report-card">
+            <h2>Invoice Report</h2>
+
+            <p>
+                Generate sponsor billing reports and
+                review invoice charges.
+            </p>
+
+            <a href="{{ url_for('admin_invoice_report') }}"
+               class="btn btn-primary">
+                View Report
+            </a>
+        </div>
+
+        {% endif %}
+
+        <!-- Audit Log Report -->
+        <div class="card report-card">
+            <h2>Audit Log Report</h2>
+
+            <p>
+                Review system activity, account actions,
+                and audit history.
+            </p>
+
+            <a href="{{ url_for('audit_log_report') }}"
+               class="btn btn-primary">
+                View Report
+            </a>
+        </div>
+
+    </div>
+
+</div>
+
+<style>
+
+.reports-page {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.reports-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    margin-top: 30px;
+}
+
+.report-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 28px;
+    border: 1px solid #e3deec;
+    border-radius: 12px;
+    background: white;
+}
+
+.report-card h2 {
+    color: #2e1a4d;
+    margin-bottom: 12px;
+}
+
+.report-card p {
+    color: #6b6478;
+    line-height: 1.6;
+    flex-grow: 1;
+    margin-bottom: 24px;
+}
+
+.report-card .btn {
+    margin-top: auto;
+}
+
+@media (max-width: 700px) {
+    .reports-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+</style>
+
+{% endblock %}
