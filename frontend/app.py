@@ -4560,7 +4560,7 @@ def admin_invoice_report():
                         JOIN Users
                             ON Orders.driver_id = Users.user_id
                         WHERE Invoices.sponsor_id = %s
-                            AND Invoices.status = ('Pending', 'Paid')
+                            AND Invoices.status IN ('Pending', 'Paid')
                             AND Invoices.invoice_date >= %s
                             AND Invoices.invoice_date < %s
                         GROUP BY
@@ -4585,7 +4585,7 @@ def admin_invoice_report():
                         WHERE sponsor_id = %s
                             AND invoice_type = 'Manual'
                             AND order_id IS NULL
-                            AND status = ('Pending', 'Paid')
+                            AND status IN ('Pending', 'Paid')
                             AND invoice_date >= %s
                             AND invoice_date < %s
                         ORDER BY invoice_date
@@ -4603,7 +4603,7 @@ def admin_invoice_report():
                             COALESCE(SUM(total_amount), 0) AS total_fee_due
                         FROM Invoices
                         WHERE sponsor_id = %s
-                            AND status = ('Pending', 'Paid')
+                            AND status IN ('Pending', 'Paid')
                             AND invoice_date >= %s
                             AND invoice_date < %s
                     """, (
