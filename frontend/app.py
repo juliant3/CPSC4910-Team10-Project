@@ -5542,6 +5542,226 @@ def sales_by_driver_report():
 
 
 
+@app.route("/reports/sales-by-driver/export")
+def export_sales_by_driver_report():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    import csv
+    import io
+    from datetime import datetime, timedelta
+    from flask import Response
+
+    sponsor_id = request.args.get("sponsor_id", "all")
+    driver_id = request.args.get("driver_id", "all")
+    report_type = request.args.get("report_type", "summary")
+    start_date = request.args.get("start_date", "")
+    end_date = request.args.get("end_date", "")
+
+    if report_type not in ("summary", "detail"):
+        abort(400, "Invalid report type.")
+
+    if not start_date or not end_date:
+        abort(400, "Please select a start and end date.")
+
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        abort(400, "Invalid date.")
+
+    if start > end:
+        abort(400, "End date cannot be before start date.")
+
+    end_exclusive = end + timedelta(days=1)
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Validate sponsor selection
+            if sponsor_id != "all":
+                try:
+                    sponsor_id = int(sponsor_id)
+                except ValueError:
+                    abort(400, "Invalid sponsor.")
+
+                cursor.execute("""
+                    SELECT sponsor_id
+                    FROM Sponsors
+                    WHERE sponsor_id = %s
+                """, (sponsor_id,))
+
+                if cursor.fetchone() is None:
+                    abort(400, "Invalid sponsor.")
+
+            # Validate driver selection
+            if driver_id != "all":
+                try:
+                    driver_id = int(driver_id)
+                except ValueError:
+                    abort(400, "Invalid driver.")
+
+                cursor.execute("""
+                    SELECT DISTINCT Users.user_id
+                    FROM Users
+                    JOIN Orders
+                        ON Users.user_id = Orders.driver_id
+                    WHERE Users.user_id = %s
+                """, (driver_id,))
+
+                if cursor.fetchone() is None:
+                    abort(400, "Invalid driver.")
+
+            if report_type == "summary":
+
+                query = """
+                    SELECT
+                        Users.first_name,
+                        Users.last_name,
+                        Sponsors.company_name,
+                        COUNT(Orders.order_id) AS total_orders,
+                        SUM(Orders.total_points) AS total_points,
+                        SUM(Orders.total_dollars) AS total_sales
+                    FROM Orders
+                    JOIN Users
+                        ON Orders.driver_id = Users.user_id
+                    JOIN Sponsors
+                        ON Orders.sponsor_id = Sponsors.sponsor_id
+                    WHERE Orders.order_date >= %s
+                        AND Orders.order_date < %s
+                        AND Orders.status <> 'Cancelled'
+                """
+
+            else:
+
+                query = """
+                    SELECT
+                        Users.first_name,
+                        Users.last_name,
+                        Sponsors.company_name,
+                        Orders.order_number,
+                        Orders.order_date,
+                        Orders.total_points,
+                        Orders.total_dollars,
+                        Orders.status
+                    FROM Orders
+                    JOIN Users
+                        ON Orders.driver_id = Users.user_id
+                    JOIN Sponsors
+                        ON Orders.sponsor_id = Sponsors.sponsor_id
+                    WHERE Orders.order_date >= %s
+                        AND Orders.order_date < %s
+                        AND Orders.status <> 'Cancelled'
+                """
+
+            params = [start, end_exclusive]
+
+            # Sponsor filter
+            if sponsor_id != "all":
+                query += " AND Orders.sponsor_id = %s"
+                params.append(sponsor_id)
+
+            # Driver filter
+            if driver_id != "all":
+                query += " AND Orders.driver_id = %s"
+                params.append(driver_id)
+
+            if report_type == "summary":
+                query += """
+                    GROUP BY
+                        Users.user_id,
+                        Users.first_name,
+                        Users.last_name,
+                        Sponsors.sponsor_id,
+                        Sponsors.company_name
+                    ORDER BY
+                        Users.last_name,
+                        Users.first_name,
+                        Sponsors.company_name
+                """
+            else:
+                query += """
+                    ORDER BY
+                        Users.last_name,
+                        Users.first_name,
+                        Orders.order_date DESC
+                """
+
+            cursor.execute(query, params)
+            reports = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    if report_type == "summary":
+
+        writer.writerow([
+            "Driver",
+            "Sponsor",
+            "Total Orders",
+            "Total Points Spent",
+            "Total Sales ($)"
+        ])
+
+        for report in reports:
+            writer.writerow([
+                report["first_name"] + " " + report["last_name"],
+                report["company_name"],
+                report["total_orders"],
+                report["total_points"],
+                report["total_sales"]
+            ])
+
+    else:
+
+        writer.writerow([
+            "Driver",
+            "Sponsor",
+            "Order Number",
+            "Date",
+            "Points Spent",
+            "Sales ($)",
+            "Status"
+        ])
+
+        for report in reports:
+            writer.writerow([
+                report["first_name"] + " " + report["last_name"],
+                report["company_name"],
+                report["order_number"],
+                report["order_date"],
+                report["total_points"],
+                report["total_dollars"],
+                report["status"]
+            ])
+
+    filename = f"sales_by_driver_{report_type}.csv"
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+
 @app.route("/admin/invoices/export")
 def admin_export_invoices():
 
