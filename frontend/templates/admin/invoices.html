@@ -3,88 +3,278 @@
 
 {% block content %}
 
-<div class="container mt-4">
+<style>
+    .invoice-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px 20px 50px;
+    }
 
+    .invoice-page h1 {
+        margin-bottom: 8px;
+    }
+
+    .invoice-description {
+        color: #6B6478;
+        margin-bottom: 24px;
+    }
+
+    .invoice-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 28px;
+    }
+
+    .invoice-actions .btn {
+        margin: 0;
+    }
+
+    .invoice-section {
+        background: #FFFFFF;
+        border: 1px solid #E3DEEC;
+        border-radius: 12px;
+        padding: 28px;
+        margin-bottom: 24px;
+    }
+
+    .invoice-section h2 {
+        margin-top: 0;
+        margin-bottom: 24px;
+        color: #2E1A4D;
+    }
+
+    .invoice-form {
+        max-width: 650px;
+    }
+
+    .invoice-field {
+        margin-bottom: 20px;
+    }
+
+    .invoice-field label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .invoice-field input,
+    .invoice-field select {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px;
+        border: 1px solid #D5CEDF;
+        border-radius: 6px;
+        font: inherit;
+        background: white;
+        color: #211C2E;
+    }
+
+    .invoice-field input:focus,
+    .invoice-field select:focus {
+        outline: 2px solid #7B4FC9;
+        outline-offset: 1px;
+    }
+
+    .invoice-table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .invoice-table-header h2 {
+        margin: 0;
+    }
+
+    .invoice-filter {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .invoice-filter label {
+        font-weight: 600;
+    }
+
+    .invoice-filter select {
+        padding: 10px 12px;
+        min-width: 200px;
+        max-width: 100%;
+        border: 1px solid #D5CEDF;
+        border-radius: 6px;
+        background: white;
+        font: inherit;
+    }
+
+    .invoice-table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    #invoiceTable {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #invoiceTable th,
+    #invoiceTable td {
+        padding: 14px 12px;
+        text-align: left;
+        border-bottom: 1px solid #E3DEEC;
+        vertical-align: middle;
+    }
+
+    #invoiceTable th {
+        background: #F5F2FA;
+        color: #2E1A4D;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    #invoiceTable tbody tr:hover {
+        background: #FAF9FC;
+    }
+
+    .invoice-amount {
+        white-space: nowrap;
+        text-align: right !important;
+    }
+
+    .invoice-status {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .invoice-status.pending {
+        background: #FBF1DE;
+        color: #9A6B2E;
+    }
+
+    .invoice-status.paid {
+        background: #E6F4EC;
+        color: #2F7D5C;
+    }
+
+    .invoice-status.cancelled {
+        background: #FBEAE8;
+        color: #A3413A;
+    }
+
+    @media (max-width: 700px) {
+        .invoice-page {
+            padding: 16px 12px 32px;
+        }
+
+        .invoice-section {
+            padding: 18px;
+        }
+
+        .invoice-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .invoice-actions .btn {
+            text-align: center;
+        }
+
+        .invoice-filter {
+            width: 100%;
+        }
+
+        .invoice-filter select {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="invoice-page">
+
+    <!-- Page Heading -->
     <h1>Invoice Management</h1>
-    
-<div style="margin-top: 15px; margin-bottom: 25px;">
-    <a href="{{ url_for('admin_export_invoices') }}"
-       class="btn btn-primary">
-        Export All Invoices (CSV)
-    </a>
-</div>
 
+    <p class="invoice-description">
+        View and manage sponsor invoices and expenses.
+    </p>
 
-<a href="{{ url_for('admin_invoice_report') }}"
-   class="btn btn-primary"
-   style="margin-left: 10px;">
-    Generate Invoice Report
-</a>
+    <!-- Invoice Actions -->
+    <div class="invoice-actions">
 
+        <a href="{{ url_for('admin_export_invoices') }}"
+           class="btn btn-primary">
+            Export All Invoices (CSV)
+        </a>
 
+        <a href="{{ url_for('admin_invoice_report') }}"
+           class="btn btn-primary">
+            Generate Invoice Report
+        </a>
 
-<div style="margin-bottom: 25px;">
+    </div>
 
-    <label for="sponsorFilter">
-        <strong>Filter by Sponsor:</strong>
-    </label>
-
-    <select id="sponsorFilter"
-            onchange="filterInvoices()"
-            style="padding: 10px; margin-left: 10px;">
-
-        <option value="">All Sponsors</option>
-
-        {% for sponsor in sponsors %}
-        <option value="{{ sponsor.company_name }}">
-            {{ sponsor.company_name }}
-        </option>
-        {% endfor %}
-
-    </select>
-
-</div>
-
-
-    <p>View and manage sponsor invoices and expenses.</p>
-
-    <div class="card mt-4">
-    <div class="card-body">
+    <!-- Create Manual Invoice -->
+    <div class="invoice-section">
 
         <h2>Create Manual Invoice</h2>
 
-        <form action="{{ url_for('admin_create_invoice') }}" method="POST">
+        <form class="invoice-form"
+              action="{{ url_for('admin_create_invoice') }}"
+              method="POST">
 
             <input type="hidden"
                    name="csrf_token"
                    value="{{ csrf_token }}">
 
-            <div style="margin-bottom: 16px;">
+            <!-- Sponsor -->
+            <div class="invoice-field">
+
                 <label for="sponsor_id">Sponsor</label>
-                <select id="sponsor_id" name="sponsor_id" required
-                        style="display: block; width: 100%; padding: 10px;">
+
+                <select id="sponsor_id"
+                        name="sponsor_id"
+                        required>
+
                     <option value="">Select a sponsor</option>
+
                     {% for sponsor in sponsors %}
                     <option value="{{ sponsor.sponsor_id }}">
                         {{ sponsor.company_name }}
                     </option>
                     {% endfor %}
+
                 </select>
+
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <label for="description">Expense Description</label>
+            <!-- Expense Description -->
+            <div class="invoice-field">
+
+                <label for="description">
+                    Expense Description
+                </label>
+
                 <input type="text"
                        id="description"
                        name="description"
                        maxlength="255"
                        placeholder="Example: Shipping expense"
-                       required
-                       style="display: block; width: 100%; padding: 10px;">
+                       required>
+
             </div>
 
-            <div style="margin-bottom: 16px;">
+            <!-- Amount -->
+            <div class="invoice-field">
+
                 <label for="amount">Amount ($)</label>
+
                 <input type="number"
                        id="amount"
                        name="amount"
@@ -92,8 +282,8 @@
                        max="9999999999.99"
                        step="0.01"
                        placeholder="0.00"
-                       required
-                       style="display: block; width: 100%; padding: 10px;">
+                       required>
+
             </div>
 
             <button type="submit" class="btn btn-primary">
@@ -103,60 +293,116 @@
         </form>
 
     </div>
-</div>
 
-    <div class="card mt-4">
-        <div class="card-body">
+    <!-- All Invoices -->
+    <div class="invoice-section">
+
+        <div class="invoice-table-header">
 
             <h2>All Invoices</h2>
 
-            <div style="overflow-x: auto;">
-                <table class="table" style="width: 100%;" id="invoiceTable">
-                    <thead>
-                        <tr>
-                            <th>Invoice #</th>
-                            <th>Date</th>
-                            <th>Sponsor</th>
-                            <th>Type</th>
-                            <th>Description</th>
-                            <th>Order #</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
+            <!-- Sponsor Filter -->
+            <div class="invoice-filter">
 
-                    <tbody>
-                        {% for invoice in invoices %}
-                        <tr data-sponsor="{{ invoice.company_name }}">
-                            <td>
-    <a href="{{ url_for('admin_invoice_details', invoice_id=invoice.invoice_id) }}">
-        #{{ invoice.invoice_id }}
-    </a>
-</td>
-                            <td>{{ invoice.invoice_date | local }}</td>
-                            <td>{{ invoice.company_name }}</td>
-                            <td>{{ invoice.invoice_type }}</td>
-                            <td>{{ invoice.description }}</td>
-                            <td>
-                                {{ invoice.order_number or "—" }}
-                            </td>
-                            <td>
-                                ${{ "%.2f"|format(invoice.total_amount) }}
-                            </td>
-                            <td>{{ invoice.status }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="8" style="text-align: center;">
-                                No invoices have been created yet.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <label for="sponsorFilter">
+                    Filter by Sponsor:
+                </label>
+
+                <select id="sponsorFilter"
+                        onchange="filterInvoices()">
+
+                    <option value="">All Sponsors</option>
+
+                    {% for sponsor in sponsors %}
+                    <option value="{{ sponsor.company_name }}">
+                        {{ sponsor.company_name }}
+                    </option>
+                    {% endfor %}
+
+                </select>
+
             </div>
 
         </div>
+
+        <!-- Invoice Table -->
+        <div class="invoice-table-wrapper">
+
+            <table class="table" id="invoiceTable">
+
+                <thead>
+                    <tr>
+                        <th>Invoice #</th>
+                        <th>Date</th>
+                        <th>Sponsor</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Order #</th>
+                        <th class="invoice-amount">Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for invoice in invoices %}
+
+                    <tr data-sponsor="{{ invoice.company_name }}">
+
+                        <td>
+                            <a href="{{ url_for('admin_invoice_details', invoice_id=invoice.invoice_id) }}">
+                                #{{ invoice.invoice_id }}
+                            </a>
+                        </td>
+
+                        <td>
+                            {{ invoice.invoice_date | local }}
+                        </td>
+
+                        <td>
+                            {{ invoice.company_name }}
+                        </td>
+
+                        <td>
+                            {{ invoice.invoice_type }}
+                        </td>
+
+                        <td>
+                            {{ invoice.description }}
+                        </td>
+
+                        <td>
+                            {{ invoice.order_number or "—" }}
+                        </td>
+
+                        <td class="invoice-amount">
+                            ${{ "%.2f"|format(invoice.total_amount) }}
+                        </td>
+
+                        <td>
+                            <span class="invoice-status {{ invoice.status|lower }}">
+                                {{ invoice.status }}
+                            </span>
+                        </td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="8" style="text-align: center;">
+                            No invoices have been created yet.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
     </div>
 
 </div>
@@ -183,6 +429,5 @@ function filterInvoices() {
     });
 }
 </script>
-
 
 {% endblock %}
