@@ -5762,6 +5762,152 @@ def export_sales_by_driver_report():
 
 
 
+@app.route("/reports/audit-logs")
+def audit_log_report():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    role = session.get("role", "").lower()
+
+    if role not in ("admin", "sponsor"):
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    from datetime import datetime, timedelta
+
+    sponsor_id = request.args.get("sponsor_id", "all")
+    start_date = request.args.get("start_date", "")
+    end_date = request.args.get("end_date", "")
+
+    reports = []
+    generated = False
+    sponsors = []
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Admin can select any sponsor
+            if role == "admin":
+
+                cursor.execute("""
+                    SELECT sponsor_id, company_name
+                    FROM Sponsors
+                    ORDER BY company_name
+                """)
+
+                sponsors = cursor.fetchall()
+
+                if sponsor_id != "all":
+                    if not any(
+                        str(s["sponsor_id"]) == sponsor_id
+                        for s in sponsors
+                    ):
+                        abort(400, "Invalid sponsor.")
+
+            else:
+                # Sponsor can only view their own organization.
+                # Resolve membership from the database.
+                cursor.execute("""
+                    SELECT sponsor_id
+                    FROM Sponsor_Users
+                    WHERE user_id = %s
+                """, (session["user_id"],))
+
+                sponsor_memberships = cursor.fetchall()
+
+                if not sponsor_memberships:
+                    cursor.execute("""
+                        SELECT sponsor_id
+                        FROM Sponsors
+                        WHERE sponsor_id = %s
+                    """, (session["user_id"],))
+
+                    sponsor_memberships = cursor.fetchall()
+
+                allowed_ids = {
+                    s["sponsor_id"] for s in sponsor_memberships
+                }
+
+                active_sponsor = current_sponsor_id()
+
+                if active_sponsor not in allowed_ids:
+                    abort(403)
+
+                sponsor_id = active_sponsor
+
+            # Generate report when both dates are provided
+            if start_date and end_date:
+
+                try:
+                    start = datetime.strptime(start_date, "%Y-%m-%d")
+                    end = datetime.strptime(end_date, "%Y-%m-%d")
+                except ValueError:
+                    abort(400, "Invalid date.")
+
+                if start > end:
+                    abort(400, "End date cannot be before start date.")
+
+                end_exclusive = end + timedelta(days=1)
+
+                query = """
+                    SELECT
+                        Audit_Logs.log_id,
+                        Audit_Logs.timestamp,
+                        Audit_Logs.username,
+                        Sponsors.company_name,
+                        Audit_Logs.category,
+                        Audit_Logs.action,
+                        Audit_Logs.status,
+                        Audit_Logs.reason,
+                        Audit_Logs.success,
+                        Audit_Logs.details
+                    FROM Audit_Logs
+                    LEFT JOIN Sponsors
+                        ON Audit_Logs.sponsor_id = Sponsors.sponsor_id
+                    WHERE Audit_Logs.timestamp >= %s
+                        AND Audit_Logs.timestamp < %s
+                """
+
+                params = [start, end_exclusive]
+
+                if sponsor_id != "all":
+                    query += " AND Audit_Logs.sponsor_id = %s"
+                    params.append(sponsor_id)
+
+                query += """
+                    ORDER BY
+                        Audit_Logs.timestamp DESC,
+                        Audit_Logs.log_id DESC
+                """
+
+                cursor.execute(query, params)
+                reports = cursor.fetchall()
+                generated = True
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "reports/audit_logs.html",
+        reports=reports,
+        sponsors=sponsors,
+        generated=generated,
+        role=role,
+        selected_sponsor=str(sponsor_id),
+        start_date=start_date,
+        end_date=end_date
+    )
+
+
+
 @app.route("/admin/invoices/export")
 def admin_export_invoices():
 
