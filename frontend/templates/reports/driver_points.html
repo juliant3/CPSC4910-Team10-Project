@@ -1,0 +1,346 @@
+
+{% extends "shared/base.html" %}
+
+{% block title %}Driver Point Tracking Report{% endblock %}
+
+{% block content %}
+
+<style>
+    .points-report-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px 20px 50px;
+    }
+
+    .points-report-page h1,
+    .points-report-page h2 {
+        color: #2E1A4D;
+    }
+
+    .points-description {
+        color: #6B6478;
+        margin-bottom: 24px;
+    }
+
+    .points-report-card {
+        background: white;
+        border: 1px solid #E3DEEC;
+        border-radius: 12px;
+        padding: 28px;
+        margin-bottom: 24px;
+    }
+
+    .points-filter-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 20px;
+        margin: 20px 0;
+    }
+
+    .points-field label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .points-field input,
+    .points-field select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px;
+        border: 1px solid #D5CEDF;
+        border-radius: 6px;
+        background: white;
+        color: #211C2E;
+        font: inherit;
+    }
+
+    .points-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .points-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .points-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .points-table th,
+    .points-table td {
+        padding: 13px 12px;
+        border-bottom: 1px solid #E3DEEC;
+        text-align: left;
+        vertical-align: middle;
+    }
+
+    .points-table th {
+        background: #F5F2FA;
+        color: #2E1A4D;
+        white-space: nowrap;
+    }
+
+    .points-table tbody tr:hover {
+        background: #FAF9FC;
+    }
+
+    .points-positive {
+        color: #2F7D5C;
+        font-weight: 600;
+    }
+
+    .points-negative {
+        color: #A3413A;
+        font-weight: 600;
+    }
+
+    .points-muted {
+        color: #6B6478;
+    }
+
+    @media (max-width: 750px) {
+        .points-filter-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .points-report-card {
+            padding: 18px;
+        }
+
+        .points-report-page {
+            padding: 16px 12px 32px;
+        }
+    }
+
+    @media print {
+        @page {
+            size: landscape;
+            margin: 0.5in;
+        }
+
+        .site-header,
+        .site-footer,
+        #accessibility-button,
+        #accessibility-panel,
+        .skip-link,
+        .points-filter-card,
+        .points-actions,
+        .points-description {
+            display: none !important;
+        }
+
+        body,
+        .points-report-page {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            max-width: none !important;
+        }
+
+        .points-report-card {
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+        }
+
+        .points-table thead {
+            display: table-header-group;
+        }
+
+        .points-table tr {
+            break-inside: avoid;
+        }
+    }
+</style>
+
+<div class="points-report-page">
+
+    <h1>Driver Point Tracking Report</h1>
+
+    <p class="points-description">
+        View driver point balances and transaction history by date.
+    </p>
+
+    <!-- Report Filters -->
+    <div class="points-report-card points-filter-card">
+
+        <h2>Generate Report</h2>
+
+        <form action="{{ url_for('driver_points_report') }}"
+              method="GET">
+
+            <div class="points-filter-grid">
+
+                <!-- Driver Selection -->
+                <div class="points-field">
+
+                    <label for="driver_id">Select Driver</label>
+
+                    <select id="driver_id" name="driver_id">
+
+                        <option value="all"
+                            {% if selected_driver == 'all' %}selected{% endif %}>
+                            All Drivers
+                        </option>
+
+                        {% for driver in drivers %}
+                        <option value="{{ driver.user_id }}"
+                            {% if selected_driver == driver.user_id|string %}selected{% endif %}>
+                            {{ driver.first_name }} {{ driver.last_name }}
+                        </option>
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+                <!-- Start Date -->
+                <div class="points-field">
+
+                    <label for="start_date">Start Date</label>
+
+                    <input type="date"
+                           id="start_date"
+                           name="start_date"
+                           value="{{ start_date }}"
+                           required>
+
+                </div>
+
+                <!-- End Date -->
+                <div class="points-field">
+
+                    <label for="end_date">End Date</label>
+
+                    <input type="date"
+                           id="end_date"
+                           name="end_date"
+                           value="{{ end_date }}"
+                           required>
+
+                </div>
+
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                Generate Report
+            </button>
+
+        </form>
+
+    </div>
+
+    {% if generated %}
+
+    <!-- Report Actions -->
+    <div class="points-actions">
+
+        <button type="button"
+                class="btn btn-primary"
+                onclick="window.print()">
+            Print / Save as PDF
+        </button>
+
+    </div>
+
+    <!-- Report Results -->
+    <div class="points-report-card">
+
+        <h2>Point Transaction History</h2>
+
+        <p class="points-muted">
+            Reporting Period:
+            {{ start_date }} through {{ end_date }}
+        </p>
+
+        <p class="points-muted">
+            Current Balance reflects the driver's points
+            now, not their historical balance on the selected date.
+        </p>
+
+        <div class="points-table-wrapper">
+
+            <table class="points-table">
+
+                <thead>
+                    <tr>
+                        <th>Driver</th>
+                        <th>Current Balance</th>
+                        <th>Point Change</th>
+                        <th>Date</th>
+                        <th>Sponsor</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for transaction in transactions %}
+
+                    <tr>
+
+                        <td>
+                            {{ transaction.first_name }}
+                            {{ transaction.last_name }}
+                        </td>
+
+                        <td>
+                            {{ transaction.points_balance }}
+                        </td>
+
+                        <td>
+                            {% if transaction.point_change > 0 %}
+                                <span class="points-positive">
+                                    +{{ transaction.point_change }}
+                                </span>
+                            {% elif transaction.point_change < 0 %}
+                                <span class="points-negative">
+                                    {{ transaction.point_change }}
+                                </span>
+                            {% else %}
+                                0
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ transaction.created_at | local }}
+                        </td>
+
+                        <td>
+                            {{ transaction.company_name }}
+                        </td>
+
+                        <td>
+                            {{ transaction.reason }}
+                        </td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="6" style="text-align: center;">
+                            No point transactions found for this date range.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

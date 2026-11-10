@@ -4691,6 +4691,167 @@ def admin_invoice_report():
     )
 
 
+
+@app.route("/reports/driver-points")
+def driver_points_report():
+
+    # Require login
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    role = session.get("role", "").lower()
+
+    # Only Admin and Sponsor users
+    if role not in ("admin", "sponsor"):
+        abort(403)
+
+    # Prevent reports while viewing as another user
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    # Get report filters
+    driver_id = request.args.get("driver_id", "all")
+    start_date = request.args.get("start_date", "")
+    end_date = request.args.get("end_date", "")
+
+    transactions = []
+    generated = False
+
+    # Sponsors only see their own sponsor organization
+    sponsor_id = current_sponsor_id() if role == "sponsor" else None
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Get drivers for the dropdown
+            if role == "sponsor":
+                cursor.execute("""
+                    SELECT DISTINCT
+                        Users.user_id,
+                        Users.first_name,
+                        Users.last_name
+                    FROM Driver_Sponsors
+                    JOIN Users
+                        ON Driver_Sponsors.driver_id = Users.user_id
+                    WHERE Driver_Sponsors.sponsor_id = %s
+                    ORDER BY Users.last_name, Users.first_name
+                """, (sponsor_id,))
+
+            else:
+                cursor.execute("""
+                    SELECT
+                        Users.user_id,
+                        Users.first_name,
+                        Users.last_name
+                    FROM Drivers
+                    JOIN Users
+                        ON Drivers.driver_id = Users.user_id
+                    ORDER BY Users.last_name, Users.first_name
+                """)
+
+            drivers = cursor.fetchall()
+
+            # Generate report when dates are selected
+            if start_date and end_date:
+
+                from datetime import datetime, timedelta
+
+                try:
+                    start = datetime.strptime(start_date, "%Y-%m-%d")
+                    end = datetime.strptime(end_date, "%Y-%m-%d")
+                except ValueError:
+                    abort(400, "Invalid date.")
+
+                if start > end:
+                    abort(400, "End date cannot be before start date.")
+
+                end_exclusive = end + timedelta(days=1)
+
+                # Validate selected driver
+                if driver_id != "all":
+                    if not any(
+                        str(driver["user_id"]) == driver_id
+                        for driver in drivers
+                    ):
+                        abort(400, "Invalid driver.")
+
+                # Get point transactions and current balances
+                query = """
+                    SELECT
+                        Users.user_id AS driver_id,
+                        Users.first_name,
+                        Users.last_name,
+                        Sponsors.company_name,
+                        Point_Transactions.point_change,
+                        Point_Transactions.reason,
+                        Point_Transactions.created_at,
+                        Driver_Sponsors.points_balance
+
+                    FROM Point_Transactions
+
+                    JOIN Users
+                        ON Point_Transactions.driver_id = Users.user_id
+
+                    JOIN Sponsors
+                        ON Point_Transactions.sponsor_id = Sponsors.sponsor_id
+
+                    JOIN Driver_Sponsors
+                        ON Point_Transactions.driver_id = Driver_Sponsors.driver_id
+                        AND Point_Transactions.sponsor_id = Driver_Sponsors.sponsor_id
+
+                    WHERE Point_Transactions.created_at >= %s
+                        AND Point_Transactions.created_at < %s
+                """
+
+                params = [start, end_exclusive]
+
+                # Restrict sponsor access
+                if role == "sponsor":
+                    query += """
+                        AND Point_Transactions.sponsor_id = %s
+                    """
+                    params.append(sponsor_id)
+
+                # Filter by driver
+                if driver_id != "all":
+                    query += """
+                        AND Point_Transactions.driver_id = %s
+                    """
+                    params.append(int(driver_id))
+
+                query += """
+                    ORDER BY
+                        Users.last_name,
+                        Users.first_name,
+                        Point_Transactions.created_at DESC,
+                        Point_Transactions.transaction_id DESC
+                """
+
+                cursor.execute(query, params)
+                transactions = cursor.fetchall()
+
+                generated = True
+
+    finally:
+        conn.close()
+
+    return render_template(
+        "reports/driver_points.html",
+        drivers=drivers,
+        transactions=transactions,
+        generated=generated,
+        selected_driver=driver_id,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+
+
 @app.route("/admin/invoices/export")
 def admin_export_invoices():
 
