@@ -5182,6 +5182,187 @@ def sales_by_sponsor_report():
 
 
 
+@app.route("/reports/sales-by-sponsor/export")
+def export_sales_by_sponsor_report():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    import csv
+    import io
+    from datetime import datetime, timedelta
+    from flask import Response
+
+    sponsor_id = request.args.get("sponsor_id", "all")
+    start_date = request.args.get("start_date", "")
+    end_date = request.args.get("end_date", "")
+    report_type = request.args.get("report_type", "summary")
+
+    if report_type not in ("summary", "detail"):
+        abort(400, "Invalid report type.")
+
+    if not start_date or not end_date:
+        abort(400, "Please select a start and end date.")
+
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        abort(400, "Invalid date.")
+
+    if start > end:
+        abort(400, "End date cannot be before start date.")
+
+    end_exclusive = end + timedelta(days=1)
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            if sponsor_id != "all":
+                try:
+                    selected_sponsor_id = int(sponsor_id)
+                except ValueError:
+                    abort(400, "Invalid sponsor.")
+
+                cursor.execute("""
+                    SELECT 1
+                    FROM Sponsors
+                    WHERE sponsor_id = %s
+                """, (selected_sponsor_id,))
+
+                if cursor.fetchone() is None:
+                    abort(400, "Invalid sponsor.")
+
+            if report_type == "summary":
+
+                query = """
+                    SELECT
+                        Sponsors.company_name,
+                        COUNT(Orders.order_id) AS total_orders,
+                        COALESCE(SUM(Orders.total_points), 0) AS total_points,
+                        COALESCE(SUM(Orders.total_dollars), 0) AS total_sales
+                    FROM Orders
+                    JOIN Sponsors
+                        ON Orders.sponsor_id = Sponsors.sponsor_id
+                    WHERE Orders.order_date >= %s
+                        AND Orders.order_date < %s
+                        AND Orders.status <> 'Cancelled'
+                """
+
+            else:
+
+                query = """
+                    SELECT
+                        Orders.order_number,
+                        Orders.order_date,
+                        Sponsors.company_name,
+                        Users.first_name,
+                        Users.last_name,
+                        Orders.total_points,
+                        Orders.total_dollars,
+                        Orders.status
+                    FROM Orders
+                    JOIN Sponsors
+                        ON Orders.sponsor_id = Sponsors.sponsor_id
+                    JOIN Users
+                        ON Orders.driver_id = Users.user_id
+                    WHERE Orders.order_date >= %s
+                        AND Orders.order_date < %s
+                        AND Orders.status <> 'Cancelled'
+                """
+
+            params = [start, end_exclusive]
+
+            if sponsor_id != "all":
+                query += " AND Orders.sponsor_id = %s"
+                params.append(selected_sponsor_id)
+
+            if report_type == "summary":
+                query += """
+                    GROUP BY
+                        Sponsors.sponsor_id,
+                        Sponsors.company_name
+                    ORDER BY Sponsors.company_name
+                """
+            else:
+                query += """
+                    ORDER BY
+                        Sponsors.company_name,
+                        Orders.order_date DESC
+                """
+
+            cursor.execute(query, params)
+            reports = cursor.fetchall()
+
+    finally:
+        conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    if report_type == "summary":
+
+        writer.writerow([
+            "Sponsor",
+            "Total Orders",
+            "Total Points Spent",
+            "Total Sales ($)"
+        ])
+
+        for report in reports:
+            writer.writerow([
+                report["company_name"],
+                report["total_orders"],
+                report["total_points"],
+                report["total_sales"]
+            ])
+
+    else:
+
+        writer.writerow([
+            "Order Number",
+            "Date",
+            "Sponsor",
+            "Driver",
+            "Points Spent",
+            "Sales ($)",
+            "Status"
+        ])
+
+        for report in reports:
+            writer.writerow([
+                report["order_number"],
+                report["order_date"],
+                report["company_name"],
+                report["first_name"] + " " + report["last_name"],
+                report["total_points"],
+                report["total_dollars"],
+                report["status"]
+            ])
+
+    filename = f"sales_by_sponsor_{report_type}.csv"
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+
 
 @app.route("/admin/invoices/export")
 def admin_export_invoices():

@@ -255,16 +255,27 @@
 
     {% if generated %}
 
-    <!-- Report Actions -->
-    <div class="sales-actions">
+    
+<!-- Report Actions -->
+<div class="sales-actions">
 
-        <button type="button"
-                class="btn btn-primary"
-                onclick="window.print()">
-            Print / Save as PDF
-        </button>
+    <button type="button"
+            class="btn btn-primary"
+            onclick="window.print()">
+        Print / Save as PDF
+    </button>
 
-    </div>
+    <a href="{{ url_for('export_sales_by_sponsor_report',
+                        sponsor_id=selected_sponsor,
+                        start_date=start_date,
+                        end_date=end_date,
+                        report_type=report_type) }}"
+       class="btn btn-primary">
+        Download CSV
+    </a>
+
+</div>
+
 
     <!-- Report Results -->
     <div class="sales-report-card">
