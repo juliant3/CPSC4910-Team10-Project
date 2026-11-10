@@ -17,6 +17,7 @@
         ('Team', 'sponsor_team', []),
         ('Bulk Upload', 'bulk_upload_page', [])
     ] %}
+
 {% elif role_key == 'admin' %}
     {% set nav_items = [
         ('Dashboard', 'home', []),
@@ -24,9 +25,11 @@
         ('Drivers', 'admin_drivers', []),
         ('Driver Applications', 'admin_pending_applications', []),
         ('Sponsor Requests', 'admin_sponsor_requests', []),
+        ('Invoices', 'admin_invoices', ['admin_invoice_details']),
         ('Audit Logs', 'admin_audit_logs', []),
         ('Bulk Upload', 'bulk_upload_page', [])
     ] %}
+
 
 {% elif role_key == 'driver' %}
     {% set nav_items = [

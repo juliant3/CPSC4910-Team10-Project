@@ -14,6 +14,30 @@
     </a>
 </div>
 
+
+<div style="margin-bottom: 25px;">
+
+    <label for="sponsorFilter">
+        <strong>Filter by Sponsor:</strong>
+    </label>
+
+    <select id="sponsorFilter"
+            onchange="filterInvoices()"
+            style="padding: 10px; margin-left: 10px;">
+
+        <option value="">All Sponsors</option>
+
+        {% for sponsor in sponsors %}
+        <option value="{{ sponsor.company_name }}">
+            {{ sponsor.company_name }}
+        </option>
+        {% endfor %}
+
+    </select>
+
+</div>
+
+
     <p>View and manage sponsor invoices and expenses.</p>
 
     <div class="card mt-4">
@@ -79,7 +103,7 @@
             <h2>All Invoices</h2>
 
             <div style="overflow-x: auto;">
-                <table class="table" style="width: 100%;">
+                <table class="table" style="width: 100%;" id="invoiceTable">
                     <thead>
                         <tr>
                             <th>Invoice #</th>
@@ -95,7 +119,7 @@
 
                     <tbody>
                         {% for invoice in invoices %}
-                        <tr>
+                        <tr data-sponsor="{{ invoice.company_name }}">
                             <td>
     <a href="{{ url_for('admin_invoice_details', invoice_id=invoice.invoice_id) }}">
         #{{ invoice.invoice_id }}
@@ -128,5 +152,29 @@
     </div>
 
 </div>
+
+<script>
+function filterInvoices() {
+
+    const selectedSponsor =
+        document.getElementById("sponsorFilter").value;
+
+    const rows =
+        document.querySelectorAll("#invoiceTable tbody tr[data-sponsor]");
+
+    rows.forEach(function(row) {
+
+        const sponsor = row.dataset.sponsor;
+
+        if (selectedSponsor === "" || sponsor === selectedSponsor) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+
+    });
+}
+</script>
+
 
 {% endblock %}
