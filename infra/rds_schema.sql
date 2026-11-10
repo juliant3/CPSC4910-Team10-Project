@@ -215,12 +215,7 @@ CREATE TABLE Audit_Logs (
     user_id INT,
     sponsor_id INT NULL, 
     driver_id INT NULL,
-    category ENUM(
-        'Driver Application', 
-        'Point Change', 
-        'Password Change', 
-        'Login Attempt'
-    )NOT NULL,
+    category VARCHAR(64) NOT NULL,
     action VARCHAR(255) NOT NULL,
     status VARCHAR(100),
     reason VARCHAR(1000),
