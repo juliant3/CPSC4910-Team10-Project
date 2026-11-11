@@ -6,6 +6,8 @@ import os
 import hashlib
 import smtplib
 import secrets
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta, datetime, timezone
 from email.message import EmailMessage
 from markupsafe import Markup
@@ -413,7 +415,18 @@ def inject_notifications():
         return empty
 
 
+# Emails go out on a background thread so the page doesn't wait on the mail
+# server. A failure is printed to the server log instead of shown to the user.
+EMAIL_SENDER = ThreadPoolExecutor(max_workers=2)
+SMTP_TIMEOUT_SECONDS = 10
+
+
 def send_email(to_email, subject, body):
+    EMAIL_SENDER.submit(deliver_email, to_email, subject, body)
+    return True
+
+
+def deliver_email(to_email, subject, body):
     smtp_host = os.environ.get("SMTP_HOST")
     smtp_port = int(os.environ.get("SMTP_PORT", "587"))
     smtp_username = os.environ.get("SMTP_USERNAME")
@@ -432,7 +445,7 @@ def send_email(to_email, subject, body):
     message.set_content(body)
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=SMTP_TIMEOUT_SECONDS) as server:
             server.starttls()
             server.login(smtp_username, smtp_password)
             server.send_message(message)
@@ -537,35 +550,13 @@ def send_sponsor_team_invite(email, first_name, company_name, inviter_name, toke
 def send_application_invite(email, token):
     apply_link = f"https://cpsc4910team10truckingproject.org/apply/{token}"
 
-    smtp_host = os.environ.get("SMTP_HOST")
-    smtp_username = os.environ.get("SMTP_USERNAME")
-    smtp_password = os.environ.get("SMTP_PASSWORD")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_from = os.environ.get("SMTP_FROM", smtp_username)
-
-    if not smtp_host or not smtp_username or not smtp_password:
-        print(f"[APPLICATION INVITE] Link for {email}: {apply_link}")
-        return True
-
-    message = EmailMessage()
-    message["Subject"] = "You've been invited to Drivers Advantage"
-    message["From"] = smtp_from
-    message["To"] = email
-    message.set_content(
+    body = (
         f"You've been invited to apply for the Drivers Advantage rewards program.\n\n"
         f"Complete your application here:\n{apply_link}\n\n"
         "If you weren't expecting this, you can ignore this email."
     )
 
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.send_message(message)
-        return True
-    except Exception as e:
-        print(f"Failed to send invite email: {e}")
-        return False
+    return send_email(email, "You've been invited to Drivers Advantage", body)
     
 def send_password_reset_link(email, first_name, token):
     body = (
@@ -2870,10 +2861,23 @@ def process_recurring_points():
         conn.close()
 
 
+# Rules come due daily at the soonest, so checking once a minute per worker is
+# plenty and saves a database round trip on almost every page.
+RECURRING_CHECK_SECONDS = 60
+last_recurring_check = 0.0
+
+
 @app.before_request
 def run_due_recurring_points():
+    global last_recurring_check
+
     if request.method != "GET" or request.endpoint in (None, "static"):
         return
+
+    now = time.monotonic()
+    if now - last_recurring_check < RECURRING_CHECK_SECONDS:
+        return
+    last_recurring_check = now
 
     try:
         process_recurring_points()
