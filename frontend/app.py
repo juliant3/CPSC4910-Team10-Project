@@ -6820,6 +6820,7 @@ def enforce_assumed_account_read_only():
 
 
 
+
 @app.route("/admin/audit-logs")
 def admin_audit_logs():
     """Read-only audit log for administrators, newest 100 events first."""
@@ -6830,34 +6831,196 @@ def admin_audit_logs():
     if session.get("assumed_driver_id") is not None or session.get("assumed_sponsor_id") is not None:
         abort(403)
 
+    from datetime import datetime, timedelta
+
     selected_category = request.args.get("category", "").strip()[:64]
     selected_user = request.args.get("user_id", "").strip()
+    start_date = request.args.get("start_date", "").strip()
+    end_date = request.args.get("end_date", "").strip()
+
     if selected_user and (not selected_user.isdecimal() or len(selected_user) > 12):
         abort(400)
 
+    if bool(start_date) != bool(end_date):
+        abort(400, "Please select both a start and end date.")
+
     conditions = []
     params = []
+
     if selected_category:
         conditions.append("category = %s")
         params.append(selected_category)
+
     if selected_user:
         conditions.append("user_id = %s")
         params.append(int(selected_user))
+
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            abort(400, "Invalid date.")
+
+        if start > end:
+            abort(400, "End date cannot be before start date.")
+
+        conditions.append("timestamp >= %s")
+        params.append(start)
+
+        # Include the entire end date.
+        conditions.append("timestamp < %s")
+        params.append(end + timedelta(days=1))
+
     where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 "SELECT log_id, timestamp, user_id, category, action, status, "
                 "success, ip_address, details FROM Audit_Logs" + where +
-                " ORDER BY timestamp DESC, log_id DESC LIMIT 100", tuple(params)
+                " ORDER BY timestamp DESC, log_id DESC LIMIT 100",
+                tuple(params)
             )
             events = cursor.fetchall()
     finally:
         conn.close()
-    return render_template("admin/audit_logs.html", events=events,
-                           selected_category=selected_category,
-                           selected_user=selected_user)
+
+    return render_template(
+        "admin/audit_logs.html",
+        events=events,
+        selected_category=selected_category,
+        selected_user=selected_user,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+
+@app.route("/admin/audit-logs/export")
+def admin_export_audit_logs():
+    """Download every audit log matching the selected filters as CSV."""
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+    if (session.get("role") or "").lower() != "admin":
+        abort(403)
+    if session.get("assumed_driver_id") is not None or session.get("assumed_sponsor_id") is not None:
+        abort(403)
+
+    import csv
+    import io
+    from datetime import datetime, timedelta
+    from flask import Response
+
+    selected_category = request.args.get("category", "").strip()[:64]
+    selected_user = request.args.get("user_id", "").strip()
+    start_date = request.args.get("start_date", "").strip()
+    end_date = request.args.get("end_date", "").strip()
+
+    if selected_user and (not selected_user.isdecimal() or len(selected_user) > 12):
+        abort(400)
+
+    if bool(start_date) != bool(end_date):
+        abort(400, "Please select both a start and end date.")
+
+    conditions = []
+    params = []
+
+    if selected_category:
+        conditions.append("category = %s")
+        params.append(selected_category)
+
+    if selected_user:
+        conditions.append("user_id = %s")
+        params.append(int(selected_user))
+
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            abort(400, "Invalid date.")
+
+        if start > end:
+            abort(400, "End date cannot be before start date.")
+
+        conditions.append("timestamp >= %s")
+        params.append(start)
+
+        conditions.append("timestamp < %s")
+        params.append(end + timedelta(days=1))
+
+    where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT log_id, timestamp, user_id, username, sponsor_id, "
+                "driver_id, category, action, status, reason, success, "
+                "ip_address, details FROM Audit_Logs" + where +
+                " ORDER BY timestamp DESC, log_id DESC",
+                tuple(params)
+            )
+            events = cursor.fetchall()
+    finally:
+        conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "Log ID",
+        "Date and Time",
+        "User ID",
+        "Username",
+        "Sponsor ID",
+        "Driver ID",
+        "Category",
+        "Action",
+        "Status",
+        "Reason",
+        "Success",
+        "IP Address",
+        "Details"
+    ])
+
+    def safe_csv_text(value):
+        value = str(value or "")
+        if value.lstrip().startswith(("=", "+", "-", "@")):
+            return "'" + value
+        return value
+
+    for event in events:
+        writer.writerow([
+            event["log_id"],
+            event["timestamp"],
+            event["user_id"],
+            safe_csv_text(event["username"]),
+            event["sponsor_id"],
+            event["driver_id"],
+            safe_csv_text(event["category"]),
+            safe_csv_text(event["action"]),
+            safe_csv_text(event["status"]),
+            safe_csv_text(event["reason"]),
+            event["success"],
+            safe_csv_text(event["ip_address"]),
+            safe_csv_text(event["details"])
+        ])
+
+    filename = "audit_logs"
+    if start_date and end_date:
+        filename += f"_{start_date}_to_{end_date}"
+    filename += ".csv"
+
+    return Response(
+        "\ufeff" + output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
 
 
 if __name__ == "__main__":
