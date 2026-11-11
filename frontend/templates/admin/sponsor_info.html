@@ -1,0 +1,148 @@
+{% extends "shared/base.html" %}
+
+{% block title %}{{ sponsor.company_name }}{% endblock %}
+
+{% block content %}
+<div class="page">
+    <p><a href="{{ url_for('admin_sponsors') }}">&larr; All sponsors</a></p>
+
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">Admin · Sponsor</span>
+            <h1>
+                {{ sponsor.company_name }}
+                {% if not sponsor.is_active %}<span class="badge badge-neutral">Removed</span>{% endif %}
+            </h1>
+            <p>Sponsor ID {{ sponsor.sponsor_id }}</p>
+        </div>
+    </div>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
+    <div class="stat-grid" style="margin-bottom: 24px;">
+        <div class="stat-tile">
+            <div>
+                <div class="stat-label">Active drivers</div>
+                <div class="stat-value">{{ drivers|selectattr('status', 'equalto', 'Active')|list|length }}</div>
+                <div class="stat-hint">{{ drivers|length }} total</div>
+            </div>
+        </div>
+        <div class="stat-tile">
+            <div>
+                <div class="stat-label">Points held</div>
+                <div class="stat-value">{{ "{:,}".format(drivers|sum(attribute='points_balance')) }}</div>
+                <div class="stat-hint">across all drivers</div>
+            </div>
+        </div>
+        <div class="stat-tile">
+            <div>
+                <div class="stat-label">Orders</div>
+                <div class="stat-value">{{ "{:,}".format(stats.order_count) }}</div>
+                <div class="stat-hint">{{ "{:,}".format(stats.points_redeemed|int) }} points redeemed</div>
+            </div>
+        </div>
+    </div>
+
+    <section class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h2>Details</h2>
+        </div>
+        <dl class="detail-list">
+            <div class="detail-row"><dt>Email</dt><dd>{{ sponsor.email or '—' }}</dd></div>
+            <div class="detail-row"><dt>Phone</dt><dd>{{ sponsor.phone or '—' }}</dd></div>
+            <div class="detail-row"><dt>Invite code</dt><dd>{{ sponsor.invite_code or '—' }}</dd></div>
+            <div class="detail-row"><dt>Status</dt><dd>{{ 'Active' if sponsor.is_active else 'Removed' }}</dd></div>
+        </dl>
+        <div class="card-body" style="border-top: 1px solid var(--line);">
+            <form method="POST"
+                  action="{{ url_for('admin_set_point_value', sponsor_id=sponsor.sponsor_id) }}"
+                  class="toolbar">
+                <input type="hidden" name="back" value="info">
+                <div class="form-group">
+                    <label for="point-value">Dollars per point</label>
+                    <input type="number" id="point-value" name="point_value" class="input"
+                           step="0.0001" min="0.0001" max="100" required
+                           value="{{ '%.4f'|format(sponsor.point_value) if sponsor.point_value is not none else '0.0100' }}">
+                </div>
+                <button type="submit" class="btn btn-secondary btn-sm">Save point value</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h2>Team ({{ team|length }})</h2>
+        </div>
+        {% if team %}
+        <ul class="row-list">
+            {% for u in team %}
+            <li class="row-item">
+                <div class="row-main">
+                    <div class="row-text">
+                        <p class="row-title">{{ u.first_name }} {{ u.last_name or '' }}</p>
+                        <p class="row-sub">{{ u.email }}{% if not u.is_active %} · can't log in{% endif %}</p>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state"><p>No sponsor users.</p></div>
+        {% endif %}
+    </section>
+
+    <section class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h2>Drivers ({{ drivers|length }})</h2>
+        </div>
+        {% if drivers %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Driver</th><th>Email</th><th>Status</th><th>Points</th></tr>
+                </thead>
+                <tbody>
+                    {% for d in drivers %}
+                    <tr>
+                        <td>{{ d.first_name }} {{ d.last_name or '' }}</td>
+                        <td>{{ d.email }}</td>
+                        <td>{{ d.status }}</td>
+                        <td>{{ "{:,}".format(d.points_balance) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state"><p>No drivers in this program yet.</p></div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h2>{{ 'Remove sponsor' if sponsor.is_active else 'Restore sponsor' }}</h2>
+                <p>
+                    {% if sponsor.is_active %}
+                        Its team can no longer log in and drivers won't see it. Orders, invoices
+                        and point history are kept, and you can restore it later.
+                    {% else %}
+                        Lets its team log in again and shows it to drivers.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin_set_sponsor_active', sponsor_id=sponsor.sponsor_id) }}"
+                  {% if sponsor.is_active %}onsubmit="return confirm('Remove {{ sponsor.company_name }}? Its team will no longer be able to log in.');"{% endif %}>
+                <input type="hidden" name="active" value="{{ '0' if sponsor.is_active else '1' }}">
+                <button type="submit" class="btn {{ 'btn-ghost-danger' if sponsor.is_active else 'btn-primary' }}">
+                    {{ 'Remove sponsor' if sponsor.is_active else 'Restore sponsor' }}
+                </button>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}

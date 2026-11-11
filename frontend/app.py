@@ -877,6 +877,7 @@ def login():
                         Users.first_name,
                         Users.last_name,
                         Users.role,
+                        Users.is_active,
                         Password.password_hash
                     FROM Users
                     JOIN Password
@@ -890,6 +891,20 @@ def login():
 
         finally:
             conn.close()
+
+        if user and check_password_hash(
+            user["password_hash"],
+            password
+        ) and not user.get("is_active", True):
+            log_login_attempt(email, succeeded=False, user_id=user["user_id"])
+            driver_count, sponsor_count = get_login_stats()
+            return render_template(
+                "shared/login.html",
+                error="This account has been deactivated. Contact an administrator.",
+                step="login",
+                driver_count=driver_count,
+                sponsor_count=sponsor_count
+            )
 
         if user and check_password_hash(
             user["password_hash"],
@@ -4535,6 +4550,7 @@ def admin_drivers():
                 """
                 SELECT sponsor_id, company_name
                 FROM Sponsors
+                WHERE is_active = TRUE
                 ORDER BY company_name
                 """
             )
@@ -7010,9 +7026,9 @@ def admin_sponsors():
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT sponsor_id, company_name, point_value
+                SELECT sponsor_id, company_name, point_value, is_active
                 FROM Sponsors
-                ORDER BY company_name
+                ORDER BY is_active DESC, company_name
                 """
             )
             sponsors = cursor.fetchall()
@@ -7020,6 +7036,135 @@ def admin_sponsors():
         conn.close()
 
     return render_template("admin/admin_sponsors.html", sponsors=sponsors)
+
+
+@app.route("/admin/sponsors/<int:sponsor_id>")
+def admin_sponsor_info(sponsor_id):
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT sponsor_id, company_name, email, phone, invite_code,
+                       point_value, is_active
+                FROM Sponsors
+                WHERE sponsor_id = %s
+                """,
+                (sponsor_id,)
+            )
+            sponsor = cursor.fetchone()
+
+            if not sponsor:
+                abort(404)
+
+            cursor.execute(
+                """
+                SELECT Users.user_id, Users.first_name, Users.last_name,
+                       Users.email, Users.is_active
+                FROM Sponsor_Users
+                JOIN Users
+                    ON Users.user_id = Sponsor_Users.user_id
+                WHERE Sponsor_Users.sponsor_id = %s
+                  AND Users.email NOT LIKE '%%@invalid.example'
+                ORDER BY Users.last_name, Users.first_name
+                """,
+                (sponsor_id,)
+            )
+            team = cursor.fetchall()
+
+            cursor.execute(
+                """
+                SELECT Users.user_id AS driver_id, Users.first_name, Users.last_name,
+                       Users.email, Driver_Sponsors.status, Driver_Sponsors.points_balance
+                FROM Driver_Sponsors
+                JOIN Users
+                    ON Users.user_id = Driver_Sponsors.driver_id
+                WHERE Driver_Sponsors.sponsor_id = %s
+                ORDER BY Driver_Sponsors.status = 'Active' DESC, Users.last_name, Users.first_name
+                """,
+                (sponsor_id,)
+            )
+            drivers = cursor.fetchall()
+
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS order_count,
+                       COALESCE(SUM(total_points), 0) AS points_redeemed
+                FROM Orders
+                WHERE sponsor_id = %s
+                  AND status <> 'Cancelled'
+                """,
+                (sponsor_id,)
+            )
+            stats = cursor.fetchone() or {"order_count": 0, "points_redeemed": 0}
+    finally:
+        conn.close()
+
+    return render_template(
+        "admin/sponsor_info.html",
+        sponsor=sponsor,
+        team=team,
+        drivers=drivers,
+        stats=stats
+    )
+
+
+@app.route("/admin/sponsors/<int:sponsor_id>/active", methods=["POST"])
+def admin_set_sponsor_active(sponsor_id):
+    """Remove (deactivate) or restore a sponsor. Nothing is deleted, so its
+    orders, invoices and point history stay intact."""
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    active = request.form.get("active") == "1"
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE Sponsors SET is_active = %s WHERE sponsor_id = %s",
+                (active, sponsor_id)
+            )
+            found = cursor.rowcount
+
+            # Its team can't log in while removed. Bulk upload's placeholder
+            # organization user always stays inactive.
+            cursor.execute(
+                """
+                UPDATE Users
+                JOIN Sponsor_Users
+                    ON Sponsor_Users.user_id = Users.user_id
+                SET Users.is_active = %s
+                WHERE Sponsor_Users.sponsor_id = %s
+                  AND Users.email NOT LIKE '%%@invalid.example'
+                """,
+                (active, sponsor_id)
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    if found:
+        queue_event("Sponsor Management", "Sponsor restored" if active else "Sponsor removed",
+                    success=True, status="Active" if active else "Inactive",
+                    sponsor_id=sponsor_id)
+        flash("Sponsor restored. Its team can log in again." if active
+              else "Sponsor removed. Its team can no longer log in, and drivers won't see it.",
+              "success")
+
+    return redirect(url_for("admin_sponsor_info", sponsor_id=sponsor_id))
 
 
 @app.route("/admin/sponsors/<int:sponsor_id>/point-value", methods=["POST"])
@@ -7031,6 +7176,9 @@ def admin_set_point_value(sponsor_id):
     ):
         abort(403)
 
+    back = (url_for("admin_sponsor_info", sponsor_id=sponsor_id)
+            if request.form.get("back") == "info" else url_for("admin_sponsors"))
+
     try:
         point_value = Decimal(request.form.get("point_value", ""))
     except InvalidOperation:
@@ -7038,7 +7186,7 @@ def admin_set_point_value(sponsor_id):
 
     if point_value is None or not Decimal("0.0001") <= point_value <= Decimal("100"):
         flash("Point value must be between $0.0001 and $100.", "error")
-        return redirect(url_for("admin_sponsors"))
+        return redirect(back)
 
     conn = get_db()
     try:
@@ -7059,7 +7207,7 @@ def admin_set_point_value(sponsor_id):
     else:
         flash("No change was made.", "error")
 
-    return redirect(url_for("admin_sponsors"))
+    return redirect(back)
 
 
 @app.route("/admin/admins", methods=["POST"])
