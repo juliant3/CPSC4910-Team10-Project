@@ -1,0 +1,113 @@
+{% extends "shared/base.html" %}
+
+{% block title %}{{ 'Orders' if is_admin else 'My Orders' }}{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">{{ 'Admin' if is_admin else 'Driver' }}</span>
+            <h1>{{ 'Orders' if is_admin else 'My Orders' }}</h1>
+            <p>
+                {% if is_admin %}
+                    Every reward order. Update its status, or cancel it to refund the driver's points.
+                {% else %}
+                    Your reward orders. You can cancel an order and get your points back until it ships.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ orders|length }} order{{ 's' if orders|length != 1 }}</h2>
+
+            {% if is_admin %}
+            <form method="GET" action="{{ url_for('admin_orders') }}" class="toolbar">
+                <label class="sr-only" for="status-filter">Status</label>
+                <select id="status-filter" name="status" class="input" onchange="this.form.submit()">
+                    <option value="">All statuses</option>
+                    {% for s in statuses + ('Cancelled',) %}
+                    <option value="{{ s }}" {{ 'selected' if s == status_filter }}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+                <noscript><button type="submit" class="btn btn-secondary btn-sm">Filter</button></noscript>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if orders %}
+        <ul class="row-list">
+            {% for order in orders %}
+            <li class="row-item">
+                <div class="row-main">
+                    <div class="row-text">
+                        <p class="row-title">
+                            Order {{ order.order_number }}
+                            <span class="badge {{ 'badge-accent' if order.status == 'Cancelled' }}">{{ order.status }}</span>
+                        </p>
+                        <p class="row-sub">
+                            {{ (order.order_date|local).strftime('%b %d, %Y %I:%M %p') if order.order_date else '' }}
+                            · {{ "{:,}".format(order.total_points) }} pts
+                            · {{ order.company_name }}
+                            {% if is_admin %} · {{ order.driver_name }}{% endif %}
+                        </p>
+                        {% if order['items'] %}
+                        <p class="row-sub">
+                            {% for item in order['items'] %}
+                                {{ item.product_name }}{% if item.quantity > 1 %} × {{ item.quantity }}{% endif %}{{ ', ' if not loop.last }}
+                            {% endfor %}
+                        </p>
+                        {% endif %}
+                    </div>
+
+                    {% if is_admin %}
+                        {% if order.status != 'Cancelled' %}
+                        <form method="POST"
+                              action="{{ url_for('admin_order_status', order_id=order.order_id, status=status_filter) }}"
+                              class="toolbar">
+                            <label class="sr-only" for="order-status-{{ order.order_id }}">Status</label>
+                            <select id="order-status-{{ order.order_id }}" name="status" class="input">
+                                {% for s in statuses %}
+                                <option value="{{ s }}" {{ 'selected' if s == order.status }}>{{ s }}</option>
+                                {% endfor %}
+                                {% if order.can_cancel %}
+                                <option value="Cancelled">Cancel and refund</option>
+                                {% endif %}
+                            </select>
+                            <button type="submit" class="btn btn-secondary btn-sm"
+                                    onclick="return this.form.status.value !== 'Cancelled' || confirm('Cancel order {{ order.order_number }} and refund {{ order.total_points }} points?');">
+                                Update
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% elif order.can_cancel %}
+                    <form method="POST"
+                          action="{{ url_for('driver_cancel_order', order_id=order.order_id) }}"
+                          onsubmit="return confirm('Cancel order {{ order.order_number }}? Your {{ order.total_points }} points will be returned.');">
+                        <button type="submit" class="btn btn-secondary btn-sm">Cancel order</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">
+            <h3>No orders yet</h3>
+            <p>
+                {% if is_admin %}
+                    {{ 'No orders have this status.' if status_filter else 'Orders will show up here once drivers redeem points.' }}
+                {% else %}
+                    Orders you place from the catalog will show up here.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

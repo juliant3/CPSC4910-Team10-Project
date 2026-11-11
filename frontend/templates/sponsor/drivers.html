@@ -162,8 +162,50 @@
     }
 
     .points-form .field.reason {
-        width: 130px;
+        width: 160px;
         flex: 1;
+    }
+
+    .points-form .field.reason select,
+    .points-form .field.reason input {
+        width: 100%;
+    }
+
+    .points-form .reason-other {
+        margin-top: 6px;
+    }
+
+    .point-reasons-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        list-style: none;
+        margin: 0 0 12px;
+        padding: 0;
+    }
+
+    .point-reasons-list li {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 6px 4px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        font-size: 13px;
+    }
+
+    .point-reasons-list form {
+        margin: 0;
+    }
+
+    .point-reasons-list button {
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1;
+        padding: 0 4px;
     }
 
     .assume-driver-button {
@@ -430,16 +472,39 @@
                                     </div>
 
                                     <div class="field reason">
-                                        <label for="reason-{{ driver.driver_id }}">
+                                        <label for="reason-choice-{{ driver.driver_id }}">
                                             Reason
                                         </label>
+                                        <select
+                                            id="reason-choice-{{ driver.driver_id }}"
+                                            name="reason_choice"
+                                            class="reason-choice"
+                                            required
+                                        >
+                                            <option value="">Choose a reason…</option>
+                                            <optgroup label="Basic">
+                                                {% for r in basic_reasons %}
+                                                <option value="{{ r }}">{{ r }}</option>
+                                                {% endfor %}
+                                            </optgroup>
+                                            {% if custom_reasons %}
+                                            <optgroup label="Your reasons">
+                                                {% for r in custom_reasons %}
+                                                <option value="{{ r.reason }}">{{ r.reason }}</option>
+                                                {% endfor %}
+                                            </optgroup>
+                                            {% endif %}
+                                            <option value="{{ other_reason }}">Other (type it)</option>
+                                        </select>
+                                        <label class="sr-only" for="reason-{{ driver.driver_id }}">Other reason</label>
                                         <input
                                             type="text"
                                             id="reason-{{ driver.driver_id }}"
                                             name="reason"
+                                            class="reason-other"
                                             maxlength="255"
-                                            required
-                                            placeholder="Reason"
+                                            placeholder="Type a reason"
+                                            hidden
                                         >
                                     </div>
 
@@ -527,5 +592,47 @@
         {% endif %}
     </div>
 
+    <section class="card" style="margin-top: 20px;" id="point-reasons">
+        <div class="card-header">
+            <div>
+                <h2>Your point reasons</h2>
+                <p>Saved reasons show up in the Reason dropdown next to the basic ones.</p>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if custom_reasons %}
+            <ul class="point-reasons-list">
+                {% for r in custom_reasons %}
+                <li>
+                    {{ r.reason }}
+                    <form method="POST" action="{{ url_for('delete_point_reason', reason_id=r.reason_id) }}">
+                        <button type="submit" aria-label="Remove {{ r.reason }}" title="Remove">&times;</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            <form method="POST" action="{{ url_for('add_point_reason') }}" class="toolbar">
+                <label class="sr-only" for="new-point-reason">New reason</label>
+                <input type="text" id="new-point-reason" name="reason" class="input"
+                       maxlength="255" required placeholder="e.g. Holiday bonus">
+                <button type="submit" class="btn btn-secondary btn-sm">Save reason</button>
+            </form>
+        </div>
+    </section>
+
 </div>
+
+<script>
+// "Other" in the reason dropdown reveals a box to type a one-off reason.
+document.querySelectorAll('.reason-choice').forEach(function (select) {
+    var other = select.parentElement.querySelector('.reason-other');
+    select.addEventListener('change', function () {
+        var isOther = select.value === '{{ other_reason }}';
+        other.hidden = !isOther;
+        other.required = isOther;
+        if (isOther) other.focus();
+    });
+});
+</script>
 {% endblock %}

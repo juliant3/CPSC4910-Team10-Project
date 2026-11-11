@@ -1719,9 +1719,20 @@ h1, h2, h3 {
     grid-template-columns: repeat(3, 1fr);
 }
 
+#add-admin .form-row {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 900px) {
+    #add-admin .form-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
 @media (max-width: 600px) {
     .settings-form .form-row,
-    #add-sponsor .form-row {
+    #add-sponsor .form-row,
+    #add-admin .form-row {
         grid-template-columns: 1fr;
     }
 

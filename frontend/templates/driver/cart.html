@@ -78,6 +78,7 @@
 
     <section class="cart-section" aria-labelledby="purchases-heading">
         <h2 id="purchases-heading">Recently purchased</h2>
+        <p><a href="{{ url_for('driver_orders') }}">See all orders, or cancel one</a></p>
         {% if purchases %}
         {% for order in purchases %}
         <article class="purchase-card">

@@ -9,6 +9,7 @@ import secrets
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta, datetime, timezone
+from decimal import Decimal, InvalidOperation
 from email.message import EmailMessage
 from markupsafe import Markup
 from zoneinfo import ZoneInfo
@@ -2049,6 +2050,126 @@ def sponsor_delete_application(application_id):
     return redirect(url_for("sponsor_applications", **request.args))
 
 
+def cancel_open_application(cursor, application_id, cancelled_by, reason,
+                            driver_id=None, token=None):
+    """
+    Mark an application that is still waiting as Cancelled. Unlike deleting,
+    it stays in the history. With driver_id or token, only that driver's
+    application can be cancelled. Returns True if one was cancelled.
+    """
+    cursor.execute(
+        """
+        UPDATE Driver_Applications
+        SET
+            status = 'Cancelled',
+            decision_date = NOW(),
+            decision_by_user_id = %s,
+            reason = %s
+        WHERE application_id = %s
+          AND status IN ('Pending', 'Submitted')
+          AND (%s IS NULL OR driver_id = %s)
+          AND (%s IS NULL OR token = %s)
+        """,
+        (cancelled_by, reason, application_id, driver_id, driver_id, token, token)
+    )
+    return cursor.rowcount == 1
+
+
+@app.route("/admin/applications/<int:application_id>/cancel", methods=["POST"])
+def admin_cancel_application(application_id):
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cancelled = cancel_open_application(
+                cursor, application_id, session["user_id"], "Cancelled by admin"
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    if cancelled:
+        queue_event("Driver Application", "Application cancelled by admin", success=True,
+                    status="Cancelled", details={"application_id": application_id})
+        flash("Application cancelled.", "success")
+    else:
+        flash("Only applications still waiting on a decision can be cancelled.", "error")
+
+    return redirect(url_for("admin_pending_applications"))
+
+
+@app.route("/driver/applications/<int:application_id>/cancel", methods=["POST"])
+def driver_cancel_application(application_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if (session.get("role") or "").lower() != "driver":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cancelled = cancel_open_application(
+                cursor, application_id, session["user_id"], "Withdrawn by driver",
+                driver_id=session["user_id"]
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    if cancelled:
+        queue_event("Driver Application", "Application withdrawn by driver", success=True,
+                    status="Cancelled", details={"application_id": application_id})
+        flash("Your application was withdrawn.", "success")
+    else:
+        flash("That application can't be withdrawn. It may already have been decided.", "error")
+
+    return redirect(url_for("driver_sponsors"))
+
+
+@app.route("/apply/<token>/withdraw", methods=["POST"])
+def withdraw_application(token):
+    """For applicants without an account yet: the invite link proves who they are."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT application_id FROM Driver_Applications WHERE token = %s",
+                (token,)
+            )
+            application = cursor.fetchone()
+            cancelled = bool(application) and cancel_open_application(
+                cursor, application["application_id"], None, "Withdrawn by applicant", token=token
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    if cancelled:
+        queue_event("Driver Application", "Application withdrawn by applicant", success=True,
+                    status="Cancelled", details={"application_id": application["application_id"]})
+        return render_template("shared/apply.html", withdrawn=True)
+
+    return render_template(
+        "shared/apply.html",
+        error="This application has already been submitted, decided, or withdrawn."
+    )
+
+
 @app.route("/admin/applications/<int:application_id>/delete", methods=["POST"])
 def admin_delete_application(application_id):
 
@@ -2133,6 +2254,37 @@ POINT_PRESETS = {
     "above_beyond": {"amount": 500, "reason": "Above and beyond skills"},
 }
 
+# Built-in choices for the points reason dropdown. Sponsors add their own in
+# Sponsor_Point_Reasons; "Other" still lets them type a one-off reason.
+BASIC_POINT_REASONS = (
+    "Safe driving week",
+    "On-time deliveries",
+    "Clean inspection",
+    "Customer compliment",
+    "Fuel efficiency",
+    "Late delivery",
+    "Traffic violation",
+    "Policy violation",
+)
+OTHER_REASON = "__other__"
+
+
+def sponsor_point_reasons(cursor, sponsor_id):
+    """The sponsor's saved reasons, or none if the table hasn't been created yet."""
+    try:
+        cursor.execute(
+            """
+            SELECT reason_id, reason
+            FROM Sponsor_Point_Reasons
+            WHERE sponsor_id = %s
+            ORDER BY reason
+            """,
+            (sponsor_id,)
+        )
+        return cursor.fetchall()
+    except pymysql.err.ProgrammingError:
+        return []
+
 
 @app.route("/sponsor/drivers")
 def sponsor_drivers():
@@ -2213,6 +2365,8 @@ def sponsor_drivers():
 
             drivers = cursor.fetchall()
 
+            custom_reasons = sponsor_point_reasons(cursor, current_sponsor_id())
+
     finally:
         conn.close()
 
@@ -2225,8 +2379,69 @@ def sponsor_drivers():
         min_points=min_points,
         max_points=max_points, 
         search=search,
-        point_presets=POINT_PRESETS
+        point_presets=POINT_PRESETS,
+        basic_reasons=BASIC_POINT_REASONS,
+        custom_reasons=custom_reasons,
+        other_reason=OTHER_REASON
     )
+
+
+@app.route("/sponsor/point-reasons", methods=["POST"])
+def add_point_reason():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    reason = " ".join(request.form.get("reason", "").split())[:255]
+
+    if not reason:
+        flash("Type a reason to save.", "error")
+        return redirect(url_for("sponsor_drivers"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            existing = [r["reason"].lower() for r in sponsor_point_reasons(cursor, current_sponsor_id())]
+
+            if reason.lower() in existing or reason.lower() in (r.lower() for r in BASIC_POINT_REASONS):
+                flash(f'"{reason}" is already in your list.', "error")
+                return redirect(url_for("sponsor_drivers"))
+
+            cursor.execute(
+                "INSERT INTO Sponsor_Point_Reasons (sponsor_id, reason) VALUES (%s, %s)",
+                (current_sponsor_id(), reason)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    flash(f'Saved "{reason}" to your point reasons.', "success")
+    return redirect(url_for("sponsor_drivers"))
+
+
+@app.route("/sponsor/point-reasons/<int:reason_id>/delete", methods=["POST"])
+def delete_point_reason(reason_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM Sponsor_Point_Reasons WHERE reason_id = %s AND sponsor_id = %s",
+                (reason_id, current_sponsor_id())
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    flash("Point reason removed.", "success")
+    return redirect(url_for("sponsor_drivers"))
 
 @app.route("/sponsor/drivers/<int:driver_id>/points", methods=["POST"])
 def change_driver_points(driver_id):
@@ -2245,7 +2460,10 @@ def change_driver_points(driver_id):
         reason = preset["reason"]
     else:
         action = request.form.get("action", "")
-        reason = request.form.get("reason", "").strip()[:255]
+        reason = request.form.get("reason_choice", OTHER_REASON)
+        if reason == OTHER_REASON:
+            reason = request.form.get("reason", "")
+        reason = reason.strip()[:255]
 
         try:
             amount = int(request.form.get("amount", ""))
@@ -3146,13 +3364,32 @@ def driver_sponsors():
                 """
             )
             sponsors = cursor.fetchall()
-    finally: 
+
+            cursor.execute(
+                """
+                SELECT
+                    Driver_Applications.application_id,
+                    Driver_Applications.status,
+                    Driver_Applications.application_date,
+                    Sponsors.company_name
+                FROM Driver_Applications
+                JOIN Sponsors
+                    ON Sponsors.sponsor_id = Driver_Applications.sponsor_id
+                WHERE Driver_Applications.driver_id = %s
+                  AND Driver_Applications.status IN ('Pending', 'Submitted')
+                ORDER BY Driver_Applications.application_date DESC
+                """,
+                (session["user_id"],)
+            )
+            open_applications = cursor.fetchall()
+    finally:
         conn.close()
     return render_template(
         "driver/sponsors.html",
         first_name=session["first_name"],
         role=session["role"],
-        sponsors=sponsors
+        sponsors=sponsors,
+        open_applications=open_applications
     )
 
 @app.route("/driver/points")
@@ -6773,7 +7010,7 @@ def admin_sponsors():
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT sponsor_id, company_name
+                SELECT sponsor_id, company_name, point_value
                 FROM Sponsors
                 ORDER BY company_name
                 """
@@ -6783,6 +7020,117 @@ def admin_sponsors():
         conn.close()
 
     return render_template("admin/admin_sponsors.html", sponsors=sponsors)
+
+
+@app.route("/admin/sponsors/<int:sponsor_id>/point-value", methods=["POST"])
+def admin_set_point_value(sponsor_id):
+    """Dollars each point is worth for this sponsor's catalog."""
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    try:
+        point_value = Decimal(request.form.get("point_value", ""))
+    except InvalidOperation:
+        point_value = None
+
+    if point_value is None or not Decimal("0.0001") <= point_value <= Decimal("100"):
+        flash("Point value must be between $0.0001 and $100.", "error")
+        return redirect(url_for("admin_sponsors"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE Sponsors SET point_value = %s WHERE sponsor_id = %s",
+                (point_value, sponsor_id)
+            )
+            updated = cursor.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+
+    if updated:
+        queue_event("Sponsor Management", "Point value changed by admin", success=True,
+                    status="Updated", sponsor_id=sponsor_id)
+        flash(f"Point value updated to ${point_value:.4f}.", "success")
+    else:
+        flash("No change was made.", "error")
+
+    return redirect(url_for("admin_sponsors"))
+
+
+@app.route("/admin/admins", methods=["POST"])
+def admin_create_admin():
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    first_name = request.form.get("first_name", "").strip()
+    last_name = request.form.get("last_name", "").strip()
+    email = request.form.get("email", "").strip()
+    password = request.form.get("password", "")
+
+    if not first_name or not last_name or not email:
+        flash("Name and email are required.", "error")
+        return redirect(url_for("home"))
+
+    if len(first_name) > 100 or len(last_name) > 100 or len(email) > 255:
+        flash("Name or email is too long.", "error")
+        return redirect(url_for("home"))
+
+    if len(password) < MIN_PASSWORD_LENGTH:
+        flash(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.", "error")
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT user_id FROM Users WHERE LOWER(email) = %s",
+                (email.lower(),)
+            )
+
+            if cursor.fetchone():
+                flash(f"An account with {email} already exists.", "error")
+                return redirect(url_for("home"))
+
+            cursor.execute(
+                """
+                INSERT INTO Users
+                    (email, first_name, last_name, role)
+                VALUES
+                    (%s, %s, %s, 'Admin')
+                """,
+                (email, first_name, last_name)
+            )
+
+            user_id = cursor.lastrowid
+
+            cursor.execute(
+                "INSERT INTO Password (user_id, password_hash) VALUES (%s, %s)",
+                (user_id, generate_password_hash(password, method="pbkdf2:sha256"))
+            )
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Failed to add admin {email}: {e}")
+        flash("Something went wrong adding that admin.", "error")
+        return redirect(url_for("home"))
+
+    finally:
+        conn.close()
+
+    queue_event("Admin Management", "Admin added", success=True,
+                status="Created", details={"target_type": "admin", "target_id": user_id})
+    flash(f"Added {first_name} {last_name} as an admin. They can log in with {email}.", "success")
+    return redirect(url_for("home"))
 
 
 SPONSOR_SHOPPING_ENDPOINTS = {
@@ -6822,6 +7170,250 @@ def enforce_assumed_account_read_only():
             description="This support session is read-only. Exit the assumed account to make changes.",
         )
 
+
+
+# ==========================================
+# ORDER HISTORY AND CANCELLING
+# Orders can be cancelled until they ship. Cancelling refunds the points to
+# the driver's balance with that sponsor and cancels the unpaid invoice.
+# ==========================================
+
+CANCELLABLE_ORDER_STATUSES = ("Placed", "Processing")
+ADMIN_ORDER_STATUSES = ("Placed", "Processing", "Shipped", "Delivered")
+
+
+def fetch_orders(cursor, driver_id=None, status=None, limit=200):
+    """Orders newest first, each with its items. driver_id=None means every driver."""
+    cursor.execute(
+        """
+        SELECT
+            Orders.order_id,
+            Orders.order_number,
+            Orders.order_date,
+            Orders.status,
+            Orders.total_points,
+            Orders.driver_id,
+            Sponsors.company_name,
+            Users.first_name,
+            Users.last_name,
+            Order_Items.product_name,
+            Order_Items.quantity,
+            Order_Items.unit_price_points
+        FROM (
+            SELECT *
+            FROM Orders
+            WHERE (%s IS NULL OR driver_id = %s)
+              AND (%s IS NULL OR status = %s)
+            ORDER BY order_date DESC, order_id DESC
+            LIMIT %s
+        ) AS Orders
+        JOIN Sponsors
+            ON Sponsors.sponsor_id = Orders.sponsor_id
+        JOIN Users
+            ON Users.user_id = Orders.driver_id
+        LEFT JOIN Order_Items
+            ON Order_Items.order_id = Orders.order_id
+        ORDER BY Orders.order_date DESC, Orders.order_id DESC, Order_Items.order_item_id
+        """,
+        (driver_id, driver_id, status, status, limit)
+    )
+
+    orders = {}
+    for row in cursor.fetchall():
+        order = orders.setdefault(row["order_id"], {
+            "order_id": row["order_id"],
+            "order_number": row["order_number"],
+            "order_date": row["order_date"],
+            "status": row["status"],
+            "total_points": row["total_points"],
+            "company_name": row["company_name"],
+            "driver_name": f"{row['first_name']} {row['last_name'] or ''}".strip(),
+            "can_cancel": row["status"] in CANCELLABLE_ORDER_STATUSES,
+            "items": [],
+        })
+        if row["product_name"]:
+            order["items"].append(row)
+    return list(orders.values())
+
+
+def cancel_order(cursor, order_id, cancelled_by, driver_id=None):
+    """Cancel an order and refund its points. Returns the order, or None if it
+    can't be cancelled (not found, not this driver's, or already shipped)."""
+    cursor.execute(
+        """
+        SELECT order_id, order_number, driver_id, sponsor_id, total_points
+        FROM Orders
+        WHERE order_id = %s
+          AND (%s IS NULL OR driver_id = %s)
+          AND status IN %s
+        FOR UPDATE
+        """,
+        (order_id, driver_id, driver_id, CANCELLABLE_ORDER_STATUSES)
+    )
+    order = cursor.fetchone()
+
+    if not order:
+        return None
+
+    cursor.execute(
+        "UPDATE Orders SET status = 'Cancelled' WHERE order_id = %s",
+        (order_id,)
+    )
+
+    if order["total_points"]:
+        cursor.execute(
+            """
+            UPDATE Driver_Sponsors
+            SET points_balance = points_balance + %s
+            WHERE driver_id = %s
+              AND sponsor_id = %s
+            """,
+            (order["total_points"], order["driver_id"], order["sponsor_id"])
+        )
+
+        cursor.execute(
+            """
+            INSERT INTO Point_Transactions
+                (driver_id, sponsor_id, changed_by_user_id, point_change, reason)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (order["driver_id"], order["sponsor_id"], cancelled_by, order["total_points"],
+             f"Refund for cancelled order {order['order_number']}")
+        )
+
+    # The sponsor isn't billed for a cancelled order.
+    cursor.execute(
+        "UPDATE Invoices SET status = 'Cancelled' WHERE order_id = %s AND status = 'Pending'",
+        (order_id,)
+    )
+
+    return order
+
+
+@app.route("/driver/orders")
+def driver_orders():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if (session.get("role") or "").lower() != "driver":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            orders = fetch_orders(cursor, driver_id=session["user_id"])
+    finally:
+        conn.close()
+
+    return render_template("shared/orders.html", orders=orders, is_admin=False)
+
+
+@app.route("/driver/orders/<int:order_id>/cancel", methods=["POST"])
+def driver_cancel_order(order_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if (session.get("role") or "").lower() != "driver":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            order = cancel_order(cursor, order_id, session["user_id"], driver_id=session["user_id"])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    if order:
+        queue_event("Orders", "Order cancelled by driver", success=True, status="Cancelled",
+                    sponsor_id=order["sponsor_id"],
+                    details={"order_number": order["order_number"], "points": order["total_points"]})
+        flash(f"Order {order['order_number']} was cancelled and "
+              f"{order['total_points']:,} points were returned to you.", "success")
+    else:
+        flash("That order can't be cancelled. Orders can only be cancelled before they ship.", "error")
+
+    return redirect(url_for("driver_orders"))
+
+
+@app.route("/admin/orders")
+def admin_orders():
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    status = request.args.get("status", "")
+    if status not in ADMIN_ORDER_STATUSES + ("Cancelled",):
+        status = ""
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            orders = fetch_orders(cursor, status=status or None)
+    finally:
+        conn.close()
+
+    return render_template(
+        "shared/orders.html",
+        orders=orders,
+        is_admin=True,
+        status_filter=status,
+        statuses=ADMIN_ORDER_STATUSES
+    )
+
+
+@app.route("/admin/orders/<int:order_id>/status", methods=["POST"])
+def admin_order_status(order_id):
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    new_status = request.form.get("status", "")
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if new_status == "Cancelled":
+                order = cancel_order(cursor, order_id, session["user_id"])
+                updated = order is not None
+            elif new_status in ADMIN_ORDER_STATUSES:
+                # A cancelled order stays cancelled; its points were already refunded.
+                cursor.execute(
+                    "UPDATE Orders SET status = %s WHERE order_id = %s AND status <> 'Cancelled'",
+                    (new_status, order_id)
+                )
+                updated = cursor.rowcount > 0
+            else:
+                updated = False
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    if updated and new_status == "Cancelled":
+        queue_event("Orders", "Order cancelled by admin", success=True, status="Cancelled",
+                    sponsor_id=order["sponsor_id"], driver_id=order["driver_id"],
+                    details={"order_number": order["order_number"], "points": order["total_points"]})
+        flash(f"Order {order['order_number']} was cancelled and "
+              f"{order['total_points']:,} points were refunded to the driver.", "success")
+    elif updated:
+        queue_event("Orders", "Order status changed by admin", success=True, status=new_status,
+                    details={"target_type": "order", "target_id": order_id})
+        flash(f"Order status changed to {new_status}.", "success")
+    else:
+        flash("That order couldn't be changed. Shipped orders can't be cancelled, "
+              "and cancelled orders can't be reopened.", "error")
+
+    return redirect(url_for("admin_orders", status=request.args.get("status", "")))
 
 
 @app.route("/admin/audit-logs")
