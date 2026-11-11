@@ -1,3 +1,4 @@
+
 {% extends "shared/base.html" %}
 {% block title %}Audit Logs{% endblock %}
 {% block content %}
@@ -10,28 +11,63 @@
   </section>
 
   <div class="card" style="margin-bottom: 20px; padding: 20px;">
-    <form method="get" action="{{ url_for('admin_audit_logs') }}" style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+    <form method="get" action="{{ url_for('admin_audit_logs') }}"
+          style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+
+      <div>
+        <label for="audit-start">Start date</label>
+        <input id="audit-start" type="date" name="start_date"
+               value="{{ start_date }}"
+               style="display:block; min-height:40px;">
+      </div>
+
+      <div>
+        <label for="audit-end">End date</label>
+        <input id="audit-end" type="date" name="end_date"
+               value="{{ end_date }}"
+               style="display:block; min-height:40px;">
+      </div>
+
       <div>
         <label for="audit-category">Event category</label>
-        <select id="audit-category" name="category" style="display:block; min-height:40px;">
+        <select id="audit-category" name="category"
+                style="display:block; min-height:40px;">
           <option value="">All categories</option>
           {% for category in ['Login Attempt', 'Password Change', 'Security', 'Driver Application', 'Point Change', 'Sponsor Management', 'User Management', 'Profile', 'Account', 'Catalog', 'Order', 'Communication', 'Site Activity'] %}
-          <option value="{{ category }}" {{ 'selected' if selected_category == category else '' }}>{{ category }}</option>
+          <option value="{{ category }}"
+            {{ 'selected' if selected_category == category else '' }}>
+            {{ category }}
+          </option>
           {% endfor %}
         </select>
       </div>
+
       <div>
         <label for="audit-user">User ID (optional)</label>
-        <input id="audit-user" type="number" min="1" name="user_id" value="{{ selected_user }}"
-               style="display:block; min-height:40px;" placeholder="All users">
+        <input id="audit-user" type="number" min="1" name="user_id"
+               value="{{ selected_user }}"
+               style="display:block; min-height:40px;"
+               placeholder="All users">
       </div>
+
       <button type="submit" class="btn btn-primary">Filter logs</button>
-      <a href="{{ url_for('admin_audit_logs') }}" class="btn btn-secondary">Clear</a>
+      <a href="{{ url_for('admin_audit_logs') }}"
+         class="btn btn-secondary">Clear</a>
+
+      <a href="{{ url_for('admin_export_audit_logs',
+                          start_date=start_date,
+                          end_date=end_date,
+                          category=selected_category,
+                          user_id=selected_user) }}"
+         class="btn btn-secondary">
+        Download full CSV
+      </a>
     </form>
   </div>
 
   <div class="card" style="overflow-x:auto;">
     <h2 style="padding:16px 20px 0;">Most recent 100 entries</h2>
+
     <table style="width:100%; border-collapse:collapse; text-align:left; font-size:0.93rem;">
       <thead>
         <tr>
@@ -44,24 +80,46 @@
           <th scope="col" style="padding:12px;">Details</th>
         </tr>
       </thead>
+
       <tbody>
         {% for event in events %}
         <tr style="border-top:1px solid var(--border, #ddd);">
-          <td style="padding:12px;white-space:nowrap;">{{ (event.timestamp|local).strftime('%b %d, %Y %I:%M %p') if event.timestamp else '—' }}</td>
-          <td style="padding:12px;">{{ event.user_id if event.user_id is not none else '—' }}</td>
+          <td style="padding:12px;white-space:nowrap;">
+            {{ (event.timestamp|local).strftime('%b %d, %Y %I:%M %p') if event.timestamp else '—' }}
+          </td>
+          <td style="padding:12px;">
+            {{ event.user_id if event.user_id is not none else '—' }}
+          </td>
           <td style="padding:12px;">{{ event.category }}</td>
           <td style="padding:12px;">{{ event.action }}</td>
           <td style="padding:12px;">
-            {% if event.success == 1 %}Confirmed{% elif event.success == 0 %}Failed / rejected{% else %}Attempt logged{% endif %}
-            {% if event.status %}<div style="opacity:0.8;">{{ event.status }}</div>{% endif %}
+            {% if event.success == 1 %}
+              Confirmed
+            {% elif event.success == 0 %}
+              Failed / rejected
+            {% else %}
+              Attempt logged
+            {% endif %}
+            {% if event.status %}
+              <div style="opacity:0.8;">{{ event.status }}</div>
+            {% endif %}
           </td>
-          <td style="padding:12px;white-space:nowrap;">{{ event.ip_address or '—' }}</td>
+          <td style="padding:12px;white-space:nowrap;">
+            {{ event.ip_address or '—' }}
+          </td>
           <td style="padding:12px; max-width:340px; overflow-wrap:anywhere;">
-            <details><summary>Show metadata</summary><code>{{ event.details or '{}' }}</code></details>
+            <details>
+              <summary>Show metadata</summary>
+              <code>{{ event.details or '{}' }}</code>
+            </details>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="7" style="padding:24px;">No audit events match these filters.</td></tr>
+        <tr>
+          <td colspan="7" style="padding:24px;">
+            No audit events match these filters.
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
