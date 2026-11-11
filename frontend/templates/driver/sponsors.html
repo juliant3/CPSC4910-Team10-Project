@@ -14,6 +14,38 @@
         </div>
     </div>
 
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
+    {% if open_applications %}
+    <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <h2>Your open applications</h2>
+        </div>
+        <ul class="row-list">
+            {% for app in open_applications %}
+            <li class="row-item">
+                <div class="row-main">
+                    <div class="row-text">
+                        <p class="row-title">{{ app.company_name }}</p>
+                        <p class="row-sub">
+                            {{ 'Waiting for you to finish it' if app.status == 'Pending' else 'Waiting on the sponsor' }}
+                            · sent {{ (app.application_date|local).strftime('%b %d, %Y') if app.application_date else '' }}
+                        </p>
+                    </div>
+                    <form method="POST"
+                          action="{{ url_for('driver_cancel_application', application_id=app.application_id) }}"
+                          onsubmit="return confirm('Withdraw your application to {{ app.company_name }}?');">
+                        <button type="submit" class="btn btn-secondary btn-sm">Withdraw</button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-header">
             <h2>{{ sponsors|length }} sponsor{{ 's' if sponsors|length != 1 }}</h2>

@@ -4,76 +4,143 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+<style>
+    .apply-label {
+        display: block;
+        text-align: left;
+        font-size: 13px;
+        font-weight: 600;
+        color: #555;
+        margin-bottom: 4px;
+    }
+
+    .apply-hint {
+        text-align: left;
+        font-size: 12px;
+        color: #777;
+        margin: 0 0 14px;
+    }
+
+    .apply-questions {
+        border-top: 1px dashed #E3DEEC;
+        margin: 20px 0;
+        padding-top: 16px;
+        text-align: left;
+    }
+
+    .apply-questions h2 {
+        font-size: 16px;
+        margin: 0 0 4px;
+    }
+
+    .apply-questions textarea {
+        width: 100%;
+        min-height: 72px;
+        resize: vertical;
+        margin-bottom: 4px;
+        font: inherit;
+        box-sizing: border-box;
+    }
+
+    .apply-count {
+        display: block;
+        text-align: right;
+        font-size: 11px;
+        color: #777;
+        margin-bottom: 14px;
+    }
+
+    .apply-withdraw {
+        margin-top: 18px;
+        font-size: 13px;
+    }
+
+    .apply-withdraw button {
+        background: none;
+        border: none;
+        color: #A33;
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 0;
+        width: auto;
+        font-size: 13px;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 
 <div class="login-page-wrapper" style="display: flex; align-items: center; justify-content: center; padding: 40px 0;">
 
-<div class="login-container" style="max-width: 460px;">
+<div class="login-container" style="max-width: 520px;">
 
-    {% if error %}
-        <h1>Application Link</h1>
-        <div class="error">{{ error }}</div>
-        {% if not questions %}
-            <p><a href="{{ url_for('login') }}">Back to Login</a></p>
-        {% endif %}
-    {% endif %}
+    {% if withdrawn %}
+        <h1>Application Withdrawn</h1>
+        <p>Your application was withdrawn and this link no longer works. If this was a mistake, ask the sponsor to send a new invite.</p>
+        <p><a href="{{ url_for('login') }}">Back to Login</a></p>
 
-    {% if submitted %}
+    {% elif submitted %}
         <h1>Application Submitted</h1>
         <p>Thanks! Your sponsor will review your application and follow up by email.</p>
 
-    {% elif not submitted and (email or questions) %}
+    {% elif email or questions %}
         <h1>Complete Your Application</h1>
         <p class="motto">You've been invited to join Drivers Advantage.</p>
 
+        {% if error %}
+            <div class="error" role="alert">{{ error }}</div>
+        {% endif %}
+
+        <p class="apply-hint">Fields marked * are required. Your answers are kept if something needs fixing.</p>
+
         <form method="POST" action="{{ request.path }}">
-            <input
-                type="text"
-                name="first_name"
-                placeholder="First Name"
-                required
-            >
-            <input
-                type="text"
-                name="last_name"
-                placeholder="Last Name"
-                required
-            >
-            <label style="display: block; text-align: left; font-size: 13px; color: #555; margin-bottom: 4px;">
-                Date of Birth
-            </label>
-            <input
-                type="date"
-                name="date_of_birth"
-                required
-            >
-            <input
-                type="text"
-                name="address"
-                placeholder="Home Address"
-                required
-            >
+            <label class="apply-label" for="first_name">First name *</label>
+            <input type="text" id="first_name" name="first_name" required maxlength="100"
+                   autocomplete="given-name" value="{{ request.form.get('first_name', '') }}">
+
+            <label class="apply-label" for="last_name">Last name *</label>
+            <input type="text" id="last_name" name="last_name" required maxlength="100"
+                   autocomplete="family-name" value="{{ request.form.get('last_name', '') }}">
+
+            <label class="apply-label" for="date_of_birth">Date of birth *</label>
+            <input type="date" id="date_of_birth" name="date_of_birth" required
+                   autocomplete="bday" value="{{ request.form.get('date_of_birth', '') }}">
+
+            <label class="apply-label" for="address">Home address *</label>
+            <input type="text" id="address" name="address" required maxlength="255"
+                   autocomplete="street-address" value="{{ request.form.get('address', '') }}">
 
             {% if questions %}
-                <div style="border-top: 1px dashed #E3DEEC; margin: 20px 0; padding-top: 16px;">
+                <div class="apply-questions">
+                    <h2>Questions from your sponsor</h2>
+                    <p class="apply-hint">{{ questions|length }} question{{ 's' if questions|length != 1 }}</p>
+
                     {% for q in questions %}
-                        <label style="display: block; text-align: left; font-size: 13px; color: #555; margin-bottom: 4px;">
-                            {{ q.question_text }}{% if q.is_required %} *{% endif %}
+                        {% set field = 'question_' ~ q.question_id %}
+                        <label class="apply-label" for="{{ field }}">
+                            {{ loop.index }}. {{ q.question_text }}{% if q.is_required %} *{% else %} <span style="font-weight: 400;">(optional)</span>{% endif %}
                         </label>
-                        <input
-                            type="text"
-                            name="question_{{ q.question_id }}"
-                            {% if q.is_required %}required{% endif %}
-                            style="margin-bottom: 14px;"
-                        >
+                        <textarea id="{{ field }}" name="{{ field }}" maxlength="255"
+                                  {% if q.is_required %}required{% endif %}
+                                  oninput="this.nextElementSibling.textContent = this.value.length + ' / 255'"
+                        >{{ request.form.get(field, '') }}</textarea>
+                        <span class="apply-count" aria-hidden="true">{{ request.form.get(field, '')|length }} / 255</span>
                     {% endfor %}
                 </div>
             {% endif %}
 
             <button type="submit">Submit Application</button>
         </form>
+
+        <form method="POST" action="{{ request.path.rstrip('/') ~ '/withdraw' }}" class="apply-withdraw"
+              onsubmit="return confirm('Withdraw this application? The invite link will stop working.');">
+            Changed your mind? <button type="submit">Withdraw application</button>
+        </form>
+
+    {% elif error %}
+        <h1>Application Link</h1>
+        <div class="error" role="alert">{{ error }}</div>
+        <p><a href="{{ url_for('login') }}">Back to Login</a></p>
     {% endif %}
 
 </div>

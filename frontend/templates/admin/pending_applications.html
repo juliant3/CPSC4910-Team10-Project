@@ -49,11 +49,18 @@
                         </td>
                         <td style="white-space: nowrap;">{{ (a.application_date|local).strftime('%b %d, %Y') if a.application_date else '' }}</td>
                         <td>
-                            <form method="POST"
-                                  action="{{ url_for('admin_delete_application', application_id=a.application_id) }}"
-                                  onsubmit="return confirm('Delete this application? This can\'t be undone.');">
-                                <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
-                            </form>
+                            <div class="toolbar" style="flex-wrap: nowrap;">
+                                <form method="POST"
+                                      action="{{ url_for('admin_cancel_application', application_id=a.application_id) }}"
+                                      onsubmit="return confirm('Cancel this application? It stays in the history as Cancelled.');">
+                                    <button type="submit" class="btn btn-secondary btn-sm">Cancel</button>
+                                </form>
+                                <form method="POST"
+                                      action="{{ url_for('admin_delete_application', application_id=a.application_id) }}"
+                                      onsubmit="return confirm('Delete this application? This can\'t be undone.');">
+                                    <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

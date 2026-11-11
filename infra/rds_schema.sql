@@ -563,3 +563,20 @@ CREATE TABLE IF NOT EXISTS Invoice_Items (
     CHECK (unit_cost >= 0),
     CHECK (line_total >= 0)
 );
+
+-- Applications can be cancelled by an admin or withdrawn by the driver.
+ALTER TABLE Driver_Applications
+    MODIFY status ENUM('Pending', 'Submitted', 'Accepted', 'Rejected', 'Cancelled')
+        NOT NULL DEFAULT 'Pending';
+
+-- Sponsors' own reasons for the points dropdown (basic ones are built in).
+CREATE TABLE IF NOT EXISTS Sponsor_Point_Reasons (
+    reason_id INT AUTO_INCREMENT PRIMARY KEY,
+    sponsor_id INT NOT NULL,
+    reason VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (sponsor_id, reason),
+    FOREIGN KEY (sponsor_id)
+        REFERENCES Sponsors(sponsor_id)
+        ON DELETE CASCADE
+);

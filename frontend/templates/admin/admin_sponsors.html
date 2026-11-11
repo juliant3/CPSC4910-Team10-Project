@@ -55,23 +55,41 @@
             {% for sponsor in sponsors %}
             <li class="row-item">
                 <div class="row-main">
-                    <div class="row-link">
+                    <a href="{{ url_for('admin_sponsor_info', sponsor_id=sponsor.sponsor_id) }}" class="row-link">
                         <span class="avatar">
                             {{ (sponsor.company_name or '?')[:1]|upper }}
                         </span>
                         <span class="row-text">
-                            <p class="row-title">{{ sponsor.company_name }}</p>
+                            <p class="row-title">
+                                {{ sponsor.company_name }}
+                                {% if not sponsor.is_active %}<span class="badge badge-neutral">Removed</span>{% endif %}
+                            </p>
                             <p class="row-sub">Sponsor ID: {{ sponsor.sponsor_id }}</p>
                         </span>
-                    </div>
+                    </a>
 
-                    <form method="POST"
-                          action="{{ url_for('admin_assume_sponsor', sponsor_id=sponsor.sponsor_id) }}"
-                          onsubmit="return confirm('Open this sponsor account in read-only support mode?');">
-                        <button type="submit" class="btn btn-secondary btn-sm">
-                            Assume sponsor
-                        </button>
-                    </form>
+                    <div class="toolbar">
+                        <a href="{{ url_for('admin_sponsor_info', sponsor_id=sponsor.sponsor_id) }}"
+                           class="btn btn-secondary btn-sm">View info</a>
+
+                        <form method="POST"
+                              action="{{ url_for('admin_set_point_value', sponsor_id=sponsor.sponsor_id) }}"
+                              class="toolbar">
+                            <label for="point-value-{{ sponsor.sponsor_id }}">$ per point</label>
+                            <input type="number" id="point-value-{{ sponsor.sponsor_id }}" name="point_value"
+                                   class="input" step="0.0001" min="0.0001" max="100" required
+                                   value="{{ '%.4f'|format(sponsor.point_value) if sponsor.point_value is not none else '0.0100' }}">
+                            <button type="submit" class="btn btn-secondary btn-sm">Save</button>
+                        </form>
+
+                        <form method="POST"
+                              action="{{ url_for('admin_assume_sponsor', sponsor_id=sponsor.sponsor_id) }}"
+                              onsubmit="return confirm('Open this sponsor account in read-only support mode?');">
+                            <button type="submit" class="btn btn-secondary btn-sm">
+                                Assume sponsor
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </li>
             {% endfor %}
