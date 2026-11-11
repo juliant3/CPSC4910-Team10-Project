@@ -44,13 +44,28 @@
                         </span>
                     </div>
 
-                    <form method="POST"
-                          action="{{ url_for('admin_assume_driver', driver_id=driver.driver_id) }}"
-                          onsubmit="return confirm('View this driver account in read-only support mode?');">
-                        <button type="submit" class="btn btn-secondary btn-sm">
-                            View as driver
-                        </button>
-                    </form>
+                    <div class="toolbar">
+                        <form method="POST"
+                              action="{{ url_for('admin_assign_driver_sponsor', driver_id=driver.driver_id) }}"
+                              class="toolbar">
+                            <label class="sr-only" for="assign-{{ driver.driver_id }}">Assign to sponsor</label>
+                            <select id="assign-{{ driver.driver_id }}" name="sponsor_id" class="input" required>
+                                <option value="">Assign to sponsor…</option>
+                                {% for sponsor in sponsors %}
+                                <option value="{{ sponsor.sponsor_id }}">{{ sponsor.company_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-secondary btn-sm">Assign</button>
+                        </form>
+
+                        <form method="POST"
+                              action="{{ url_for('admin_assume_driver', driver_id=driver.driver_id) }}"
+                              onsubmit="return confirm('View this driver account in read-only support mode?');">
+                            <button type="submit" class="btn btn-secondary btn-sm">
+                                View as driver
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </li>
             {% endfor %}

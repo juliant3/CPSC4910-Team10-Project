@@ -178,6 +178,9 @@ def check_session_timeout():
         session.clear()
         return redirect(url_for("login"))
 
+    # Any page the user opens counts as activity, not just the keep-alive ping.
+    session["last_activity"] = now.isoformat()
+
 
 # ==========================================
 # SESSION KEEP ALIVE
@@ -4286,10 +4289,99 @@ def admin_drivers():
                 (search, search_pattern, search_pattern)
             )
             drivers = cursor.fetchall()
+
+            cursor.execute(
+                """
+                SELECT sponsor_id, company_name
+                FROM Sponsors
+                ORDER BY company_name
+                """
+            )
+            sponsors = cursor.fetchall()
     finally:
         conn.close()
 
-    return render_template("admin/drivers.html", drivers=drivers, search=search)
+    return render_template("admin/drivers.html", drivers=drivers, sponsors=sponsors, search=search)
+
+
+@app.route("/admin/drivers/<int:driver_id>/assign-sponsor", methods=["POST"])
+def admin_assign_driver_sponsor(driver_id):
+    """Add a driver to a sponsor's program, or reactivate them in it."""
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    try:
+        sponsor_id = int(request.form.get("sponsor_id", ""))
+    except ValueError:
+        flash("Choose a sponsor.", "error")
+        return redirect(url_for("admin_drivers"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT first_name, last_name FROM Users WHERE user_id = %s AND role = 'Driver'",
+                (driver_id,)
+            )
+            driver = cursor.fetchone()
+
+            cursor.execute(
+                "SELECT company_name FROM Sponsors WHERE sponsor_id = %s",
+                (sponsor_id,)
+            )
+            sponsor = cursor.fetchone()
+
+            if not driver or not sponsor:
+                flash("That driver or sponsor was not found.", "error")
+                return redirect(url_for("admin_drivers"))
+
+            cursor.execute(
+                "SELECT driver_id FROM Drivers WHERE driver_id = %s",
+                (driver_id,)
+            )
+            if not cursor.fetchone():
+                cursor.execute(
+                    """
+                    INSERT INTO Drivers
+                        (driver_id, sponsor_id, status)
+                    VALUES (%s, %s, 'Active')
+                    """,
+                    (driver_id, sponsor_id)
+                )
+
+            # Keeps their points if they were in this program before.
+            cursor.execute(
+                """
+                INSERT INTO Driver_Sponsors
+                    (driver_id, sponsor_id, status)
+                VALUES (%s, %s, 'Active')
+                ON DUPLICATE KEY UPDATE
+                    status = 'Active'
+                """,
+                (driver_id, sponsor_id)
+            )
+
+            conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Failed to assign driver {driver_id} to sponsor {sponsor_id}: {e}")
+        flash("Something went wrong assigning that driver.", "error")
+        return redirect(url_for("admin_drivers"))
+
+    finally:
+        conn.close()
+
+    queue_event("Driver Management", "Driver assigned to sponsor by admin", success=True,
+                status="Active", driver_id=driver_id, sponsor_id=sponsor_id)
+    flash(
+        f"{driver['first_name']} {driver['last_name'] or ''} is now in {sponsor['company_name']}'s program.",
+        "success"
+    )
+    return redirect(url_for("admin_drivers"))
 
 
 @app.route("/admin/assume-driver/<int:driver_id>", methods=["POST"])
