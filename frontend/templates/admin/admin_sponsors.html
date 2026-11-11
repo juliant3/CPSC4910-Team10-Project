@@ -62,7 +62,7 @@
                         <span class="row-text">
                             <p class="row-title">
                                 {{ sponsor.company_name }}
-                                {% if not sponsor.is_active %}<span class="badge badge-neutral">Removed</span>{% endif %}
+                                {% if not sponsor.is_active %}<span class="badge badge-neutral">Suspended</span>{% endif %}
                             </p>
                             <p class="row-sub">Sponsor ID: {{ sponsor.sponsor_id }}</p>
                         </span>
@@ -80,6 +80,16 @@
                                    class="input" step="0.0001" min="0.0001" max="100" required
                                    value="{{ '%.4f'|format(sponsor.point_value) if sponsor.point_value is not none else '0.0100' }}">
                             <button type="submit" class="btn btn-secondary btn-sm">Save</button>
+                        </form>
+
+                        <form method="POST"
+                              action="{{ url_for('admin_set_sponsor_active', sponsor_id=sponsor.sponsor_id) }}"
+                              {% if sponsor.is_active %}onsubmit="return confirm('Suspend {{ sponsor.company_name }}? Its team won\'t be able to log in and drivers won\'t see it.');"{% endif %}>
+                            <input type="hidden" name="active" value="{{ '0' if sponsor.is_active else '1' }}">
+                            <input type="hidden" name="back" value="list">
+                            <button type="submit" class="btn btn-sm {{ 'btn-ghost-danger' if sponsor.is_active else 'btn-secondary' }}">
+                                {{ 'Suspend' if sponsor.is_active else 'Reactivate' }}
+                            </button>
                         </form>
 
                         <form method="POST"

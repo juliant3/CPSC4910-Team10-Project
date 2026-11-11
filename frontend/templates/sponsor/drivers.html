@@ -415,6 +415,9 @@
                                         Redemption paused
                                     </span>
                                 {% endif %}
+                                {% if driver.status == 'Inactive' %}
+                                    <span class="redeem-paused">Suspended</span>
+                                {% endif %}
                             </td>
 
                             <td>
@@ -569,6 +572,24 @@
                                                maxlength="255" required placeholder="Reason for review">
                                         <button type="submit" class="btn btn-sm suspend-button">
                                             Suspend redemption
+                                        </button>
+                                    </form>
+                                {% endif %}
+
+                                {% set status_url = url_for('set_driver_status', driver_id=driver.driver_id) %}
+                                {% if driver.status == 'Active' %}
+                                    <form method="POST" action="{{ status_url }}" class="redemption-form"
+                                          onsubmit="return confirm('Suspend {{ driver.first_name }} from your program? They keep their points but can\'t redeem, message you, or earn recurring points until reactivated.');">
+                                        <input type="hidden" name="action" value="suspend">
+                                        <button type="submit" class="btn btn-sm suspend-button">
+                                            Suspend driver
+                                        </button>
+                                    </form>
+                                {% elif driver.status == 'Inactive' %}
+                                    <form method="POST" action="{{ status_url }}" class="redemption-form">
+                                        <input type="hidden" name="action" value="reactivate">
+                                        <button type="submit" class="btn btn-secondary btn-sm">
+                                            Reactivate driver
                                         </button>
                                     </form>
                                 {% endif %}

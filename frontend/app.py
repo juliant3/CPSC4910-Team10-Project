@@ -2583,6 +2583,57 @@ def change_driver_points(driver_id):
     return redirect(url_for("sponsor_drivers"))
 
 
+@app.route("/sponsor/drivers/<int:driver_id>/status", methods=["POST"])
+def set_driver_status(driver_id):
+    """Suspend a driver from this sponsor's program (status Inactive) or
+    reactivate them. A suspended driver can't redeem points, message the
+    sponsor, or get recurring points. Their balance is kept."""
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    action = request.form.get("action", "")
+    if action == "suspend":
+        new_status, from_status = "Inactive", "Active"
+    elif action == "reactivate":
+        new_status, from_status = "Active", "Inactive"
+    else:
+        abort(400)
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE Driver_Sponsors
+                SET status = %s
+                WHERE driver_id = %s
+                  AND sponsor_id = %s
+                  AND status = %s
+                """,
+                (new_status, driver_id, current_sponsor_id(), from_status)
+            )
+            changed = cursor.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+
+    if changed:
+        queue_event("Driver Management",
+                    "Driver suspended" if action == "suspend" else "Driver reactivated",
+                    success=True, status=new_status,
+                    driver_id=driver_id, sponsor_id=current_sponsor_id())
+        flash("Driver suspended from your program." if action == "suspend"
+              else "Driver reactivated.", "success")
+    else:
+        flash("That driver's status couldn't be changed.", "error")
+
+    return redirect(url_for("sponsor_drivers"))
+
+
 @app.route("/sponsor/drivers/<int:driver_id>/redemption", methods=["POST"])
 def set_driver_redemption(driver_id):
     """Suspend or restore a driver's ability to spend this sponsor's points."""
@@ -7051,7 +7102,7 @@ def admin_sponsor_info(sponsor_id):
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT sponsor_id, company_name, email, phone, invite_code,
+                SELECT sponsor_id, company_name, email, phone,
                        point_value, is_active
                 FROM Sponsors
                 WHERE sponsor_id = %s
@@ -7157,13 +7208,15 @@ def admin_set_sponsor_active(sponsor_id):
         conn.close()
 
     if found:
-        queue_event("Sponsor Management", "Sponsor restored" if active else "Sponsor removed",
+        queue_event("Sponsor Management", "Sponsor reactivated" if active else "Sponsor suspended",
                     success=True, status="Active" if active else "Inactive",
                     sponsor_id=sponsor_id)
-        flash("Sponsor restored. Its team can log in again." if active
-              else "Sponsor removed. Its team can no longer log in, and drivers won't see it.",
+        flash("Sponsor reactivated. Its team can log in again." if active
+              else "Sponsor suspended. Its team can no longer log in, and drivers won't see it.",
               "success")
 
+    if request.form.get("back") == "list":
+        return redirect(url_for("admin_sponsors"))
     return redirect(url_for("admin_sponsor_info", sponsor_id=sponsor_id))
 
 

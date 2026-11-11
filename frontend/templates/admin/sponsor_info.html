@@ -11,7 +11,7 @@
             <span class="eyebrow">Admin · Sponsor</span>
             <h1>
                 {{ sponsor.company_name }}
-                {% if not sponsor.is_active %}<span class="badge badge-neutral">Removed</span>{% endif %}
+                {% if not sponsor.is_active %}<span class="badge badge-neutral">Suspended</span>{% endif %}
             </h1>
             <p>Sponsor ID {{ sponsor.sponsor_id }}</p>
         </div>
@@ -52,8 +52,7 @@
         <dl class="detail-list">
             <div class="detail-row"><dt>Email</dt><dd>{{ sponsor.email or '—' }}</dd></div>
             <div class="detail-row"><dt>Phone</dt><dd>{{ sponsor.phone or '—' }}</dd></div>
-            <div class="detail-row"><dt>Invite code</dt><dd>{{ sponsor.invite_code or '—' }}</dd></div>
-            <div class="detail-row"><dt>Status</dt><dd>{{ 'Active' if sponsor.is_active else 'Removed' }}</dd></div>
+            <div class="detail-row"><dt>Status</dt><dd>{{ 'Active' if sponsor.is_active else 'Suspended' }}</dd></div>
         </dl>
         <div class="card-body" style="border-top: 1px solid var(--line);">
             <form method="POST"
@@ -123,7 +122,7 @@
     <section class="card">
         <div class="card-header">
             <div>
-                <h2>{{ 'Remove sponsor' if sponsor.is_active else 'Restore sponsor' }}</h2>
+                <h2>{{ 'Suspend sponsor' if sponsor.is_active else 'Reactivate sponsor' }}</h2>
                 <p>
                     {% if sponsor.is_active %}
                         Its team can no longer log in and drivers won't see it. Orders, invoices
@@ -136,10 +135,10 @@
         </div>
         <div class="card-body">
             <form method="POST" action="{{ url_for('admin_set_sponsor_active', sponsor_id=sponsor.sponsor_id) }}"
-                  {% if sponsor.is_active %}onsubmit="return confirm('Remove {{ sponsor.company_name }}? Its team will no longer be able to log in.');"{% endif %}>
+                  {% if sponsor.is_active %}onsubmit="return confirm('Suspend {{ sponsor.company_name }}? Its team will no longer be able to log in.');"{% endif %}>
                 <input type="hidden" name="active" value="{{ '0' if sponsor.is_active else '1' }}">
                 <button type="submit" class="btn {{ 'btn-ghost-danger' if sponsor.is_active else 'btn-primary' }}">
-                    {{ 'Remove sponsor' if sponsor.is_active else 'Restore sponsor' }}
+                    {{ 'Suspend sponsor' if sponsor.is_active else 'Reactivate sponsor' }}
                 </button>
             </form>
         </div>
