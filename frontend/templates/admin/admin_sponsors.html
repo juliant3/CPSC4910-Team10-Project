@@ -13,6 +13,38 @@
         </div>
     </div>
 
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
+    <section class="card" id="add-sponsor">
+        <div class="card-header">
+            <h2>Add sponsor</h2>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin_sponsors') }}" class="settings-form" autocomplete="off">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sponsor-name">Name</label>
+                        <input type="text" id="sponsor-name" name="name" maxlength="100" required
+                               value="{{ request.form.get('name', '') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="sponsor-email">Email</label>
+                        <input type="email" id="sponsor-email" name="email" maxlength="255" required
+                               value="{{ request.form.get('email', '') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="sponsor-password">Password</label>
+                        <input type="password" id="sponsor-password" name="password" minlength="8" required
+                               autocomplete="new-password">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Add sponsor</button>
+            </form>
+        </div>
+    </section>
+
     <div class="card">
         <div class="card-header">
             <h2>{{ sponsors|length }} sponsor{{ 's' if sponsors|length != 1 }}</h2>

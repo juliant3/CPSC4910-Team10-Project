@@ -6593,13 +6593,84 @@ def admin_update_invoice_status(invoice_id):
     )
 
 
-@app.route("/admin/sponsors")
+@app.route("/admin/sponsors", methods=["GET", "POST"])
 def admin_sponsors():
     if (
         not session.get("user_id")
         or (session.get("role") or "").lower() != "admin"
     ):
         abort(403)
+
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+
+        if not name or not email:
+            flash("Name and email are required.", "error")
+        elif len(name) > 100 or len(email) > 255:
+            flash("Name or email is too long.", "error")
+        elif len(password) < MIN_PASSWORD_LENGTH:
+            flash(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.", "error")
+        else:
+            conn = get_db()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT user_id FROM Users WHERE LOWER(email) = %s",
+                        (email.lower(),)
+                    )
+
+                    if cursor.fetchone():
+                        flash(f"An account with {email} already exists.", "error")
+                    else:
+                        cursor.execute(
+                            """
+                            INSERT INTO Users
+                                (email, first_name, last_name, role)
+                            VALUES
+                                (%s, %s, '', 'Sponsor')
+                            """,
+                            (email, name)
+                        )
+
+                        user_id = cursor.lastrowid
+
+                        cursor.execute(
+                            "INSERT INTO Password (user_id, password_hash) VALUES (%s, %s)",
+                            (user_id, generate_password_hash(password, method="pbkdf2:sha256"))
+                        )
+
+                        # Same shape as an approved sponsor request: the org id is its first user's id.
+                        cursor.execute(
+                            """
+                            INSERT INTO Sponsors
+                                (sponsor_id, company_name, email)
+                            VALUES
+                                (%s, %s, %s)
+                            """,
+                            (user_id, name, email)
+                        )
+
+                        cursor.execute(
+                            "INSERT INTO Sponsor_Users (user_id, sponsor_id) VALUES (%s, %s)",
+                            (user_id, user_id)
+                        )
+
+                        conn.commit()
+
+                        queue_event("Sponsor Management", "Sponsor added by admin", success=True,
+                                    status="Created", details={"sponsor_id": user_id})
+                        flash(f"Added sponsor {name}. They can log in with {email}.", "success")
+                        return redirect(url_for("admin_sponsors"))
+
+            except Exception as e:
+                conn.rollback()
+                print(f"Failed to add sponsor {email}: {e}")
+                flash("Something went wrong adding that sponsor.", "error")
+
+            finally:
+                conn.close()
 
     conn = get_db()
     try:

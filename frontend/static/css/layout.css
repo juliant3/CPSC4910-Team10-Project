@@ -1710,8 +1710,18 @@ h1, h2, h3 {
     gap: 12px;
 }
 
+/* Admin "Add sponsor" form: name, email, password side by side. */
+#add-sponsor {
+    margin-bottom: 20px;
+}
+
+#add-sponsor .form-row {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 @media (max-width: 600px) {
-    .settings-form .form-row {
+    .settings-form .form-row,
+    #add-sponsor .form-row {
         grid-template-columns: 1fr;
     }
 
