@@ -68,37 +68,60 @@
             </div>
 
 
-            <!-- Start Month -->
-            <div style="margin-top: 20px;">
+            
+<!-- Start Month -->
+<div style="margin-top: 20px;">
 
-                <label for="start_month">
-                    <strong>Start Month and Year</strong>
-                </label>
+    <label for="start_month_display">
+        <strong>Start Month and Year</strong>
+    </label>
 
-                <input type="month"
-                       id="start_month"
-                       name="start_month"
-                       value="{{ start_month or '' }}"
-                       required
-                       style="display: block; width: 100%; padding: 10px; margin-top: 8px;">
+    <input type="text"
+           id="start_month_display"
+           placeholder="MM/YYYY"
+           inputmode="numeric"
+           maxlength="7"
+           required
+           style="display: block; width: 100%;
+                  box-sizing: border-box; padding: 12px;
+                  margin-top: 8px;
+                  border: 1px solid #D5CEDF;
+                  border-radius: 6px;">
 
-            </div>
+    <input type="hidden"
+           id="start_month"
+           name="start_month"
+           value="{{ start_month or '' }}">
 
-            <!-- End Month -->
-            <div style="margin-top: 20px;">
+</div>
 
-                <label for="end_month">
-                    <strong>End Month and Year</strong>
-                </label>
 
-                <input type="month"
-                       id="end_month"
-                       name="end_month"
-                       value="{{ end_month or '' }}"
-                       required
-                       style="display: block; width: 100%; padding: 10px; margin-top: 8px;">
+           
+<!-- End Month -->
+<div style="margin-top: 20px;">
 
-            </div>
+    <label for="end_month_display">
+        <strong>End Month and Year</strong>
+    </label>
+
+    <input type="text"
+           id="end_month_display"
+           placeholder="MM/YYYY"
+           inputmode="numeric"
+           maxlength="7"
+           required
+           style="display: block; width: 100%;
+                  box-sizing: border-box; padding: 12px;
+                  margin-top: 8px;
+                  border: 1px solid #D5CEDF;
+                  border-radius: 6px;">
+
+    <input type="hidden"
+           id="end_month"
+           name="end_month"
+           value="{{ end_month or '' }}">
+
+</div>
 
             <!-- Generate Button -->
             <div style="margin-top: 25px;">
@@ -388,20 +411,58 @@
 
 
 
+
 <script>
 function generateYearReport(button) {
-
     const form = button.closest("form");
     const year = new Date().getFullYear();
 
-    // Set the start and end months
-    form.querySelector('[name="start_month"]').value = year + "-01";
-    form.querySelector('[name="end_month"]').value = year + "-12";
+    form.querySelector("#start_month_display").value = "01/" + year;
+    form.querySelector("#end_month_display").value = "12/" + year;
 
-    // Generate the report
+    form.querySelector("#start_month").value = year + "-01";
+    form.querySelector("#end_month").value = year + "-12";
+
     form.requestSubmit();
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.querySelector(".report-form form");
+
+    ["start_month", "end_month"].forEach(function(name) {
+        const hidden = form.querySelector("#" + name);
+        const display = form.querySelector("#" + name + "_display");
+
+        if (hidden.value) {
+            const parts = hidden.value.split("-");
+            display.value = parts[1] + "/" + parts[0];
+        }
+
+        display.addEventListener("input", function() {
+            display.setCustomValidity("");
+        });
+    });
+
+    form.addEventListener("submit", function(event) {
+        ["start_month", "end_month"].forEach(function(name) {
+            const display = form.querySelector("#" + name + "_display");
+            const hidden = form.querySelector("#" + name);
+            const match = display.value.match(/^(0[1-9]|1[0-2])\/(\d{4})$/);
+
+            if (!match) {
+                display.setCustomValidity("Enter a valid month as MM/YYYY.");
+                display.reportValidity();
+                event.preventDefault();
+                return;
+            }
+
+            display.setCustomValidity("");
+            hidden.value = match[2] + "-" + match[1];
+        });
+    });
+});
 </script>
+
 
 
 
