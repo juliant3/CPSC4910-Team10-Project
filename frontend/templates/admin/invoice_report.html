@@ -19,26 +19,25 @@
 
     <p>Generate billing reports by sponsor and date range.</p>
 
-    <!-- Report Selection Form -->
-    <div class="card report-form"
-         style="padding: 24px; margin-top: 24px; max-width: 650px;">
+    
+<!-- Report Selection Form -->
+<div class="card report-form"
+     style="padding: 24px; margin-top: 24px; max-width: 650px;">
 
-        
-<div class="report-heading">
+    <form action="{{ url_for('admin_invoice_report') }}"
+          method="GET">
 
-    <h2>Generate Invoice Report</h2>
+        <div class="report-heading">
 
-    <button type="button"
-            class="btn btn-primary"
-            onclick="generateYearReport(this, true)">
-        Quick Year Report
-    </button>
+            <h2>Generate Invoice Report</h2>
 
-</div>
+            <button type="button"
+                    class="btn btn-primary"
+                    onclick="generateYearReport(this)">
+                Quick Year Report
+            </button>
 
-
-        <form action="{{ url_for('admin_invoice_report') }}"
-              method="GET">
+        </div>
 
             <!-- Sponsor Selection -->
             <div style="margin-top: 20px;">
