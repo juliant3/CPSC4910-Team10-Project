@@ -3406,18 +3406,24 @@ def driver_dashboard():
         recent_activity=recent_activity,
         today=local_now()
     )
+
 @app.route("/driver/sponsors")
-def driver_sponsors(): 
-    if "user_id" not in session: 
+def driver_sponsors():
+
+    if "user_id" not in session:
         return redirect(url_for("login"))
+
     if session["role"].lower() != "driver":
         return redirect(url_for("home"))
+
+    driver_id = session["user_id"]
     conn = get_db()
-    try: 
+
+    try:
         with conn.cursor() as cursor:
 
-            cursor.execute(
-                """
+            # Get all active sponsors.
+            cursor.execute("""
                 SELECT
                     sponsor_id,
                     company_name,
@@ -3427,14 +3433,14 @@ def driver_sponsors():
                 FROM Sponsors
                 WHERE is_active = TRUE
                 ORDER BY company_name
-                """
-            )
+            """)
             sponsors = cursor.fetchall()
 
-            cursor.execute(
-                """
+            # Get the driver's open applications.
+            cursor.execute("""
                 SELECT
                     Driver_Applications.application_id,
+                    Driver_Applications.sponsor_id,
                     Driver_Applications.status,
                     Driver_Applications.application_date,
                     Sponsors.company_name
@@ -3444,12 +3450,41 @@ def driver_sponsors():
                 WHERE Driver_Applications.driver_id = %s
                   AND Driver_Applications.status IN ('Pending', 'Submitted')
                 ORDER BY Driver_Applications.application_date DESC
-                """,
-                (session["user_id"],)
-            )
+            """, (driver_id,))
+
             open_applications = cursor.fetchall()
+
+            # Get sponsors the driver already belongs to.
+            cursor.execute("""
+                SELECT sponsor_id
+                FROM Driver_Sponsors
+                WHERE driver_id = %s
+                  AND status = 'Active'
+            """, (driver_id,))
+
+            joined_sponsors = {
+                row["sponsor_id"] for row in cursor.fetchall()
+            }
+
+            # Match open applications to their sponsors.
+            application_statuses = {
+                app["sponsor_id"]: app["status"]
+                for app in open_applications
+            }
+
+            # Add membership and application information.
+            for sponsor in sponsors:
+                sponsor["is_member"] = (
+                    sponsor["sponsor_id"] in joined_sponsors
+                )
+
+                sponsor["application_status"] = (
+                    application_statuses.get(sponsor["sponsor_id"])
+                )
+
     finally:
         conn.close()
+
     return render_template(
         "driver/sponsors.html",
         first_name=session["first_name"],
@@ -3457,6 +3492,118 @@ def driver_sponsors():
         sponsors=sponsors,
         open_applications=open_applications
     )
+
+
+@app.route("/driver/sponsors/<int:sponsor_id>/apply", methods=["POST"])
+def driver_apply_to_sponsor(sponsor_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "driver":
+        return redirect(url_for("home"))
+
+    # Do not allow applications while viewing as another driver.
+    if session.get("assumed_driver_id") is not None:
+        abort(403)
+
+    driver_id = session["user_id"]
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            # Check that the sponsor is active.
+            cursor.execute("""
+                SELECT sponsor_id
+                FROM Sponsors
+                WHERE sponsor_id = %s
+                  AND is_active = TRUE
+            """, (sponsor_id,))
+
+            if not cursor.fetchone():
+                flash("This sponsor is not available.", "error")
+                return redirect(url_for("driver_sponsors"))
+
+            # Check if the driver already belongs to this sponsor.
+            cursor.execute("""
+                SELECT 1
+                FROM Driver_Sponsors
+                WHERE driver_id = %s
+                  AND sponsor_id = %s
+                  AND status = 'Active'
+            """, (driver_id, sponsor_id))
+
+            if cursor.fetchone():
+                flash("You already belong to this sponsor.", "error")
+                return redirect(url_for("driver_sponsors"))
+
+            # Check for an existing open application.
+            cursor.execute("""
+                SELECT application_id, status, token
+                FROM Driver_Applications
+                WHERE driver_id = %s
+                  AND sponsor_id = %s
+                  AND status IN ('Pending', 'Submitted')
+                ORDER BY application_date DESC
+                LIMIT 1
+            """, (driver_id, sponsor_id))
+
+            existing = cursor.fetchone()
+
+            if existing:
+                if existing["status"] == "Pending" and existing["token"]:
+                    return redirect(url_for("apply", token=existing["token"]))
+
+                flash("You already have an application waiting for this sponsor.", "error")
+                return redirect(url_for("driver_sponsors"))
+
+            # Get the driver's account information.
+            cursor.execute("""
+                SELECT email, first_name, last_name
+                FROM Users
+                WHERE user_id = %s
+            """, (driver_id,))
+
+            driver = cursor.fetchone()
+
+            if not driver:
+                abort(404)
+
+            # Create the application.
+            token = secrets.token_urlsafe(32)
+
+            cursor.execute("""
+                INSERT INTO Driver_Applications
+                    (driver_id, applicant_email, sponsor_id, status, token)
+                VALUES
+                    (%s, %s, %s, 'Pending', %s)
+            """, (
+                driver_id,
+                driver["email"],
+                sponsor_id,
+                token
+            ))
+
+            conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()
+
+    queue_event(
+        "Driver Application",
+        "Driver started sponsor application",
+        success=True,
+        status="Pending",
+        sponsor_id=sponsor_id
+    )
+
+    return redirect(url_for("apply", token=token))
+
 
 @app.route("/driver/points")
 def driver_points():

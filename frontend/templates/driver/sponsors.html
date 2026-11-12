@@ -71,9 +71,41 @@
                         <span class="row-meta-value">${{ "%.4f"|format(sponsor.point_value) }}</span>
                     </div>
 
-                    <div class="row-actions">
-                        <button class="btn btn-secondary btn-sm" type="button" disabled>Apply Coming Soon</button>
-                    </div>
+                    
+<div class="row-actions">
+
+    
+{% if sponsor.application_status == 'Pending' %}
+    <form method="POST"
+          action="{{ url_for('driver_apply_to_sponsor', sponsor_id=sponsor.sponsor_id) }}">
+        <button type="submit" class="btn btn-secondary btn-sm">
+            Continue Application
+        </button>
+    </form>
+
+    {% elif sponsor.application_status == 'Submitted' %}
+        <span class="btn btn-secondary btn-sm">
+            Application Pending
+        </span>
+
+    {% elif sponsor.is_member %}
+        <span class="btn btn-secondary btn-sm">
+            Already Joined
+        </span>
+
+    {% else %}
+        <form method="POST"
+              action="{{ url_for('driver_apply_to_sponsor', sponsor_id=sponsor.sponsor_id) }}">
+
+            <button type="submit" class="btn btn-primary btn-sm">
+                Apply
+            </button>
+
+        </form>
+    {% endif %}
+
+</div>
+
                 </div>
             </li>
             {% endfor %}
