@@ -69,59 +69,63 @@
 
 
             
+
 <!-- Start Month -->
 <div style="margin-top: 20px;">
-
     <label for="start_month_display">
         <strong>Start Month and Year</strong>
     </label>
 
-    <input type="text"
-           id="start_month_display"
-           placeholder="MM/YYYY"
-           inputmode="numeric"
-           maxlength="7"
-           required
-           style="display: block; width: 100%;
-                  box-sizing: border-box; padding: 12px;
-                  margin-top: 8px;
-                  border: 1px solid #D5CEDF;
-                  border-radius: 6px;">
+    <div class="month-input-wrapper">
+        <input type="text"
+               id="start_month_display"
+               placeholder="MM/YYYY"
+               inputmode="numeric"
+               maxlength="7"
+               required>
+
+        <input type="month"
+               id="start_month_picker"
+               class="month-picker"
+               aria-label="Choose start month">
+    </div>
 
     <input type="hidden"
            id="start_month"
            name="start_month"
            value="{{ start_month or '' }}">
-
 </div>
 
 
+
            
+
 <!-- End Month -->
 <div style="margin-top: 20px;">
-
     <label for="end_month_display">
         <strong>End Month and Year</strong>
     </label>
 
-    <input type="text"
-           id="end_month_display"
-           placeholder="MM/YYYY"
-           inputmode="numeric"
-           maxlength="7"
-           required
-           style="display: block; width: 100%;
-                  box-sizing: border-box; padding: 12px;
-                  margin-top: 8px;
-                  border: 1px solid #D5CEDF;
-                  border-radius: 6px;">
+    <div class="month-input-wrapper">
+        <input type="text"
+               id="end_month_display"
+               placeholder="MM/YYYY"
+               inputmode="numeric"
+               maxlength="7"
+               required>
+
+        <input type="month"
+               id="end_month_picker"
+               class="month-picker"
+               aria-label="Choose end month">
+    </div>
 
     <input type="hidden"
            id="end_month"
            name="end_month"
            value="{{ end_month or '' }}">
-
 </div>
+
 
             <!-- Generate Button -->
             <div style="margin-top: 25px;">
@@ -407,7 +411,41 @@
 }
 
 
+.month-input-wrapper {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-top: 8px;
+    border: 1px solid #D5CEDF;
+    border-radius: 6px;
+    background: white;
+}
+
+.month-input-wrapper input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 12px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #211C2E;
+    font: inherit;
+}
+
+.month-picker {
+    width: 48px;
+    min-width: 48px;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    color: #4C2A85;
+    cursor: pointer;
+}
+
+
+
 </style>
+
 
 
 
@@ -420,8 +458,8 @@ function generateYearReport(button) {
     form.querySelector("#start_month_display").value = "01/" + year;
     form.querySelector("#end_month_display").value = "12/" + year;
 
-    form.querySelector("#start_month").value = year + "-01";
-    form.querySelector("#end_month").value = year + "-12";
+    form.querySelector("#start_month_picker").value = year + "-01";
+    form.querySelector("#end_month_picker").value = year + "-12";
 
     form.requestSubmit();
 }
@@ -432,11 +470,21 @@ document.addEventListener("DOMContentLoaded", function() {
     ["start_month", "end_month"].forEach(function(name) {
         const hidden = form.querySelector("#" + name);
         const display = form.querySelector("#" + name + "_display");
+        const picker = form.querySelector("#" + name + "_picker");
 
         if (hidden.value) {
             const parts = hidden.value.split("-");
             display.value = parts[1] + "/" + parts[0];
+            picker.value = hidden.value;
         }
+
+        picker.addEventListener("change", function() {
+            if (picker.value) {
+                const parts = picker.value.split("-");
+                display.value = parts[1] + "/" + parts[0];
+                display.setCustomValidity("");
+            }
+        });
 
         display.addEventListener("input", function() {
             display.setCustomValidity("");
@@ -444,9 +492,11 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     form.addEventListener("submit", function(event) {
-        ["start_month", "end_month"].forEach(function(name) {
+        for (const name of ["start_month", "end_month"]) {
             const display = form.querySelector("#" + name + "_display");
             const hidden = form.querySelector("#" + name);
+            const picker = form.querySelector("#" + name + "_picker");
+
             const match = display.value.match(/^(0[1-9]|1[0-2])\/(\d{4})$/);
 
             if (!match) {
@@ -458,7 +508,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
             display.setCustomValidity("");
             hidden.value = match[2] + "-" + match[1];
-        });
+            picker.value = hidden.value;
+        }
     });
 });
 </script>
