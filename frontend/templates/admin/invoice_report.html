@@ -99,21 +99,34 @@
 
     </div>
 
-    <!-- Generated Reports -->
-    {% if generated %}
+    
+<!-- Generated Reports -->
+{% if generated %}
 
-    <div class="report-actions"
-         style="margin-top: 30px; margin-bottom: 20px;">
+<div class="report-actions"
+     style="margin-top: 30px; margin-bottom: 20px;">
 
-        <h2>Generated Invoice Reports</h2>
+    <h2>Generated Invoice Reports</h2>
 
-        <button type="button"
-                class="btn btn-primary"
-                onclick="window.print()">
-            Print / Save as PDF
-        </button>
+    <!-- Print Button -->
+    <button type="button"
+            class="btn btn-primary"
+            onclick="window.print()">
+        Print / Save as PDF
+    </button>
 
-    </div>
+    <!-- CSV Download Button -->
+    <a href="{{ url_for('export_admin_invoice_report',
+                        sponsor_id=selected_sponsor,
+                        start_month=start_month,
+                        end_month=end_month) }}"
+       class="btn btn-primary"
+       style="margin-left: 10px;">
+        Download CSV
+    </a>
+
+</div>
+
 
     {% for report in reports %}
 

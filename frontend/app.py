@@ -5091,6 +5091,216 @@ def admin_invoice_report():
     )
 
 
+@app.route("/admin/invoices/report/export")
+def export_admin_invoice_report():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role", "").lower() != "admin":
+        abort(403)
+
+    if (
+        session.get("assumed_driver_id") is not None
+        or session.get("assumed_sponsor_id") is not None
+    ):
+        abort(403)
+
+    sponsor_id = request.args.get("sponsor_id", "all")
+    start_month = request.args.get("start_month", "")
+    end_month = request.args.get("end_month", "")
+
+    if not start_month or not end_month:
+        abort(400, "Please select a month range.")
+
+    try:
+        start = datetime.strptime(start_month, "%Y-%m")
+        end = datetime.strptime(end_month, "%Y-%m")
+    except ValueError:
+        abort(400, "Invalid month.")
+
+    if start > end:
+        abort(400, "End month cannot be before start month.")
+
+    if end.month == 12:
+        end_exclusive = datetime(end.year + 1, 1, 1)
+    else:
+        end_exclusive = datetime(end.year, end.month + 1, 1)
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+
+            cursor.execute("""
+                SELECT sponsor_id, company_name
+                FROM Sponsors
+                ORDER BY company_name
+            """)
+
+            sponsors = cursor.fetchall()
+
+            if sponsor_id != "all":
+                sponsors = [
+                    s for s in sponsors
+                    if str(s["sponsor_id"]) == sponsor_id
+                ]
+
+                if not sponsors:
+                    abort(400, "Invalid sponsor.")
+
+            output = io.StringIO()
+            writer = csv.writer(output)
+
+            writer.writerow([
+                "Invoice Report",
+                start_month,
+                "through",
+                end_month
+            ])
+            writer.writerow([])
+
+            def safe_text(value):
+                value = str(value or "")
+                if value.lstrip().startswith(("=", "+", "-", "@")):
+                    return "'" + value
+                return value
+
+            for sponsor in sponsors:
+
+                sid = sponsor["sponsor_id"]
+
+                writer.writerow([
+                    "Sponsor",
+                    safe_text(sponsor["company_name"])
+                ])
+                writer.writerow([])
+
+                # Driver fees
+                cursor.execute("""
+                    SELECT
+                        Users.first_name,
+                        Users.last_name,
+                        SUM(Invoices.total_amount) AS fee_due
+                    FROM Invoices
+                    JOIN Orders
+                        ON Invoices.order_id = Orders.order_id
+                    JOIN Users
+                        ON Orders.driver_id = Users.user_id
+                    WHERE Invoices.sponsor_id = %s
+                        AND Invoices.status IN ('Pending', 'Paid')
+                        AND Invoices.invoice_date >= %s
+                        AND Invoices.invoice_date < %s
+                    GROUP BY
+                        Users.user_id,
+                        Users.first_name,
+                        Users.last_name
+                    ORDER BY
+                        Users.last_name,
+                        Users.first_name
+                """, (sid, start, end_exclusive))
+
+                drivers = cursor.fetchall()
+
+                writer.writerow(["Driver", "Fee Due"])
+
+                for driver in drivers:
+                    name = (
+                        driver["first_name"] + " " +
+                        driver["last_name"]
+                    )
+
+                    writer.writerow([
+                        safe_text(name),
+                        driver["fee_due"]
+                    ])
+
+                writer.writerow([])
+
+                # Manual charges
+                cursor.execute("""
+                    SELECT description, total_amount
+                    FROM Invoices
+                    WHERE sponsor_id = %s
+                        AND invoice_type = 'Manual'
+                        AND order_id IS NULL
+                        AND status IN ('Pending', 'Paid')
+                        AND invoice_date >= %s
+                        AND invoice_date < %s
+                    ORDER BY invoice_date
+                """, (sid, start, end_exclusive))
+
+                charges = cursor.fetchall()
+
+                writer.writerow([
+                    "Manual Charge",
+                    "Amount"
+                ])
+
+                for charge in charges:
+                    writer.writerow([
+                        safe_text(charge["description"]),
+                        charge["total_amount"]
+                    ])
+
+                writer.writerow([])
+
+                # Sponsor totals
+                cursor.execute("""
+                    SELECT
+                        COALESCE(SUM(total_amount), 0)
+                            AS total_charges,
+                        COALESCE(SUM(
+                            CASE WHEN status = 'Paid'
+                            THEN total_amount ELSE 0 END
+                        ), 0) AS total_paid,
+                        COALESCE(SUM(
+                            CASE WHEN status = 'Pending'
+                            THEN total_amount ELSE 0 END
+                        ), 0) AS total_pending
+                    FROM Invoices
+                    WHERE sponsor_id = %s
+                        AND status IN ('Pending', 'Paid')
+                        AND invoice_date >= %s
+                        AND invoice_date < %s
+                """, (sid, start, end_exclusive))
+
+                totals = cursor.fetchone()
+
+                writer.writerow([
+                    "Total Charges",
+                    totals["total_charges"]
+                ])
+                writer.writerow([
+                    "Total Paid",
+                    totals["total_paid"]
+                ])
+                writer.writerow([
+                    "Total Pending",
+                    totals["total_pending"]
+                ])
+
+                writer.writerow([])
+                writer.writerow([])
+
+    finally:
+        conn.close()
+
+    filename = (
+        f"invoice_report_{start_month}_to_{end_month}.csv"
+    )
+
+    return Response(
+        "\ufeff" + output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition":
+                f"attachment; filename={filename}"
+        }
+    )
+
+
+
 
 @app.route("/reports/driver-points")
 def driver_points_report():
