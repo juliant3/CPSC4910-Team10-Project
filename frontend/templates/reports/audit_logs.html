@@ -10,15 +10,26 @@
     <h1>Audit Log Report</h1>
     <p>View system activity and audit history by date.</p>
 
-    <!-- Report Filters -->
-    <div class="card audit-report-form">
+    
+<!-- Report Filters -->
+<div class="card audit-report-form">
 
-        <h2>Generate Report</h2>
+    <form method="GET"
+          action="{{ url_for('audit_log_report') }}">
 
-        <form method="GET"
-              action="{{ url_for('audit_log_report') }}">
+        <div class="audit-report-heading">
 
-            <div class="audit-report-grid">
+            <h2>Generate Report</h2>
+
+            <button type="button"
+                    class="btn btn-primary"
+                    onclick="generateYearReport(this)">
+                Quick Year Report
+            </button>
+
+        </div>
+
+        <div class="audit-report-grid">
 
                 {% if role == 'admin' %}
                 <div>
@@ -43,24 +54,9 @@
                 {% endif %}
 
 
-<!-- Quick Year Report -->
-<div style="margin-top: 20px; margin-bottom: 20px;">
-
-    <button type="button"
-            class="btn btn-primary"
-            onclick="generateYearReport(this)">
-        Quick Year Report
-    </button>
-
-    <p style="margin-top: 8px; font-size: 13px;">
-        Automatically generate a report for the current year.
-    </p>
-
-</div>
-
 
                 <div>
-                    <label for="start_date">Date</label>
+                    <label for="start_date">Start Date</label>
 
                     <input type="date"
                            id="start_date"
@@ -248,6 +244,24 @@
     padding: 30px;
     margin-top: 25px;
 }
+
+
+.audit-report-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.audit-report-heading h2 {
+    margin: 0;
+}
+
+.audit-report-heading .btn {
+    white-space: nowrap;
+}
+
 
 /* Report Filters */
 

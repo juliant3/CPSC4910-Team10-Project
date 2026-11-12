@@ -23,7 +23,19 @@
     <div class="card report-form"
          style="padding: 24px; margin-top: 24px; max-width: 650px;">
 
-        <h2>Generate Invoice Report</h2>
+        
+<div class="report-heading">
+
+    <h2>Generate Invoice Report</h2>
+
+    <button type="button"
+            class="btn btn-primary"
+            onclick="generateYearReport(this, true)">
+        Quick Year Report
+    </button>
+
+</div>
+
 
         <form action="{{ url_for('admin_invoice_report') }}"
               method="GET">
@@ -55,22 +67,6 @@
                 </select>
 
             </div>
-
-
-<!-- Quick Year Report -->
-<div style="margin-top: 25px;">
-
-    <button type="button"
-            class="btn btn-primary"
-            onclick="generateYearReport(this, true)">
-        Quick Year Report
-    </button>
-
-    <p style="margin-top: 8px; font-size: 13px;">
-        Automatically generate a report for the current year.
-    </p>
-
-</div>
 
 
             <!-- Start Month -->
@@ -370,6 +366,24 @@
     }
 
 }
+
+
+.report-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.report-heading h2 {
+    margin: 0;
+}
+
+.report-heading .btn {
+    white-space: nowrap;
+}
+
 
 </style>
 

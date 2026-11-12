@@ -30,6 +30,24 @@
         margin-bottom: 24px;
     }
 
+
+    .points-report-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .points-report-heading h2 {
+        margin: 0;
+    }
+
+    .points-report-heading .btn {
+        white-space: nowrap;
+    }
+
+
     .points-filter-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -166,15 +184,26 @@
         View driver point balances and transaction history by date.
     </p>
 
-    <!-- Report Filters -->
-    <div class="points-report-card points-filter-card">
+    
+<!-- Report Filters -->
+<div class="points-report-card points-filter-card">
 
-        <h2>Generate Report</h2>
+    <form action="{{ url_for('driver_points_report') }}"
+          method="GET">
 
-        <form action="{{ url_for('driver_points_report') }}"
-              method="GET">
+        <div class="points-report-heading">
 
-            <div class="points-filter-grid">
+            <h2>Generate Report</h2>
+
+            <button type="button"
+                    class="btn btn-primary"
+                    onclick="generateYearReport(this)">
+                Quick Year Report
+            </button>
+
+        </div>
+
+        <div class="points-filter-grid">
 
                 <!-- Driver Selection -->
                 <div class="points-field">
@@ -199,21 +228,6 @@
 
                 </div>
 
-
-<!-- Quick Year Report -->
-<div style="margin-top: 20px; margin-bottom: 20px;">
-
-    <button type="button"
-            class="btn btn-primary"
-            onclick="generateYearReport(this)">
-        Quick Year Report
-    </button>
-
-    <p style="margin-top: 8px; font-size: 13px;">
-        Automatically generate a report for the current year.
-    </p>
-
-</div>
 
 
                 <!-- Start Date -->

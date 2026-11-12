@@ -11,14 +11,26 @@
 
     <p>View driver purchases and sales by sponsor and date.</p>
 
-    <!-- Report Filters -->
-    <div class="card report-form" style="padding: 30px; margin-top: 25px;">
+    
+<!-- Report Filters -->
+<div class="card report-form" style="padding: 30px; margin-top: 25px;">
 
-        <h2>Generate Report</h2>
+    <form method="GET" action="{{ url_for('sales_by_driver_report') }}">
 
-        <form method="GET" action="{{ url_for('sales_by_driver_report') }}">
+        <div class="driver-report-heading">
 
-            <div class="driver-report-grid">
+            <h2>Generate Report</h2>
+
+            <button type="button"
+                    class="btn btn-primary"
+                    onclick="generateYearReport(this)">
+                Quick Year Report
+            </button>
+
+        </div>
+
+        <div class="driver-report-grid">
+
 
                 <!-- Sponsor -->
                 <div>
@@ -69,21 +81,6 @@
                     </select>
                 </div>
 
-
-<!-- Quick Year Report -->
-<div style="margin-top: 20px; margin-bottom: 20px;">
-
-    <button type="button"
-            class="btn btn-primary"
-            onclick="generateYearReport(this)">
-        Quick Year Report
-    </button>
-
-    <p style="margin-top: 8px; font-size: 13px;">
-        Automatically generate a report for the current year.
-    </p>
-
-</div>
 
 
                 <!-- Start Date -->
@@ -235,6 +232,24 @@
 </div>
 
 <style>
+
+
+.driver-report-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.driver-report-heading h2 {
+    margin: 0;
+}
+
+.driver-report-heading .btn {
+    white-space: nowrap;
+}
+
 
 .driver-report-grid {
     display: grid;

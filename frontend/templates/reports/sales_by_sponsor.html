@@ -30,6 +30,24 @@
         margin-bottom: 24px;
     }
 
+
+.sales-report-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.sales-report-heading h2 {
+    margin: 0;
+}
+
+.sales-report-heading .btn {
+    white-space: nowrap;
+}
+
+
     .sales-filter-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -163,15 +181,29 @@
         View sponsor sales activity by date range in summary or detail format.
     </p>
 
-    <!-- Report Filters -->
-    <div class="sales-report-card sales-filter-card">
+    
 
-        <h2>Generate Report</h2>
+<!-- Report Filters -->
+<div class="sales-report-card sales-filter-card">
 
-        <form action="{{ url_for('sales_by_sponsor_report') }}"
-              method="GET">
+    <form action="{{ url_for('sales_by_sponsor_report') }}"
+          method="GET">
 
-            <div class="sales-filter-grid">
+        <div class="sales-report-heading">
+
+            <h2>Generate Report</h2>
+
+            <button type="button"
+                    class="btn btn-primary"
+                    onclick="generateYearReport(this)">
+                Quick Year Report
+            </button>
+
+        </div>
+
+        <div class="sales-filter-grid">
+
+
 
                 <!-- Sponsor Selection -->
                 <div class="sales-field">
@@ -217,21 +249,6 @@
 
                 </div>
 
-
-<!-- Quick Year Report -->
-<div style="margin-top: 20px; margin-bottom: 20px;">
-
-    <button type="button"
-            class="btn btn-primary"
-            onclick="generateYearReport(this)">
-        Quick Year Report
-    </button>
-
-    <p style="margin-top: 8px; font-size: 13px;">
-        Automatically generate a report for the current year.
-    </p>
-
-</div>
 
 
                 <!-- Start Date -->
