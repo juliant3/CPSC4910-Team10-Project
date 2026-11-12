@@ -69,6 +69,23 @@
                     </select>
                 </div>
 
+
+<!-- Quick Year Report -->
+<div style="margin-top: 20px; margin-bottom: 20px;">
+
+    <button type="button"
+            class="btn btn-primary"
+            onclick="generateYearReport(this)">
+        Quick Year Report
+    </button>
+
+    <p style="margin-top: 8px; font-size: 13px;">
+        Automatically generate a report for the current year.
+    </p>
+
+</div>
+
+
                 <!-- Start Date -->
                 <div>
                     <label for="start_date"><strong>Start Date</strong></label>
@@ -326,5 +343,20 @@
 }
 
 </style>
+
+
+<script>
+function generateYearReport(button) {
+
+    const form = button.closest("form");
+    const year = new Date().getFullYear();
+
+    form.querySelector('[name="start_date"]').value = year + "-01-01";
+    form.querySelector('[name="end_date"]').value = year + "-12-31";
+
+    form.requestSubmit();
+}
+</script>
+
 
 {% endblock %}
