@@ -321,3 +321,241 @@ def test_sponsor_point_adjustment_rejects_invalid_amount(client, monkeypatch):
 
     assert db.points_balance == 500
     assert len(db.transactions) == 0
+
+
+SPONSOR_ID = 20
+SPONSOR_USER_ID = 20
+INVITED_USER_ID = 44
+
+
+class SponsorTeamDB:
+    def __init__(self, invite=None):
+        self.invite = invite
+        self.created_invites = []
+        self.users = []
+        self.passwords = []
+        self.memberships = []
+        self.request_updates = []
+        self.committed = False
+        self.rolled_back = False
+        self.closed = False
+
+    def cursor(self):
+        return SponsorTeamCursor(self)
+
+    def commit(self):
+        self.committed = True
+
+    def rollback(self):
+        self.rolled_back = True
+
+    def close(self):
+        self.closed = True
+
+
+class SponsorTeamCursor:
+    def __init__(self, db):
+        self.db = db
+        self.result = None
+        self.lastrowid = INVITED_USER_ID
+        self.rowcount = 1
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def execute(self, sql, params=None):
+        compact = " ".join(sql.split())
+        params = params or ()
+
+        if compact.startswith(
+            "SELECT user_id FROM Users WHERE LOWER(email)"
+        ):
+            self.result = None
+
+        elif compact.startswith(
+            "SELECT request_id FROM Sponsor_Requests"
+        ):
+            self.result = None
+
+        elif compact.startswith(
+            "SELECT company_name FROM Sponsors"
+        ):
+            self.result = {"company_name": "Example Sponsor"}
+
+        elif compact.startswith("INSERT INTO Sponsor_Requests"):
+            self.db.created_invites.append(params)
+
+        elif compact.startswith(
+            "SELECT request_id, email, first_name, last_name, status"
+        ):
+            self.result = self.db.invite
+
+        elif compact.startswith("INSERT INTO Users"):
+            self.db.users.append(params)
+
+        elif compact.startswith("INSERT INTO Password"):
+            self.db.passwords.append(params)
+
+        elif compact.startswith("INSERT INTO Sponsor_Users"):
+            self.db.memberships.append(params)
+
+        elif compact.startswith("UPDATE Sponsor_Requests"):
+            self.db.request_updates.append(params)
+
+        else:
+            raise AssertionError(
+                f"Unexpected sponsor-team SQL: {compact}"
+            )
+
+    def fetchone(self):
+        return self.result
+
+
+def sponsor_session(client):
+    with client.session_transaction() as session:
+        session.clear()
+        session.update(
+            user_id=SPONSOR_USER_ID,
+            first_name="Primary",
+            last_name="Sponsor",
+            role="Sponsor",
+            sponsor_id=SPONSOR_ID,
+        )
+
+
+def test_sponsor_can_invite_an_additional_team_user(
+    client, monkeypatch
+):
+    db = SponsorTeamDB()
+
+    monkeypatch.setattr(
+        app_module, "get_db", lambda: db
+    )
+
+    monkeypatch.setattr(
+        app_module, "current_sponsor_id", lambda: SPONSOR_ID
+    )
+
+    monkeypatch.setattr(
+        app_module, "send_sponsor_team_invite", lambda *args: True
+    )
+
+    sponsor_session(client)
+
+    response = client.post(
+        "/sponsor/team",
+        data={
+            "action": "invite",
+            "first_name": "Second",
+            "last_name": "Sponsor",
+            "email": "second@example.test",
+        },
+    )
+
+    assert response.status_code == 302
+    assert len(db.created_invites) == 1
+
+    assert db.created_invites[0][4] == SPONSOR_ID
+    assert db.created_invites[0][6] == SPONSOR_USER_ID
+
+    assert db.committed
+
+
+def test_invited_user_account_is_created_and_linked_to_sponsor(
+    client, monkeypatch
+):
+    invite = {
+        "request_id": 700,
+        "email": "second@example.test",
+        "first_name": "Second",
+        "last_name": "Sponsor",
+        "status": "Started",
+        "request_type": "Join",
+        "target_sponsor_id": SPONSOR_ID,
+        "company_name": "Example Sponsor",
+    }
+
+    db = SponsorTeamDB(invite=invite)
+
+    monkeypatch.setattr(
+        app_module, "get_db", lambda: db
+    )
+
+    monkeypatch.setattr(
+        app_module, "render_template",
+        lambda *args, **kwargs: "joined"
+    )
+
+    response = client.post(
+        "/sponsor-apply/test-token",
+        data={
+            "first_name": "Second",
+            "last_name": "Sponsor",
+            "password": "ValidPass123!",
+            "confirm_password": "ValidPass123!",
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert db.users == [
+        ("second@example.test", "Second", "Sponsor")
+    ]
+
+    assert len(db.passwords) == 1
+
+    assert db.memberships == [
+        (INVITED_USER_ID, SPONSOR_ID)
+    ]
+
+    assert db.request_updates == [
+        (INVITED_USER_ID, 700)
+    ]
+
+    assert db.committed
+
+
+def test_invited_user_cannot_create_account_with_mismatched_passwords(
+    client, monkeypatch
+):
+    invite = {
+        "request_id": 701,
+        "email": "second@example.test",
+        "first_name": "Second",
+        "last_name": "Sponsor",
+        "status": "Started",
+        "request_type": "Join",
+        "target_sponsor_id": SPONSOR_ID,
+        "company_name": "Example Sponsor",
+    }
+
+    db = SponsorTeamDB(invite=invite)
+
+    monkeypatch.setattr(
+        app_module, "get_db", lambda: db
+    )
+
+    monkeypatch.setattr(
+        app_module, "render_template",
+        lambda *args, **kwargs: "form-error"
+    )
+
+    response = client.post(
+        "/sponsor-apply/test-token",
+        data={
+            "first_name": "Second",
+            "last_name": "Sponsor",
+            "password": "ValidPass123!",
+            "confirm_password": "DifferentPass123!",
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert db.users == []
+    assert db.passwords == []
+    assert db.memberships == []
+    assert db.request_updates == []

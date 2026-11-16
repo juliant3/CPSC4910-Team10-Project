@@ -1,4 +1,3 @@
-
 """Unit tests for password-change audit visibility across sponsor programs."""
 import app as app_module
 
