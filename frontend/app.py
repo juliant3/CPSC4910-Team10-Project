@@ -1266,18 +1266,11 @@ def reset_password(token):
                 (link["user_id"],)
             )
 
-            cursor.execute(
-                """
-                INSERT INTO Audit_Logs
-                    (user_id, category, action, username, success)
-                VALUES
-                    (%s, 'Password Change', %s, %s, 1)
-                """,
-                (
-                    link["user_id"],
-                    "Password reset by email link" if link["purpose"] == "Reset" else "Password set up by email link",
-                    link["email"]
-                )
+            record_password_change(
+                cursor,
+                link["user_id"],
+                "Password reset by email link" if link["purpose"] == "Reset" else "Password set up by email link",
+                link["email"]
             )
 
         conn.commit()
