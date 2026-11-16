@@ -3864,14 +3864,10 @@ def settings():
                             "UPDATE Password_Tokens SET used_at = NOW() WHERE user_id = %s AND used_at IS NULL",
                             (user_id,)
                         )
-                        cursor.execute(
-                            """
-                            INSERT INTO Audit_Logs
-                                (user_id, category, action, success)
-                            VALUES
-                                (%s, 'Password Change', 'Password changed in settings', 1)
-                            """,
-                            (user_id,)
+                        record_password_change(
+                            cursor,
+                            user_id,
+                            "Password changed in settings"
                         )
                         conn.commit()
                         flash("Your password was changed.", "success")
