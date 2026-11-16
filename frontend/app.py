@@ -1947,10 +1947,15 @@ def reject_application(application_id):
             )
 
             conn.commit()
-            queue_event("Driver Application", "Driver application rejected", success=True,
-                        status="Rejected", sponsor_id=application["sponsor_id"],
-                        details={"application_id": application_id})
-
+            queue_event(
+                "Driver Application",
+                "Driver application rejected",
+                success=True,
+                status="Rejected",
+                reason=reason,
+                sponsor_id=application["sponsor_id"],
+                details={"application_id": application_id}
+            )
             send_rejection_email(
                 application["applicant_email"],
                 application["applicant_first_name"],
