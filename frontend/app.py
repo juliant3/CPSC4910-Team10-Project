@@ -856,6 +856,41 @@ def get_sponsor_id_for_user(user_id):
     except Exception:
         return user_id
 
+def record_password_change(cursor, user_id, action, username=None):
+    """Write password-change audit rows visible to every sponsor of a driver.
+
+    Drivers can belong to multiple sponsor programs. The sponsor audit report
+    scopes records by Audit_Logs.sponsor_id, so write one row per membership.
+    Non-driver accounts retain a single organization-independent audit row.
+    """
+    cursor.execute(
+        "SELECT sponsor_id FROM Driver_Sponsors WHERE driver_id = %s",
+        (user_id,)
+    )
+    memberships = cursor.fetchall()
+
+    if memberships:
+        for membership in memberships:
+            cursor.execute(
+                """
+                INSERT INTO Audit_Logs
+                    (user_id, sponsor_id, driver_id, category, action, username, success)
+                VALUES
+                    (%s, %s, %s, 'Password Change', %s, %s, 1)
+                """,
+                (user_id, membership["sponsor_id"], user_id, action, username)
+            )
+    else:
+        cursor.execute(
+            """
+            INSERT INTO Audit_Logs
+                (user_id, category, action, username, success)
+            VALUES
+                (%s, 'Password Change', %s, %s, 1)
+            """,
+            (user_id, action, username)
+        )
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
