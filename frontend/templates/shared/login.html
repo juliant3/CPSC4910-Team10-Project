@@ -159,7 +159,8 @@
         </form>
         <a href="{{ url_for('forgot_password') }}" class="forgot-link">Forgot password?</a>
         <p class="account-help">
-            <strong>New driver?</strong> Use the invitation link your sponsor emailed you.
+            <strong>New driver?</strong>
+            <a href="{{ url_for('register') }}">Create an account</a> and apply to a sponsor.
             <strong>Want to become a sponsor?</strong>
             <a href="{{ url_for('sponsor_request') }}">Request access</a>
         </p>

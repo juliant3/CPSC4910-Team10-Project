@@ -1,0 +1,110 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <div>
+            <span class="eyebrow">Admin</span>
+            <h1>Users</h1>
+            <p>Edit or deactivate any driver, sponsor user, or admin. Deactivated accounts can't log in, and their history is kept.</p>
+        </div>
+    </div>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    {% endfor %}
+
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ users|length }} user{{ 's' if users|length != 1 }}</h2>
+
+            <form method="GET" action="{{ url_for('admin_users') }}" class="toolbar">
+                <label class="sr-only" for="role-filter">Role</label>
+                <select id="role-filter" name="role" class="input">
+                    <option value="">All roles</option>
+                    {% for r in ('Driver', 'Sponsor', 'Admin') %}
+                    <option value="{{ r }}" {{ 'selected' if r == role }}>{{ r }}s</option>
+                    {% endfor %}
+                </select>
+                <label class="sr-only" for="user-search">Search</label>
+                <input type="search" id="user-search" name="search" class="input"
+                       value="{{ search }}" placeholder="Name or email">
+                <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+                {% if role or search %}<a href="{{ url_for('admin_users') }}" class="btn btn-secondary btn-sm">Clear</a>{% endif %}
+            </form>
+        </div>
+
+        {% if users %}
+        <ul class="row-list">
+            {% for u in users %}
+            <li class="row-item">
+                <div class="row-main">
+                    <div class="row-text">
+                        <p class="row-title">
+                            {{ u.first_name }} {{ u.last_name or '' }}
+                            <span class="badge badge-neutral">{{ u.role }}</span>
+                            {% if not u.is_active %}<span class="badge badge-warn">Deactivated</span>{% endif %}
+                        </p>
+                        <p class="row-sub">{{ u.email }}{% if u.company_name %} · {{ u.company_name }}{% endif %}</p>
+                    </div>
+
+                    <div class="toolbar">
+                        <details class="user-edit">
+                            <summary class="btn btn-secondary btn-sm">Edit</summary>
+                            <form method="POST"
+                                  action="{{ url_for('admin_edit_user', user_id=u.user_id, role=role, search=search) }}"
+                                  class="toolbar">
+                                <label class="sr-only" for="first-{{ u.user_id }}">First name</label>
+                                <input type="text" id="first-{{ u.user_id }}" name="first_name" class="input"
+                                       maxlength="100" required value="{{ u.first_name }}">
+                                <label class="sr-only" for="last-{{ u.user_id }}">Last name</label>
+                                <input type="text" id="last-{{ u.user_id }}" name="last_name" class="input"
+                                       maxlength="100" value="{{ u.last_name or '' }}">
+                                <label class="sr-only" for="email-{{ u.user_id }}">Email</label>
+                                <input type="email" id="email-{{ u.user_id }}" name="email" class="input"
+                                       maxlength="255" required value="{{ u.email }}">
+                                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                            </form>
+                        </details>
+
+                        {% if u.user_id != session.get('user_id') %}
+                        <form method="POST"
+                              action="{{ url_for('admin_set_user_active', user_id=u.user_id, role=role, search=search) }}"
+                              {% if u.is_active %}onsubmit="return confirm('Deactivate {{ u.first_name }}? They won\'t be able to log in.');"{% endif %}>
+                            <input type="hidden" name="active" value="{{ '0' if u.is_active else '1' }}">
+                            <button type="submit" class="btn btn-sm {{ 'btn-ghost-danger' if u.is_active else 'btn-secondary' }}">
+                                {{ 'Deactivate' if u.is_active else 'Reactivate' }}
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">
+            <h3>No users found</h3>
+            <p>Try a different role or search.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .user-edit summary {
+        list-style: none;
+        cursor: pointer;
+    }
+
+    .user-edit summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .user-edit[open] form {
+        margin-top: 8px;
+    }
+</style>
+{% endblock %}

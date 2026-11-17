@@ -4,11 +4,17 @@ def test_login_page_loads(client):
     assert b"Log In" in response.data
 
 
-def test_public_registration_is_closed(client, fake_db):
-    conn = fake_db()
+def test_sign_up_page_loads(client):
+    response = client.get("/register")
+    assert response.status_code == 200
+    assert b"Create a Driver Account" in response.data
 
-    get_response = client.get("/register", follow_redirects=False)
-    post_response = client.post("/register", data={
+
+def test_sign_up_only_creates_drivers(client, fake_db):
+    # Even if the form claims another role, sign-up makes a driver.
+    conn = fake_db(fetchone_values=[None], lastrowid=77)
+
+    response = client.post("/register", data={
         "role": "Sponsor",
         "first_name": "Sneaky",
         "last_name": "Sponsor",
@@ -18,9 +24,36 @@ def test_public_registration_is_closed(client, fake_db):
         "company_name": "Sneaky Co",
     }, follow_redirects=False)
 
-    for response in (get_response, post_response):
-        assert response.status_code == 302
-        assert response.headers["Location"].endswith("/sponsor-request")
+    statements = [q for q, _ in conn.cursor().executed]
+    assert response.headers["Location"].endswith("/driver/sponsors")
+    assert any("'Driver'" in q for q in statements if "INSERT INTO Users" in q)
+    assert not any("'Sponsor'" in q or "'Admin'" in q for q in statements)
+    assert any("INSERT INTO Drivers" in q for q in statements)
+    with client.session_transaction() as s:
+        assert s["role"] == "Driver" and s["user_id"] == 77
+
+
+def test_sign_up_rejects_existing_email(client, fake_db):
+    conn = fake_db(fetchone_values=[{"user_id": 5}])
+
+    response = client.post("/register", data={
+        "first_name": "Dana", "last_name": "Ray", "email": "taken@example.com",
+        "password": "password123", "confirm_password": "password123",
+    })
+
+    assert b"already exists" in response.data
+    assert not any(q.startswith("INSERT") for q, _ in conn.cursor().executed)
+
+
+def test_sign_up_rejects_mismatched_passwords(client, fake_db):
+    conn = fake_db()
+
+    response = client.post("/register", data={
+        "first_name": "Dana", "last_name": "Ray", "email": "d@example.com",
+        "password": "password123", "confirm_password": "password124",
+    })
+
+    assert b"do not match" in response.data
     assert conn.cursor().executed == []
 
 

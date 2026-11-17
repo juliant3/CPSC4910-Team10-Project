@@ -25,6 +25,36 @@
         <div class="card">
             <div class="card-header">
                 <div>
+                    <h2>Organization</h2>
+                    <p>Your company details, shown to drivers on the Sponsors page.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" class="toolbar">
+                    <input type="hidden" name="action" value="organization">
+                    <div class="form-group" style="flex: 2; min-width: 180px;">
+                        <label for="company_name">Company name</label>
+                        <input type="text" id="company_name" name="company_name" maxlength="255" required
+                               value="{{ sponsor.company_name if sponsor else '' }}">
+                    </div>
+                    <div class="form-group" style="flex: 2; min-width: 180px;">
+                        <label for="org_email">Contact email</label>
+                        <input type="email" id="org_email" name="org_email" maxlength="255"
+                               value="{{ (sponsor.email or '') if sponsor else '' }}">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 140px;">
+                        <label for="phone">Phone</label>
+                        <input type="tel" id="phone" name="phone" maxlength="25"
+                               value="{{ (sponsor.phone or '') if sponsor else '' }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="height: 40px;">Save</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
                     <h2>Invite a Teammate</h2>
                     <p>They'll get an email link to set a password and join {{ company_name or 'your organization' }}.</p>
                 </div>
@@ -63,9 +93,33 @@
                                 <p class="row-title">
                                     {{ m.first_name }} {{ m.last_name }}
                                     {% if m.user_id == session.get('user_id') %}<span class="muted small" style="font-weight: 400;">(you)</span>{% endif %}
+                                    {% if m.is_active is not none and not m.is_active %}<span class="badge badge-warn">Removed</span>{% endif %}
                                 </p>
                                 <p class="row-sub">{{ m.email }}</p>
                             </span>
+                        </div>
+                        <div class="toolbar">
+                            <details>
+                                <summary class="btn btn-secondary btn-sm" style="list-style: none; cursor: pointer;">Edit</summary>
+                                <form method="POST" class="toolbar" style="margin-top: 8px;">
+                                    <input type="hidden" name="action" value="edit_member">
+                                    <input type="hidden" name="user_id" value="{{ m.user_id }}">
+                                    <label class="sr-only" for="m-first-{{ m.user_id }}">First name</label>
+                                    <input type="text" id="m-first-{{ m.user_id }}" name="first_name" class="input"
+                                           maxlength="100" required value="{{ m.first_name }}">
+                                    <label class="sr-only" for="m-last-{{ m.user_id }}">Last name</label>
+                                    <input type="text" id="m-last-{{ m.user_id }}" name="last_name" class="input"
+                                           maxlength="100" value="{{ m.last_name or '' }}">
+                                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                </form>
+                            </details>
+                            {% if m.user_id != session.get('user_id') and m.is_active %}
+                            <form method="POST" onsubmit="return confirm('Remove {{ m.first_name }} from your team? They won\'t be able to log in.');">
+                                <input type="hidden" name="action" value="remove_member">
+                                <input type="hidden" name="user_id" value="{{ m.user_id }}">
+                                <button type="submit" class="btn btn-ghost-danger btn-sm">Remove</button>
+                            </form>
+                            {% endif %}
                         </div>
                         {% if m.created_at %}
                         <div class="row-meta">

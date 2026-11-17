@@ -4,8 +4,33 @@ on:
   push:
     branches: [main]
 
+# A newer push replaces a deploy that is still waiting, so only the latest code ships.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Match the EC2 server.
+          python-version: "3.9"
+          cache: pip
+          cache-dependency-path: frontend/requirements-test.txt
+
+      - name: Install dependencies
+        run: pip install -r frontend/requirements-test.txt
+
+      - name: Run tests
+        run: python -m pytest -q
+
   deploy:
+    # Only deploy code that passed the tests.
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH

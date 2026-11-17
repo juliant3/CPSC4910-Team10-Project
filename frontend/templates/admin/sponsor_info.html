@@ -55,6 +55,26 @@
             <div class="detail-row"><dt>Status</dt><dd>{{ 'Active' if sponsor.is_active else 'Suspended' }}</dd></div>
         </dl>
         <div class="card-body" style="border-top: 1px solid var(--line);">
+            <form method="POST" action="{{ url_for('admin_edit_sponsor', sponsor_id=sponsor.sponsor_id) }}"
+                  class="toolbar" style="margin-bottom: 16px;">
+                <div class="form-group">
+                    <label for="company-name">Company name</label>
+                    <input type="text" id="company-name" name="company_name" class="input" maxlength="255" required
+                           value="{{ sponsor.company_name }}">
+                </div>
+                <div class="form-group">
+                    <label for="org-email">Email</label>
+                    <input type="email" id="org-email" name="org_email" class="input" maxlength="255"
+                           value="{{ sponsor.email or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="org-phone">Phone</label>
+                    <input type="tel" id="org-phone" name="phone" class="input" maxlength="25"
+                           value="{{ sponsor.phone or '' }}">
+                </div>
+                <button type="submit" class="btn btn-secondary btn-sm">Save details</button>
+            </form>
+
             <form method="POST"
                   action="{{ url_for('admin_set_point_value', sponsor_id=sponsor.sponsor_id) }}"
                   class="toolbar">

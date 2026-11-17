@@ -11,14 +11,15 @@ def read_template(relative_path):
 def test_login_has_show_hide_password_control():
     html = read_template("shared/login.html")
     assert 'id="password"' in html
-    assert "togglePassword('password', this)" in html
+    assert 'class="toggle-password"' in html
+    assert 'aria-controls="password"' in html
     assert "Show" in html
     assert "Hide" in html
 
 
-def test_login_does_not_offer_public_sign_up():
+def test_login_offers_driver_sign_up_and_sponsor_request():
     html = read_template("shared/login.html")
-    assert "url_for('register')" not in html
+    assert "url_for('register')" in html
     assert "url_for('sponsor_request')" in html
 
 

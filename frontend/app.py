@@ -5,6 +5,7 @@ import pymysql
 import os
 import hashlib
 import smtplib
+import re
 import secrets
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -1756,25 +1757,48 @@ def accept_application(application_id):
     if session["role"].lower() != "sponsor":
         return redirect(url_for("home"))
 
+    return decide_accept(application_id, is_admin=False)
+
+
+@app.route("/admin/applications/<int:application_id>/approve", methods=["POST"])
+def admin_accept_application(application_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "admin":
+        return redirect(url_for("home"))
+
+    return decide_accept(application_id, is_admin=True)
+
+
+def decide_accept(application_id, is_admin):
+    """Admins can decide any sponsor's application; sponsors only their own."""
+    back = url_for("admin_pending_applications" if is_admin else "sponsor_applications")
+
     conn = get_db()
 
     try:
         with conn.cursor() as cursor:
 
+            # A sponsor only finds its own applications.
+            scope_sql, scope_params = (
+                ("", ()) if is_admin else ("AND sponsor_id = %s", (current_sponsor_id(),))
+            )
             cursor.execute(
-                """
+                f"""
                 SELECT *
                 FROM Driver_Applications
                 WHERE application_id = %s
-                  AND sponsor_id = %s
+                  {scope_sql}
                 """,
-                (application_id, current_sponsor_id())
+                (application_id, *scope_params)
             )
 
             application = cursor.fetchone()
 
             if not application or application["status"] != "Submitted":
-                return redirect(url_for("sponsor_applications"))
+                return redirect(back)
 
             if application["driver_id"]:
                 # Driver already has an account: add this sponsor to it.
@@ -1789,7 +1813,7 @@ def accept_application(application_id):
                         (%s, %s, 'Active')
                     ON DUPLICATE KEY UPDATE status = 'Active'
                     """,
-                    (existing_id, current_sponsor_id())
+                    (existing_id, application["sponsor_id"])
                 )
 
                 cursor.execute(
@@ -1833,7 +1857,7 @@ def accept_application(application_id):
                     application["applicant_first_name"]
                 )
 
-                return redirect(url_for("sponsor_applications"))
+                return redirect(back)
 
             # Create the Users record.
             cursor.execute(
@@ -1872,7 +1896,7 @@ def accept_application(application_id):
                 VALUES
                     (%s, 0, %s, 'Active')
                 """,
-                (user_id, current_sponsor_id())
+                (user_id, application["sponsor_id"])
             )
 
             cursor.execute(
@@ -1882,7 +1906,7 @@ def accept_application(application_id):
                 VALUES
                     (%s, %s, 'Active')
                 """,
-                (user_id, current_sponsor_id())
+                (user_id, application["sponsor_id"])
             )
 
             # Create the Driver_Profiles record.
@@ -1924,7 +1948,7 @@ def accept_application(application_id):
     finally:
         conn.close()
 
-    return redirect(url_for("sponsor_applications"))
+    return redirect(back)
 
 
 @app.route("/sponsor/applications/<int:application_id>/reject", methods=["POST"])
@@ -1936,30 +1960,53 @@ def reject_application(application_id):
     if session["role"].lower() != "sponsor":
         return redirect(url_for("home"))
 
+    return decide_reject(application_id, is_admin=False)
+
+
+@app.route("/admin/applications/<int:application_id>/reject", methods=["POST"])
+def admin_reject_application(application_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "admin":
+        return redirect(url_for("home"))
+
+    return decide_reject(application_id, is_admin=True)
+
+
+def decide_reject(application_id, is_admin):
+    """Admins can decide any sponsor's application; sponsors only their own."""
+    back = url_for("admin_pending_applications" if is_admin else "sponsor_applications")
+
     reason = request.form.get("reason", "").strip()[:500]
 
     if not reason:
-        return redirect(url_for("sponsor_applications"))
+        return redirect(back)
 
     conn = get_db()
 
     try:
         with conn.cursor() as cursor:
 
+            # A sponsor only finds its own applications.
+            scope_sql, scope_params = (
+                ("", ()) if is_admin else ("AND sponsor_id = %s", (current_sponsor_id(),))
+            )
             cursor.execute(
-                """
+                f"""
                 SELECT *
                 FROM Driver_Applications
                 WHERE application_id = %s
-                  AND sponsor_id = %s
+                  {scope_sql}
                 """,
-                (application_id, current_sponsor_id())
+                (application_id, *scope_params)
             )
 
             application = cursor.fetchone()
 
             if not application or application["status"] != "Submitted":
-                return redirect(url_for("sponsor_applications"))
+                return redirect(back)
 
             cursor.execute(
                 """
@@ -1993,7 +2040,7 @@ def reject_application(application_id):
     finally:
         conn.close()
 
-    return redirect(url_for("sponsor_applications"))
+    return redirect(back)
 
 
 
@@ -2630,9 +2677,11 @@ def set_driver_status(driver_id):
 
     action = request.form.get("action", "")
     if action == "suspend":
-        new_status, from_status = "Inactive", "Active"
+        new_status, from_statuses = "Inactive", ("Active",)
+    elif action == "remove":
+        new_status, from_statuses = "Dropped", ("Active", "Inactive")
     elif action == "reactivate":
-        new_status, from_status = "Active", "Inactive"
+        new_status, from_statuses = "Active", ("Inactive", "Dropped")
     else:
         abort(400)
 
@@ -2645,9 +2694,9 @@ def set_driver_status(driver_id):
                 SET status = %s
                 WHERE driver_id = %s
                   AND sponsor_id = %s
-                  AND status = %s
+                  AND status IN %s
                 """,
-                (new_status, driver_id, current_sponsor_id(), from_status)
+                (new_status, driver_id, current_sponsor_id(), from_statuses)
             )
             changed = cursor.rowcount
         conn.commit()
@@ -2655,12 +2704,14 @@ def set_driver_status(driver_id):
         conn.close()
 
     if changed:
-        queue_event("Driver Management",
-                    "Driver suspended" if action == "suspend" else "Driver reactivated",
-                    success=True, status=new_status,
+        messages = {
+            "suspend": ("Driver suspended", "Driver suspended from your program."),
+            "remove": ("Driver removed", "Driver removed from your program. Their points history is kept."),
+            "reactivate": ("Driver reactivated", "Driver reactivated."),
+        }
+        queue_event("Driver Management", messages[action][0], success=True, status=new_status,
                     driver_id=driver_id, sponsor_id=current_sponsor_id())
-        flash("Driver suspended from your program." if action == "suspend"
-              else "Driver reactivated.", "success")
+        flash(messages[action][1], "success")
     else:
         flash("That driver's status couldn't be changed.", "error")
 
@@ -4243,6 +4294,25 @@ def accept_team_invite(conn, cursor, sponsor_req):
     )
 
 
+def update_sponsor_organization(cursor, sponsor_id, form):
+    """Save company name, email and phone from a form. Returns an error message or None."""
+    company_name = form.get("company_name", "").strip()
+    email = form.get("org_email", "").strip()
+    phone = form.get("phone", "").strip()
+
+    if not company_name:
+        return "Company name is required."
+
+    if len(company_name) > 255 or len(email) > 255 or len(phone) > 25:
+        return "Company name, email, or phone is too long."
+
+    cursor.execute(
+        "UPDATE Sponsors SET company_name = %s, email = %s, phone = %s WHERE sponsor_id = %s",
+        (company_name, email or None, phone or None, sponsor_id)
+    )
+    return None
+
+
 @app.route("/sponsor/team", methods=["GET", "POST"])
 def sponsor_team():
 
@@ -4322,6 +4392,71 @@ def sponsor_team():
                     flash(f"Invite sent to {email}.", "success")
                     return redirect(url_for("sponsor_team"))
 
+                if action == "organization":
+                    error = update_sponsor_organization(cursor, sponsor_id, request.form)
+                    if error:
+                        flash(error, "error")
+                    else:
+                        conn.commit()
+                        queue_event("Sponsor Management", "Organization updated", success=True,
+                                    status="Updated", sponsor_id=sponsor_id)
+                        flash("Organization details saved.", "success")
+                    return redirect(url_for("sponsor_team"))
+
+                if action in ("edit_member", "remove_member"):
+                    member_id = request.form.get("user_id", type=int)
+
+                    if action == "remove_member" and member_id == session["user_id"]:
+                        flash("You can't remove yourself.", "error")
+                        return redirect(url_for("sponsor_team"))
+
+                    first_name = request.form.get("first_name", "").strip()[:100]
+                    last_name = request.form.get("last_name", "").strip()[:100]
+
+                    if action == "edit_member" and not first_name:
+                        flash("First name is required.", "error")
+                        return redirect(url_for("sponsor_team"))
+
+                    # Only members of this organization can be changed.
+                    if action == "edit_member":
+                        cursor.execute(
+                            """
+                            UPDATE Users
+                            JOIN Sponsor_Users
+                                ON Sponsor_Users.user_id = Users.user_id
+                            SET Users.first_name = %s, Users.last_name = %s
+                            WHERE Users.user_id = %s
+                              AND Sponsor_Users.sponsor_id = %s
+                            """,
+                            (first_name, last_name, member_id, sponsor_id)
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            UPDATE Users
+                            JOIN Sponsor_Users
+                                ON Sponsor_Users.user_id = Users.user_id
+                            SET Users.is_active = FALSE
+                            WHERE Users.user_id = %s
+                              AND Sponsor_Users.sponsor_id = %s
+                            """,
+                            (member_id, sponsor_id)
+                        )
+                    changed = cursor.rowcount
+                    conn.commit()
+
+                    if changed:
+                        queue_event("Sponsor Management",
+                                    "Team member edited" if action == "edit_member" else "Team member removed",
+                                    success=True, status="Updated", sponsor_id=sponsor_id,
+                                    details={"target_type": "user", "target_id": member_id})
+                        if action == "edit_member" and member_id == session["user_id"]:
+                            session["first_name"] = first_name
+                            session["last_name"] = last_name
+                        flash("Teammate updated." if action == "edit_member"
+                              else "Teammate removed. They can no longer log in.", "success")
+                    return redirect(url_for("sponsor_team"))
+
                 if action == "cancel":
                     cursor.execute(
                         """
@@ -4346,7 +4481,7 @@ def sponsor_team():
                 """
                 SELECT
                     Users.user_id, Users.first_name, Users.last_name, Users.email,
-                    Sponsor_Users.created_at
+                    Users.is_active, Sponsor_Users.created_at
                 FROM Users
                 LEFT JOIN Sponsor_Users
                     ON Sponsor_Users.user_id = Users.user_id
@@ -4372,7 +4507,7 @@ def sponsor_team():
             invites = cursor.fetchall()
 
             cursor.execute(
-                "SELECT company_name FROM Sponsors WHERE sponsor_id = %s",
+                "SELECT company_name, email, phone FROM Sponsors WHERE sponsor_id = %s",
                 (sponsor_id,)
             )
             sponsor = cursor.fetchone()
@@ -4386,7 +4521,8 @@ def sponsor_team():
         role=session["role"],
         members=members,
         invites=invites,
-        company_name=sponsor["company_name"] if sponsor else None
+        company_name=sponsor["company_name"] if sponsor else None,
+        sponsor=sponsor
     )
 
 
@@ -4621,10 +4757,93 @@ def reject_sponsor_request(request_id):
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    # Public sign-up is closed. Drivers join through a sponsor's emailed
-    # invitation, sponsors request access and are approved by an admin,
-    # and sponsor teammates are invited from the Team page.
-    return redirect(url_for("sponsor_request"))
+    """Drivers can create their own account, then apply to sponsors from the
+    Sponsors page. This only ever creates drivers: sponsors still request
+    access and are approved by an admin, and teammates are invited."""
+    if session.get("user_id"):
+        return redirect(url_for("home"))
+
+    form = {
+        "first_name": request.form.get("first_name", "").strip(),
+        "last_name": request.form.get("last_name", "").strip(),
+        "email": request.form.get("email", "").strip(),
+    }
+
+    def show_form(error=None):
+        return render_template("shared/register.html", form=form, error=error,
+                               min_length=MIN_PASSWORD_LENGTH)
+
+    if request.method == "GET":
+        return show_form()
+
+    password = request.form.get("password", "")
+
+    if not form["first_name"] or not form["last_name"] or not form["email"]:
+        return show_form("Enter your name and email.")
+
+    if (len(form["first_name"]) > 100 or len(form["last_name"]) > 100
+            or len(form["email"]) > 255):
+        return show_form("Name or email is too long.")
+
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", form["email"]):
+        return show_form("Enter a valid email address.")
+
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return show_form(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+
+    if password != request.form.get("confirm_password", ""):
+        return show_form("The passwords do not match.")
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT user_id FROM Users WHERE LOWER(email) = %s",
+                (form["email"].lower(),)
+            )
+            if cursor.fetchone():
+                return show_form("An account with that email already exists. Log in instead.")
+
+            cursor.execute(
+                """
+                INSERT INTO Users
+                    (email, first_name, last_name, role)
+                VALUES
+                    (%s, %s, %s, 'Driver')
+                """,
+                (form["email"], form["first_name"], form["last_name"])
+            )
+            user_id = cursor.lastrowid
+
+            cursor.execute(
+                "INSERT INTO Password (user_id, password_hash) VALUES (%s, %s)",
+                (user_id, generate_password_hash(password, method="pbkdf2:sha256"))
+            )
+
+            # No sponsor yet: they apply to one next.
+            cursor.execute(
+                "INSERT INTO Drivers (driver_id, status) VALUES (%s, 'Applicant')",
+                (user_id,)
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    session.clear()
+    session["user_id"] = user_id
+    session["first_name"] = form["first_name"]
+    session["last_name"] = form["last_name"]
+    session["role"] = "Driver"
+    session.permanent = True
+    session["last_activity"] = datetime.now(timezone.utc).isoformat()
+
+    queue_event("Account", "Driver account created", success=True, status="Created",
+                user_id=user_id, driver_id=user_id)
+    flash("Your account is ready. Choose a sponsor below and apply to join their program.", "success")
+    return redirect(url_for("driver_sponsors"))
 
 # Add these imports if they are not already present.
 from flask import request, session, redirect, url_for, flash
@@ -7606,6 +7825,33 @@ def admin_set_sponsor_active(sponsor_id):
     return redirect(url_for("admin_sponsor_info", sponsor_id=sponsor_id))
 
 
+@app.route("/admin/sponsors/<int:sponsor_id>/edit", methods=["POST"])
+def admin_edit_sponsor(sponsor_id):
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            error = update_sponsor_organization(cursor, sponsor_id, request.form)
+        if not error:
+            conn.commit()
+    finally:
+        conn.close()
+
+    if error:
+        flash(error, "error")
+    else:
+        queue_event("Sponsor Management", "Sponsor edited by admin", success=True,
+                    status="Updated", sponsor_id=sponsor_id)
+        flash("Sponsor details saved.", "success")
+
+    return redirect(url_for("admin_sponsor_info", sponsor_id=sponsor_id))
+
+
 @app.route("/admin/sponsors/<int:sponsor_id>/point-value", methods=["POST"])
 def admin_set_point_value(sponsor_id):
     """Dollars each point is worth for this sponsor's catalog."""
@@ -7647,6 +7893,152 @@ def admin_set_point_value(sponsor_id):
         flash("No change was made.", "error")
 
     return redirect(back)
+
+
+@app.route("/admin/users")
+def admin_users():
+    """Every account, to edit or deactivate. Bulk upload's placeholder
+    organization users are left out."""
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    role = request.args.get("role", "")
+    if role not in ("Admin", "Sponsor", "Driver"):
+        role = ""
+
+    search = request.args.get("search", "").strip()[:100]
+    search_pattern = f"%{' '.join(search.split())}%"
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    Users.user_id, Users.first_name, Users.last_name,
+                    Users.email, Users.role, Users.is_active,
+                    Sponsors.company_name
+                FROM Users
+                LEFT JOIN Sponsor_Users
+                    ON Sponsor_Users.user_id = Users.user_id
+                LEFT JOIN Sponsors
+                    ON Sponsors.sponsor_id = Sponsor_Users.sponsor_id
+                WHERE Users.email NOT LIKE '%%@invalid.example'
+                  AND (%s = '' OR Users.role = %s)
+                  AND (
+                      %s = ''
+                      OR Users.email LIKE %s
+                      OR CONCAT_WS(' ', Users.first_name, Users.last_name) LIKE %s
+                  )
+                ORDER BY Users.is_active DESC, Users.role, Users.last_name, Users.first_name
+                LIMIT 500
+                """,
+                (role, role, search, search_pattern, search_pattern)
+            )
+            users = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return render_template("admin/users.html", users=users, role=role, search=search)
+
+
+def admin_users_back():
+    """Return to the Users page with the same filters."""
+    return redirect(url_for(
+        "admin_users",
+        role=request.args.get("role", ""),
+        search=request.args.get("search", "")
+    ))
+
+
+@app.route("/admin/users/<int:user_id>/edit", methods=["POST"])
+def admin_edit_user(user_id):
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    first_name = request.form.get("first_name", "").strip()
+    last_name = request.form.get("last_name", "").strip()
+    email = request.form.get("email", "").strip()
+
+    if not first_name or not email:
+        flash("First name and email are required.", "error")
+        return admin_users_back()
+
+    if len(first_name) > 100 or len(last_name) > 100 or len(email) > 255:
+        flash("Name or email is too long.", "error")
+        return admin_users_back()
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT user_id FROM Users WHERE LOWER(email) = %s AND user_id <> %s",
+                (email.lower(), user_id)
+            )
+            if cursor.fetchone():
+                flash(f"Another account already uses {email}.", "error")
+                return admin_users_back()
+
+            cursor.execute(
+                "UPDATE Users SET first_name = %s, last_name = %s, email = %s WHERE user_id = %s",
+                (first_name, last_name, email, user_id)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    if user_id == session["user_id"]:
+        session["first_name"] = first_name
+        session["last_name"] = last_name
+
+    queue_event("Account", "User edited by admin", success=True, status="Updated",
+                details={"target_type": "user", "target_id": user_id})
+    flash(f"Saved changes to {first_name} {last_name}.", "success")
+    return admin_users_back()
+
+
+@app.route("/admin/users/<int:user_id>/active", methods=["POST"])
+def admin_set_user_active(user_id):
+    """Deactivate (remove) or reactivate any account. A deactivated user can't
+    log in, but their history stays."""
+    if (
+        not session.get("user_id")
+        or (session.get("role") or "").lower() != "admin"
+    ):
+        abort(403)
+
+    active = request.form.get("active") == "1"
+
+    if user_id == session["user_id"] and not active:
+        flash("You can't deactivate your own account.", "error")
+        return admin_users_back()
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE Users SET is_active = %s WHERE user_id = %s",
+                (active, user_id)
+            )
+            changed = cursor.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+
+    if changed:
+        queue_event("Account", "User reactivated by admin" if active else "User deactivated by admin",
+                    success=True, status="Active" if active else "Inactive",
+                    details={"target_type": "user", "target_id": user_id})
+        flash("Account reactivated." if active else "Account deactivated. They can no longer log in.",
+              "success")
+
+    return admin_users_back()
 
 
 @app.route("/admin/admins", methods=["POST"])
@@ -7916,7 +8308,7 @@ def driver_cancel_order(order_id):
         conn.close()
 
     if order:
-        queue_event("Orders", "Order cancelled by driver", success=True, status="Cancelled",
+        queue_event("Order", "Order cancelled by driver", success=True, status="Cancelled",
                     sponsor_id=order["sponsor_id"],
                     details={"order_number": order["order_number"], "points": order["total_points"]})
         flash(f"Order {order['order_number']} was cancelled and "
@@ -7988,13 +8380,13 @@ def admin_order_status(order_id):
         conn.close()
 
     if updated and new_status == "Cancelled":
-        queue_event("Orders", "Order cancelled by admin", success=True, status="Cancelled",
+        queue_event("Order", "Order cancelled by admin", success=True, status="Cancelled",
                     sponsor_id=order["sponsor_id"], driver_id=order["driver_id"],
                     details={"order_number": order["order_number"], "points": order["total_points"]})
         flash(f"Order {order['order_number']} was cancelled and "
               f"{order['total_points']:,} points were refunded to the driver.", "success")
     elif updated:
-        queue_event("Orders", "Order status changed by admin", success=True, status=new_status,
+        queue_event("Order", "Order status changed by admin", success=True, status=new_status,
                     details={"target_type": "order", "target_id": order_id})
         flash(f"Order status changed to {new_status}.", "success")
     else:

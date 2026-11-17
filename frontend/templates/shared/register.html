@@ -1,0 +1,81 @@
+{% extends "shared/base.html" %}
+
+{% block title %}Create Driver Account{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block page_accessibility_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login-accessibility.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="login-page-wrapper">
+<section class="login-form-side login-form-side--single" aria-labelledby="auth-page-heading">
+    <div class="login-container">
+        <h1 id="auth-page-heading">Create a Driver Account</h1>
+        <p class="auth-intro">After signing up, you'll choose a sponsor and apply to join their program.</p>
+
+        {% if error %}
+            <div class="error" id="register-error" role="alert">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('register') }}">
+            <div class="auth-field">
+                <label for="first_name">First name</label>
+                <input type="text" name="first_name" id="first_name" maxlength="100"
+                       autocomplete="given-name" required value="{{ form.first_name }}">
+            </div>
+            <div class="auth-field">
+                <label for="last_name">Last name</label>
+                <input type="text" name="last_name" id="last_name" maxlength="100"
+                       autocomplete="family-name" required value="{{ form.last_name }}">
+            </div>
+            <div class="auth-field">
+                <label for="email">Email address</label>
+                <input type="email" name="email" id="email" maxlength="255" inputmode="email"
+                       autocomplete="email" placeholder="name@example.com" required value="{{ form.email }}">
+            </div>
+            <div class="auth-field">
+                <label for="password">Password</label>
+                <p id="password-requirements" class="auth-instructions">At least {{ min_length }} characters.</p>
+                <div class="password-wrapper">
+                    <input type="password" name="password" id="password" minlength="{{ min_length }}"
+                           autocomplete="new-password" required aria-describedby="password-requirements">
+                    <button type="button" class="toggle-password" aria-label="Show password"
+                            aria-controls="password" data-password-label="password">Show</button>
+                </div>
+            </div>
+            <div class="auth-field">
+                <label for="confirm_password">Confirm password</label>
+                <div class="password-wrapper">
+                    <input type="password" name="confirm_password" id="confirm_password"
+                           autocomplete="new-password" required>
+                    <button type="button" class="toggle-password" aria-label="Show confirmation password"
+                            aria-controls="confirm_password" data-password-label="confirmation password">Show</button>
+                </div>
+            </div>
+            <button type="submit" class="auth-submit">Create Account</button>
+        </form>
+
+        <p class="account-help">
+            Already have an account? <a href="{{ url_for('login') }}">Log in</a>
+        </p>
+    </div>
+</section>
+</div>
+
+<script>
+document.querySelectorAll('.login-container .toggle-password').forEach(function (button) {
+    button.addEventListener('click', function () {
+        const input = document.getElementById(button.getAttribute('aria-controls'));
+        if (!input) return;
+        const showing = input.type === 'password';
+        input.type = showing ? 'text' : 'password';
+        button.textContent = showing ? 'Hide' : 'Show';
+        button.setAttribute('aria-label', (showing ? 'Hide ' : 'Show ') + button.dataset.passwordLabel);
+    });
+});
+</script>
+{% endblock %}

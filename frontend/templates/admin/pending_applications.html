@@ -50,6 +50,19 @@
                         <td style="white-space: nowrap;">{{ (a.application_date|local).strftime('%b %d, %Y') if a.application_date else '' }}</td>
                         <td>
                             <div class="toolbar" style="flex-wrap: nowrap;">
+                                {% if a.status == 'Submitted' %}
+                                <form method="POST"
+                                      action="{{ url_for('admin_accept_application', application_id=a.application_id) }}"
+                                      onsubmit="return confirm('Approve this application for {{ a.sponsor_name }}?');">
+                                    <button type="submit" class="btn btn-primary btn-sm">Approve</button>
+                                </form>
+                                <form method="POST"
+                                      action="{{ url_for('admin_reject_application', application_id=a.application_id) }}"
+                                      onsubmit="var r = prompt('Reason for rejecting (sent to the applicant):'); if (!r) return false; this.reason.value = r;">
+                                    <input type="hidden" name="reason">
+                                    <button type="submit" class="btn btn-secondary btn-sm">Reject</button>
+                                </form>
+                                {% endif %}
                                 <form method="POST"
                                       action="{{ url_for('admin_cancel_application', application_id=a.application_id) }}"
                                       onsubmit="return confirm('Cancel this application? It stays in the history as Cancelled.');">

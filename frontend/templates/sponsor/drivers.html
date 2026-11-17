@@ -417,6 +417,8 @@
                                 {% endif %}
                                 {% if driver.status == 'Inactive' %}
                                     <span class="redeem-paused">Suspended</span>
+                                {% elif driver.status == 'Dropped' %}
+                                    <span class="redeem-paused">Removed</span>
                                 {% endif %}
                             </td>
 
@@ -585,11 +587,20 @@
                                             Suspend driver
                                         </button>
                                     </form>
-                                {% elif driver.status == 'Inactive' %}
+                                {% elif driver.status in ('Inactive', 'Dropped') %}
                                     <form method="POST" action="{{ status_url }}" class="redemption-form">
                                         <input type="hidden" name="action" value="reactivate">
                                         <button type="submit" class="btn btn-secondary btn-sm">
                                             Reactivate driver
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                {% if driver.status in ('Active', 'Inactive') %}
+                                    <form method="POST" action="{{ status_url }}" class="redemption-form"
+                                          onsubmit="return confirm('Remove {{ driver.first_name }} from your program? They keep their account and points history.');">
+                                        <input type="hidden" name="action" value="remove">
+                                        <button type="submit" class="btn btn-ghost-danger btn-sm">
+                                            Remove driver
                                         </button>
                                     </form>
                                 {% endif %}
