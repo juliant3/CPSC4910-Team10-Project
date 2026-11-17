@@ -12,15 +12,11 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Python 3.9 to match the EC2 server. The official image keeps working
+    # even after GitHub's newer runners stop offering 3.9 directly.
+    container: python:3.9-slim
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          # Match the EC2 server.
-          python-version: "3.9"
-          cache: pip
-          cache-dependency-path: frontend/requirements-test.txt
 
       - name: Install dependencies
         run: pip install -r frontend/requirements-test.txt
