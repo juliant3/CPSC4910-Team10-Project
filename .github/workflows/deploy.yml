@@ -16,7 +16,7 @@ jobs:
     # even after GitHub's newer runners stop offering 3.9 directly.
     container: python:3.9-slim
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install dependencies
         run: pip install -r frontend/requirements-test.txt
