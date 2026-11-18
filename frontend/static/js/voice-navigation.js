@@ -1,72 +1,84 @@
 
 let voiceEnabled = false;
-let hoverTimer;
+let hoverTimer = null;
 let lastElement = null;
+
+function stopReading() {
+    clearTimeout(hoverTimer);
+    window.speechSynthesis.cancel();
+}
 
 function speak(text) {
     if (!voiceEnabled || !text || !text.trim()) return;
 
-    window.speechSynthesis.cancel();
+    stopReading();
 
     const message = new SpeechSynthesisUtterance(text.trim());
-    message.rate = 0.9;
     message.lang = "en-US";
+    message.rate = 0.9;
 
     window.speechSynthesis.speak(message);
 }
 
-function getReadableText(element) {
+function isSensitive(element) {
+    return !!element.closest(
+        'input[type="password"], ' +
+        'input[type="hidden"], ' +
+        '[data-no-speech]'
+    );
+}
 
-    // Never read passwords or other sensitive fields.
-    if (element.matches(
-        'input[type="password"], input[type="hidden"]'
-    )) {
+function getReadableText(element) {
+    if (isSensitive(element)) return "";
+    if (element.querySelector('[data-no-speech]')) {
+    return "";
+}
+
+    // Only announce labels, never entered values.
+    if (element.matches("input, textarea, select")) {
+        const labels = element.labels;
+
+        if (labels && labels.length > 0) {
+            return labels[0].textContent.trim();
+        }
+
+        return element.getAttribute("aria-label") ||
+               element.placeholder ||
+               "";
+    }
+
+    // Do not announce password field containers.
+    if (element.querySelector('input[type="password"]')) {
         return "";
     }
 
-    // Never read values entered into form fields.
-    if (element.matches("input, textarea, select")) {
-        const label = element.labels?.[0]?.innerText;
-        const ariaLabel = element.getAttribute("aria-label");
-
-        return label || ariaLabel || element.placeholder || "";
-    }
-
     return element.getAttribute("aria-label") ||
-           element.innerText ||
-           element.textContent ||
+           element.textContent.trim() ||
            "";
 }
 
 function readElement(element) {
-
     if (!voiceEnabled || !element) return;
 
-    if (element.closest('[aria-hidden="true"], [hidden]')) return;
-
-    // Skip password fields completely.
-    if (element.closest('input[type="password"]')) return;
+    if (element.closest('[hidden], [aria-hidden="true"]')) {
+        return;
+    }
 
     const text = getReadableText(element);
 
-    if (text) {
-        speak(text);
-    }
+    if (text) speak(text);
 }
 
-// Read interactive elements on hover.
 document.addEventListener("mouseover", function(event) {
-
     if (!voiceEnabled) return;
 
     const element = event.target.closest(
-        "button, a, input, select, textarea, label"
+        "button, a, input, select, textarea"
     );
 
     if (!element || element === lastElement) return;
 
     clearTimeout(hoverTimer);
-
     lastElement = element;
 
     hoverTimer = setTimeout(function() {
@@ -75,9 +87,8 @@ document.addEventListener("mouseover", function(event) {
 });
 
 document.addEventListener("mouseout", function(event) {
-
     const element = event.target.closest(
-        "button, a, input, select, textarea, label"
+        "button, a, input, select, textarea"
     );
 
     if (element && !element.contains(event.relatedTarget)) {
@@ -86,73 +97,55 @@ document.addEventListener("mouseout", function(event) {
     }
 });
 
-// Support keyboard navigation.
 document.addEventListener("focusin", function(event) {
-
     if (!voiceEnabled) return;
-
-    clearTimeout(hoverTimer);
 
     const element = event.target.closest(
         "button, a, input, select, textarea"
     );
 
-    if (element) {
-        readElement(element);
-    }
+    if (element) readElement(element);
 });
 
-// Turn voice navigation on or off.
 function toggleVoice() {
-
     voiceEnabled = !voiceEnabled;
-
-    clearTimeout(hoverTimer);
-    window.speechSynthesis.cancel();
+    stopReading();
 
     const button = document.getElementById("voiceToggle");
 
-    button.textContent = voiceEnabled
-        ? " Voice On"
-        : " Voice Off";
+    if (button) {
+        button.textContent = voiceEnabled
+            ? "🔊 Voice On"
+            : "🔇 Voice Off";
 
-    button.setAttribute("aria-pressed", String(voiceEnabled));
+        button.setAttribute("aria-pressed", String(voiceEnabled));
+    }
 
     if (voiceEnabled) {
         speak("Voice navigation enabled");
     }
 }
 
-
 function readPage() {
     const main = document.getElementById("main-content");
-
     if (!main) return;
 
-    window.speechSynthesis.cancel();
+    stopReading();
 
     const copy = main.cloneNode(true);
 
-    // Remove content that should never be spoken.
     copy.querySelectorAll(
         'input, textarea, select, script, style, ' +
-        '[hidden], [aria-hidden="true"], ' +
-        '.sr-only, [data-no-speech]'
+        'button, [hidden], [aria-hidden="true"], ' +
+        '[data-no-speech], form'
     ).forEach(element => element.remove());
 
-    const text = copy.innerText || copy.textContent;
+    const text = copy.textContent.trim();
+    if (!text) return;
 
-    if (!text.trim()) return;
-
-    const message = new SpeechSynthesisUtterance(text.trim());
-    message.rate = 0.9;
+    const message = new SpeechSynthesisUtterance(text);
     message.lang = "en-US";
+    message.rate = 0.9;
 
     window.speechSynthesis.speak(message);
 }
-
-function stopReading() {
-    clearTimeout(hoverTimer);
-    window.speechSynthesis.cancel();
-}
-

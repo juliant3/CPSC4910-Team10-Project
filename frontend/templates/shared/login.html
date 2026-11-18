@@ -79,6 +79,7 @@
                     <input type="password" name="new_password" id="new_password"
                            autocomplete="new-password" minlength="8" required
                            aria-describedby="password-requirements strength-text{% if error %} reset-error{% endif %}"
+                           data-no-speech
                            {% if error %}aria-invalid="true"{% endif %}>
                     <button type="button" class="toggle-password" aria-label="Show new password"
                             aria-controls="new_password" data-password-label="new password">Show</button>
@@ -92,6 +93,7 @@
                 <div class="password-wrapper">
                     <input type="password" name="confirm_password" id="confirm_password"
                            autocomplete="new-password" required
+                           data-no-speech
                            {% if error %}aria-invalid="true" aria-describedby="reset-error"{% endif %}>
                     <button type="button" class="toggle-password" aria-label="Show confirmation password"
                             aria-controls="confirm_password" data-password-label="confirmation password">Show</button>
@@ -131,7 +133,7 @@
             <div class="success-box" role="status">{{ message }}</div>
         {% endif %}
         {% if error %}
-            <div class="error" id="login-error" role="alert">{{ error }}</div>
+            <div class="error" id="login-error" role="alert" tabindex="-1">{{ error }}</div>
         {% endif %}
 
         <form method="POST" action="{{ url_for('login') }}">
@@ -146,6 +148,7 @@
                 <div class="password-wrapper">
                     <input type="password" name="password" id="password"
                            autocomplete="current-password" required
+                           data-no-speech
                            {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}>
                     <button type="button" class="toggle-password" aria-label="Show password"
                             aria-controls="password" data-password-label="password">Show</button>
@@ -178,7 +181,11 @@
             const showing = input.type === 'password';
             input.type = showing ? 'text' : 'password';
             button.textContent = showing ? 'Hide' : 'Show';
-            button.setAttribute('aria-label', (showing ? 'Hide ' : 'Show ') + button.dataset.passwordLabel);
+            button.setAttribute(
+                'aria-label',
+                (showing ? 'Hide ' : 'Show ') + button.dataset.passwordLabel
+            );
+            button.setAttribute('aria-pressed', String(showing));
         });
     });
 
@@ -215,6 +222,11 @@
         // Announce a change in category, not every keystroke.
         if (strengthText.textContent !== newLevel) strengthText.textContent = newLevel;
     });
+    const loginError = document.getElementById("login-error");
+
+if (loginError) {
+    loginError.focus();
+}
 })();
 </script>
 {% endblock %}
