@@ -120,6 +120,15 @@
             <option value="high-contrast">High Contrast</option>
         </select>
 
+
+<label>Voice Navigation</label>
+<button type="button"
+        id="voiceToggle"
+        onclick="toggleVoice()">
+    Voice Off
+</button>
+
+
         <div class="accessibility-actions">
             <button id="reset-accessibility" type="button">
                 Reset to Defaults
@@ -139,8 +148,12 @@
         <script src="{{ url_for('static', filename='js/session-timeout.js') }}"></script>
     {% endif %}
 
-    <!-- NEW: Accessibility JavaScript -->
-    <script src="{{ url_for('static', filename='js/accessibility.js') }}" defer></script>
+    
+<!-- Accessibility JavaScript -->
+<script src="{{ url_for('static', filename='js/accessibility.js') }}" defer></script>
+
+<!-- Voice Navigation JavaScript -->
+<script src="{{ url_for('static', filename='js/voice-navigation.js') }}" defer></script>
 
 </body>
 </html>
