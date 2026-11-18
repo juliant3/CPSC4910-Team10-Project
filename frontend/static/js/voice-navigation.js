@@ -29,30 +29,21 @@ function isSensitive(element) {
 }
 
 function getReadableText(element) {
-    if (element.matches('[data-no-speech]')) {
-    return element.getAttribute("placeholder") || "Password field";
-}
-    if (isSensitive(element)) return "";
-    if (element.querySelector('[data-no-speech]')) {
-    return "";
-}
 
-    // Only announce labels, never entered values.
-    if (element.matches("input, textarea, select")) {
-        const labels = element.labels;
-
-        if (labels && labels.length > 0) {
-            return labels[0].textContent.trim();
-        }
-
-        return element.getAttribute("aria-label") ||
-               element.placeholder ||
-               "";
+    // Password fields: announce instructions, never the value.
+    if (element.matches('input[type="password"], input[data-no-speech]')) {
+        return element.getAttribute("placeholder") || "Enter your password";
     }
 
-    // Do not announce password field containers.
-    if (element.querySelector('input[type="password"]')) {
-        return "";
+    // Skip other sensitive elements.
+    if (isSensitive(element)) return "";
+
+    // Never read entered form values.
+    if (element.matches("input, textarea, select")) {
+        return element.getAttribute("aria-label") ||
+               element.labels?.[0]?.textContent.trim() ||
+               element.placeholder ||
+               "";
     }
 
     return element.getAttribute("aria-label") ||
