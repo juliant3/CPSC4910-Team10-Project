@@ -1,5 +1,5 @@
 
-let voiceEnabled = false;
+let voiceEnabled = localStorage.getItem("da-voice-navigation") === "true";
 let hoverTimer = null;
 let lastElement = null;
 
@@ -101,24 +101,41 @@ document.addEventListener("focusin", function(event) {
     if (element) readElement(element);
 });
 
+
 function toggleVoice() {
     voiceEnabled = !voiceEnabled;
+
+    // Save the user's preference.
+    localStorage.setItem(
+        "da-voice-navigation",
+        String(voiceEnabled)
+    );
+
     stopReading();
 
-    const button = document.getElementById("voiceToggle");
-
-    if (button) {
-        button.textContent = voiceEnabled
-            ? "🔊 Voice On"
-            : "🔇 Voice Off";
-
-        button.setAttribute("aria-pressed", String(voiceEnabled));
-    }
+    updateVoiceButton();
 
     if (voiceEnabled) {
         speak("Voice navigation enabled");
     }
 }
+
+
+function updateVoiceButton() {
+    const button = document.getElementById("voiceToggle");
+
+    if (!button) return;
+
+    button.textContent = voiceEnabled
+        ? "Voice On"
+        : "Voice Off";
+
+    button.setAttribute(
+        "aria-pressed",
+        String(voiceEnabled)
+    );
+}
+
 
 function readPage() {
     const main = document.getElementById("main-content");
@@ -143,3 +160,7 @@ function readPage() {
 
     window.speechSynthesis.speak(message);
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+    updateVoiceButton();
+});
