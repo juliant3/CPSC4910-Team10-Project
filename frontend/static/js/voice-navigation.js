@@ -29,6 +29,9 @@ function isSensitive(element) {
 }
 
 function getReadableText(element) {
+    if (element.matches('[data-no-speech]')) {
+    return element.getAttribute("placeholder") || "Password field";
+}
     if (isSensitive(element)) return "";
     if (element.querySelector('[data-no-speech]')) {
     return "";
