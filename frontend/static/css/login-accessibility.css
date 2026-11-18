@@ -409,18 +409,23 @@
     font-size: 0.95rem;
 }
 
-/* Prevent the persistent accessibility-settings launcher from covering the
-   login/password-reset controls at narrow widths or 400% browser zoom. */
+
+/* Keep accessibility settings visible while scrolling on login page */
 body:has(.login-page-wrapper) #accessibility-button {
-    position: static;
-    align-self: flex-end;
-    flex: 0 0 auto;
-    margin: 12px 16px 16px;
-    transform: none;
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 1000;
+    margin: 0;
 }
+
 body:has(.login-page-wrapper) #accessibility-panel {
-    bottom: 16px;
+    position: fixed;
+    right: 20px;
+    bottom: 85px;
+    z-index: 1001;
 }
+
 
 /* Avoid momentary foreground/background contrast failures when themes switch. */
 :root .login-page-wrapper .login-container button.auth-submit {
