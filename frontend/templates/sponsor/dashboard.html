@@ -121,6 +121,61 @@
 
     </div>
 
+
+<!-- Driver Requirements -->
+<div class="card" style="margin-bottom: 28px;">
+    <div class="card-header">
+        <h2>Driver Requirements</h2>
+    </div>
+
+    <p style="margin-bottom: 16px;">
+        Set the requirements drivers must meet to join your program.
+    </p>
+
+    {% if requirements %}
+        <ul class="row-list">
+            {% for requirement in requirements %}
+            <li class="row-item">
+                <div class="row-main">
+                    <span class="row-title">
+                        {{ requirement.requirement_text }}
+                    </span>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <div class="empty-state">
+            <p>You have not added any driver requirements yet.</p>
+        </div>
+    {% endif %}
+
+    <form method="POST"
+          action="{{ url_for('sponsor_add_requirement') }}"
+          style="margin-top: 20px;">
+
+        <label for="requirement_text">
+            Add a Requirement
+        </label>
+
+        <input
+            type="text"
+            id="requirement_text"
+            name="requirement_text"
+            class="input"
+            placeholder="Example: Must have a valid driver's license"
+            maxlength="255"
+            required
+            style="width: 100%; margin: 10px 0;"
+        >
+
+        <button type="submit" class="btn btn-primary">
+            Add Requirement
+        </button>
+    </form>
+</div>
+
+
     <h2 class="section-title">Quick links</h2>
     <div class="quick-links">
         <a href="{{ url_for('sponsor_drivers') }}" class="quick-link">

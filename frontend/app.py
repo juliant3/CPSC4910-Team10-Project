@@ -761,19 +761,34 @@ def get_sponsor_dashboard_data(cursor, sponsor_id):
     }
 
 
+
 def render_sponsor_dashboard():
 
     conn = get_db()
+    sponsor_id = current_sponsor_id()
 
     try:
         with conn.cursor() as cursor:
-            data = get_sponsor_dashboard_data(cursor, current_sponsor_id())
+            data = get_sponsor_dashboard_data(cursor, sponsor_id)
 
             cursor.execute(
                 "SELECT company_name FROM Sponsors WHERE sponsor_id = %s",
-                (current_sponsor_id(),)
+                (sponsor_id,)
             )
             sponsor = cursor.fetchone()
+
+            # Get this sponsor's driver requirements
+            cursor.execute(
+                """
+                SELECT requirement_id, requirement_text
+                FROM Sponsor_Requirements
+                WHERE sponsor_id = %s
+                ORDER BY requirement_id
+                """,
+                (sponsor_id,)
+            )
+            requirements = cursor.fetchall()
+
     finally:
         conn.close()
 
@@ -783,8 +798,10 @@ def render_sponsor_dashboard():
         role=session["role"],
         company_name=sponsor["company_name"] if sponsor else None,
         today=local_now(),
+        requirements=requirements,
         **data
     )
+
 
 
 @app.route("/")
@@ -2900,6 +2917,44 @@ def get_driver_profile_data(cursor, driver_id, sponsor_id=None):
     answers = cursor.fetchall()
 
     return driver, answers
+
+
+@app.route("/sponsor/requirements/add", methods=["POST"])
+def sponsor_add_requirement():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    requirement_text = request.form.get("requirement_text", "").strip()
+
+    if not requirement_text or len(requirement_text) > 255:
+        flash("Enter a requirement between 1 and 255 characters.", "error")
+        return redirect(url_for("sponsor_dashboard"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO Sponsor_Requirements
+                    (sponsor_id, requirement_text)
+                VALUES (%s, %s)
+                """,
+                (current_sponsor_id(), requirement_text)
+            )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+    flash("Driver requirement added successfully.", "success")
+    return redirect(url_for("sponsor_dashboard"))
+
 
 
 @app.route("/driver/profile")
