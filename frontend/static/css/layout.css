@@ -1854,10 +1854,6 @@ h1, h2, h3 {
     color: var(--slate);
 }
 
-.sponsor-details[open] .sponsor-expand-label::after {
-    content: " (Open)";
-}
-
 .sponsor-requirements {
     margin-top: 16px;
     padding: 16px;
@@ -1893,5 +1889,136 @@ h1, h2, h3 {
     outline: 2px solid var(--purple-500);
     outline-offset: 4px;
     border-radius: 4px;
+}
+
+.sponsor-expand-label .details-open {
+    display: none;
+}
+
+.sponsor-details[open] .details-closed {
+    display: none;
+}
+
+.sponsor-details[open] .details-open {
+    display: inline;
+}
+
+
+/* =========================
+   Available Sponsors Layout
+   ========================= */
+
+.sponsor-list-item {
+    display: block;
+    padding: 18px 24px;
+}
+
+.sponsor-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.sponsor-row-name {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.sponsor-row-name .row-sub {
+    display: block;
+}
+
+.sponsor-row-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+}
+
+.sponsor-list-item .sponsor-details {
+    display: block;
+    margin-top: 12px;
+    width: 100%;
+}
+
+.sponsor-details-toggle {
+    display: inline-block;
+    cursor: pointer;
+    color: var(--purple-700);
+    font-size: 13px;
+    font-weight: 600;
+    list-style: none;
+}
+
+.sponsor-details-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.sponsor-details-toggle .details-open {
+    display: none;
+}
+
+.sponsor-details[open] .details-closed {
+    display: none;
+}
+
+.sponsor-details[open] .details-open {
+    display: inline;
+}
+
+.sponsor-details-toggle:focus-visible {
+    outline: 2px solid var(--purple-500);
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+.sponsor-list-item .sponsor-requirements {
+    margin-top: 14px;
+    padding: 18px;
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.sponsor-requirements h3 {
+    margin: 0 0 12px;
+    font-size: 15px;
+}
+
+.sponsor-requirements ul {
+    margin: 0;
+    padding-left: 22px;
+}
+
+.sponsor-requirements li {
+    margin-bottom: 8px;
+}
+
+.sponsor-requirements p {
+    margin: 0;
+    color: var(--slate);
+}
+
+/* Mobile */
+
+@media (max-width: 700px) {
+    .sponsor-row-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .sponsor-row-controls {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .sponsor-list-item {
+        padding: 16px;
+    }
 }
 

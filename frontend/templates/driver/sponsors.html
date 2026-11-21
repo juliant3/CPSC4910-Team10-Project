@@ -1,3 +1,4 @@
+
 {% extends "shared/base.html" %}
 
 {% block title %}Available Sponsors{% endblock %}
@@ -15,7 +16,9 @@
     </div>
 
     {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
+    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">
+        {{ message }}
+    </div>
     {% endfor %}
 
     {% if open_applications %}
@@ -23,6 +26,7 @@
         <div class="card-header">
             <h2>Your open applications</h2>
         </div>
+
         <ul class="row-list">
             {% for app in open_applications %}
             <li class="row-item">
@@ -34,10 +38,13 @@
                             · sent {{ (app.application_date|local).strftime('%b %d, %Y') if app.application_date else '' }}
                         </p>
                     </div>
+
                     <form method="POST"
                           action="{{ url_for('driver_cancel_application', application_id=app.application_id) }}"
                           onsubmit="return confirm('Withdraw your application to {{ app.company_name }}?');">
-                        <button type="submit" class="btn btn-secondary btn-sm">Withdraw</button>
+                        <button type="submit" class="btn btn-secondary btn-sm">
+                            Withdraw
+                        </button>
                     </form>
                 </div>
             </li>
@@ -54,85 +61,96 @@
         {% if sponsors %}
         <ul class="row-list">
             {% for sponsor in sponsors %}
-            <li class="row-item">
-                <div class="row-main">
-                    
-<details class="sponsor-details">
-    <summary class="row-link">
-        <span class="avatar">{{ sponsor.company_name[0]|upper }}</span>
+            <li class="row-item sponsor-list-item">
 
-        <span class="row-text">
-            <span class="row-title">{{ sponsor.company_name }}</span>
-            <span class="row-sub">
-                {{ sponsor.email or '' }}
-                {% if sponsor.email and sponsor.phone %} &middot; {% endif %}
-                {{ sponsor.phone or '' }}
-            </span>
-        </span>
+                <div class="sponsor-row-top">
 
-        <span class="sponsor-expand-label">View Details</span>
-    </summary>
+                    <div class="sponsor-row-name">
+                        <span class="avatar">
+                            {{ sponsor.company_name[0]|upper }}
+                        </span>
 
-    <div class="sponsor-requirements">
-        <h3>Driver Requirements</h3>
-
-        {% if sponsor.requirements %}
-            <ul>
-                {% for requirement in sponsor.requirements %}
-                <li>{{ requirement.requirement_text }}</li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>This sponsor has not listed any driver requirements.</p>
-        {% endif %}
-    </div>
-</details>
-
-
-                    <div class="row-meta">
-                        <span class="row-meta-label">Point Value</span>
-                        <span class="row-meta-value">${{ "%.4f"|format(sponsor.point_value) }}</span>
+                        <span class="row-text">
+                            <span class="row-title">
+                                {{ sponsor.company_name }}
+                            </span>
+                            <span class="row-sub">
+                                {{ sponsor.email or '' }}
+                                {% if sponsor.email and sponsor.phone %}
+                                    &middot;
+                                {% endif %}
+                                {{ sponsor.phone or '' }}
+                            </span>
+                        </span>
                     </div>
 
-                    
-<div class="row-actions">
+                    <div class="sponsor-row-controls">
 
-    
-{% if sponsor.application_status == 'Pending' %}
-    <form method="POST"
-          action="{{ url_for('driver_apply_to_sponsor', sponsor_id=sponsor.sponsor_id) }}">
-        <button type="submit" class="btn btn-secondary btn-sm">
-            Continue Application
-        </button>
-    </form>
+                        <div class="row-meta">
+                            <span class="row-meta-label">Point Value</span>
+                            <span class="row-meta-value">
+                                ${{ "%.4f"|format(sponsor.point_value) }}
+                            </span>
+                        </div>
 
-    {% elif sponsor.application_status == 'Submitted' %}
-        <span class="btn btn-secondary btn-sm">
-            Application Pending
-        </span>
+                        <div class="row-actions">
 
-    {% elif sponsor.is_member %}
-        <span class="btn btn-secondary btn-sm">
-            Already Joined
-        </span>
+                            {% if sponsor.application_status == 'Pending' %}
+                            <form method="POST"
+                                  action="{{ url_for('driver_apply_to_sponsor', sponsor_id=sponsor.sponsor_id) }}">
+                                <button type="submit" class="btn btn-secondary btn-sm">
+                                    Continue Application
+                                </button>
+                            </form>
 
-    {% else %}
-        <form method="POST"
-              action="{{ url_for('driver_apply_to_sponsor', sponsor_id=sponsor.sponsor_id) }}">
+                            {% elif sponsor.application_status == 'Submitted' %}
+                            <span class="btn btn-secondary btn-sm">
+                                Application Pending
+                            </span>
 
-            <button type="submit" class="btn btn-primary btn-sm">
-                Apply
-            </button>
+                            {% elif sponsor.is_member %}
+                            <span class="btn btn-secondary btn-sm">
+                                Already Joined
+                            </span>
 
-        </form>
-    {% endif %}
+                            {% else %}
+                            <form method="POST"
+                                  action="{{ url_for('driver_apply_to_sponsor', sponsor_id=sponsor.sponsor_id) }}">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    Apply
+                                </button>
+                            </form>
+                            {% endif %}
 
-</div>
-
+                        </div>
+                    </div>
                 </div>
+
+                <details class="sponsor-details">
+                    <summary class="sponsor-details-toggle">
+                        <span class="details-closed">View Details</span>
+                        <span class="details-open">Hide Details</span>
+                    </summary>
+
+                    <div class="sponsor-requirements">
+                        <h3>Driver Requirements</h3>
+
+                        {% if sponsor.requirements %}
+                        <ul>
+                            {% for requirement in sponsor.requirements %}
+                            <li>{{ requirement.requirement_text }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p>This sponsor has not listed any driver requirements.</p>
+                        {% endif %}
+                    </div>
+                </details>
+
             </li>
             {% endfor %}
         </ul>
+
         {% else %}
         <div class="empty-state">
             <h3>No sponsors available</h3>
