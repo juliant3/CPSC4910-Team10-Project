@@ -56,15 +56,38 @@
             {% for sponsor in sponsors %}
             <li class="row-item">
                 <div class="row-main">
-                    <div class="row-link">
-                        <span class="avatar">{{ sponsor.company_name[0]|upper }}</span>
-                        <span class="row-text">
-                            <p class="row-title">{{ sponsor.company_name }}</p>
-                            <p class="row-sub">
-                                {{ sponsor.email or '' }}{% if sponsor.email and sponsor.phone %} &middot; {% endif %}{{ sponsor.phone or '' }}
-                            </p>
-                        </span>
-                    </div>
+                    
+<details class="sponsor-details">
+    <summary class="row-link">
+        <span class="avatar">{{ sponsor.company_name[0]|upper }}</span>
+
+        <span class="row-text">
+            <span class="row-title">{{ sponsor.company_name }}</span>
+            <span class="row-sub">
+                {{ sponsor.email or '' }}
+                {% if sponsor.email and sponsor.phone %} &middot; {% endif %}
+                {{ sponsor.phone or '' }}
+            </span>
+        </span>
+
+        <span class="sponsor-expand-label">View Details</span>
+    </summary>
+
+    <div class="sponsor-requirements">
+        <h3>Driver Requirements</h3>
+
+        {% if sponsor.requirements %}
+            <ul>
+                {% for requirement in sponsor.requirements %}
+                <li>{{ requirement.requirement_text }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>This sponsor has not listed any driver requirements.</p>
+        {% endif %}
+    </div>
+</details>
+
 
                     <div class="row-meta">
                         <span class="row-meta-label">Point Value</span>

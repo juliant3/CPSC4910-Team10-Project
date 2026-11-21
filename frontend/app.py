@@ -3605,6 +3605,24 @@ def driver_sponsors():
             """)
             sponsors = cursor.fetchall()
 
+            # Get the driver requirements for all active sponsors.
+            cursor.execute("""
+                SELECT sponsor_id, requirement_text
+                FROM Sponsor_Requirements
+                ORDER BY requirement_id
+            """)
+
+            requirements = cursor.fetchall()
+
+            # Give each sponsor their own list of requirements.
+            for sponsor in sponsors:
+                sponsor["requirements"] = [
+                    requirement
+                    for requirement in requirements
+                    if requirement["sponsor_id"] == sponsor["sponsor_id"]
+                ]
+
+
             # Get the driver's open applications.
             cursor.execute("""
                 SELECT

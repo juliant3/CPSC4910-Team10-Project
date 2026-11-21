@@ -1821,3 +1821,77 @@ h1, h2, h3 {
     }
 }
 
+
+/* Available Sponsor Details */
+
+.sponsor-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.sponsor-details summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.sponsor-details summary::-webkit-details-marker {
+    display: none;
+}
+
+.sponsor-details .row-sub {
+    display: block;
+}
+
+.sponsor-expand-label {
+    margin-left: auto;
+    color: var(--purple-700);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sponsor-details[open] .sponsor-expand-label {
+    color: var(--slate);
+}
+
+.sponsor-details[open] .sponsor-expand-label::after {
+    content: " (Open)";
+}
+
+.sponsor-requirements {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.sponsor-requirements h3 {
+    margin: 0 0 12px;
+    font-size: 15px;
+}
+
+.sponsor-requirements ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.sponsor-requirements li {
+    margin-bottom: 8px;
+}
+
+.sponsor-requirements li:last-child {
+    margin-bottom: 0;
+}
+
+.sponsor-requirements p {
+    margin: 0;
+    color: var(--slate);
+}
+
+.sponsor-details summary:focus-visible {
+    outline: 2px solid var(--purple-500);
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
