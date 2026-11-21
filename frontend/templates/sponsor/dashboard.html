@@ -122,59 +122,74 @@
     </div>
 
 
+
 <!-- Driver Requirements -->
-<div class="card" style="margin-bottom: 28px;">
+<div class="card driver-requirements-card">
+
     <div class="card-header">
         <h2>Driver Requirements</h2>
     </div>
 
-    <p style="margin-bottom: 16px;">
-        Set the requirements drivers must meet to join your program.
-    </p>
+    <div class="driver-requirements-content">
 
-    {% if requirements %}
-        <ul class="row-list">
+        <p class="driver-requirements-description">
+            Set the requirements drivers must meet to join your program.
+        </p>
+
+        {% if requirements %}
+        <ul class="driver-requirements-list">
             {% for requirement in requirements %}
-            <li class="row-item">
-                <div class="row-main">
-                    <span class="row-title">
-                        {{ requirement.requirement_text }}
-                    </span>
-                </div>
+            <li class="driver-requirement-item">
+
+                <span>{{ requirement.requirement_text }}</span>
+
+                <form method="POST"
+                      action="{{ url_for('sponsor_delete_requirement', requirement_id=requirement.requirement_id) }}">
+
+                    <button type="submit"
+                            class="btn btn-secondary btn-sm"
+                            aria-label="Remove requirement: {{ requirement.requirement_text }}"
+                            onclick="return confirm('Remove this requirement?');">
+                        Remove
+                    </button>
+
+                </form>
+
             </li>
             {% endfor %}
         </ul>
-    {% else %}
-        <div class="empty-state">
-            <p>You have not added any driver requirements yet.</p>
-        </div>
-    {% endif %}
+        {% else %}
+        <p class="driver-requirements-empty">
+            You have not added any driver requirements yet.
+        </p>
+        {% endif %}
 
-    <form method="POST"
-          action="{{ url_for('sponsor_add_requirement') }}"
-          style="margin-top: 20px;">
+        <form method="POST"
+              action="{{ url_for('sponsor_add_requirement') }}"
+              class="driver-requirements-form">
 
-        <label for="requirement_text">
-            Add a Requirement
-        </label>
+            <label for="requirement_text">
+                Add a Requirement
+            </label>
 
-        <input
-            type="text"
-            id="requirement_text"
-            name="requirement_text"
-            class="input"
-            placeholder="Example: Must have a valid driver's license"
-            maxlength="255"
-            required
-            style="width: 100%; margin: 10px 0;"
-        >
+            <input
+                type="text"
+                id="requirement_text"
+                name="requirement_text"
+                class="input"
+                placeholder="Example: Must have a valid driver's license"
+                maxlength="255"
+                required
+            >
 
-        <button type="submit" class="btn btn-primary">
-            Add Requirement
-        </button>
-    </form>
+            <button type="submit" class="btn btn-primary">
+                Add Requirement
+            </button>
+
+        </form>
+
+    </div>
 </div>
-
 
     <h2 class="section-title">Quick links</h2>
     <div class="quick-links">

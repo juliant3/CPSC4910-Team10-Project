@@ -2956,6 +2956,36 @@ def sponsor_add_requirement():
     return redirect(url_for("sponsor_dashboard"))
 
 
+@app.route("/sponsor/requirements/<int:requirement_id>/delete", methods=["POST"])
+def sponsor_delete_requirement(requirement_id):
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session["role"].lower() != "sponsor":
+        return redirect(url_for("home"))
+
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM Sponsor_Requirements
+                WHERE requirement_id = %s
+                  AND sponsor_id = %s
+                """,
+                (requirement_id, current_sponsor_id())
+            )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+    flash("Driver requirement removed.", "success")
+    return redirect(url_for("sponsor_dashboard"))
+
 
 @app.route("/driver/profile")
 def driver_profile():

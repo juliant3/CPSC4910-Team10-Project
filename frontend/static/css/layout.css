@@ -1745,3 +1745,79 @@ h1, h2, h3 {
     background: #6042A0;
     border-color: #6042A0;
 }
+
+
+/* =========================
+   Driver Requirements
+   ========================= */
+
+.driver-requirements-card {
+    margin-bottom: 28px;
+}
+
+.driver-requirements-content {
+    padding: 20px;
+}
+
+.driver-requirements-description {
+    margin: 0 0 16px;
+    color: var(--slate);
+}
+
+.driver-requirements-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+}
+
+.driver-requirement-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.driver-requirement-item span {
+    overflow-wrap: anywhere;
+}
+
+.driver-requirement-item form {
+    flex-shrink: 0;
+}
+
+.driver-requirements-empty {
+    margin: 0 0 20px;
+    color: var(--slate);
+}
+
+.driver-requirements-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.driver-requirements-form label {
+    color: var(--purple-900);
+    font-weight: 600;
+}
+
+.driver-requirements-form input {
+    width: 100%;
+}
+
+.driver-requirements-form button {
+    align-self: flex-start;
+}
+
+@media (max-width: 600px) {
+    .driver-requirements-content {
+        padding: 16px;
+    }
+
+    .driver-requirement-item {
+        flex-wrap: wrap;
+    }
+}
+
