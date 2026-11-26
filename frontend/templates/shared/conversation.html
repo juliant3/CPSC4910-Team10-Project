@@ -6,10 +6,11 @@
 <div class="page">
     <div class="page-header">
         <div>
-            <a href="{{ url_for('chat.inbox') }}" class="eyebrow">← All messages</a>
+            {% if convo.get('show_back', True) %}<a href="{{ convo.back_url or url_for('chat.inbox') }}" class="eyebrow">← All messages</a>{% else %}<span class="eyebrow">Sponsor</span>{% endif %}
             <h1>{{ convo.title }}</h1>
             <p>
-                {% if convo.side == 'driver' %}Your conversation with this sponsor's team.
+                {% if convo.subtitle %}{{ convo.subtitle }}
+                {% elif convo.side == 'driver' %}Your conversation with this sponsor's team.
                 {% else %}Anyone on your team can read and reply here.{% endif %}
             </p>
         </div>
@@ -21,7 +22,7 @@
 
     <div class="card chat-card">
         <div class="chat-log" id="chat-log" aria-live="polite"
-             data-poll-url="{{ url_for('chat.new_messages', other_id=convo.other_id) }}"
+             data-poll-url="{{ convo.poll_url or url_for('chat.new_messages', other_id=convo.other_id) }}"
              data-last-id="{{ messages[-1].message_id if messages else 0 }}">
             {% for m in messages %}
             <div class="chat-bubble{{ ' mine' if m.mine }}">

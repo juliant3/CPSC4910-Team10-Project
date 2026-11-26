@@ -74,7 +74,7 @@
                 {% set current_sort = request.args.get('sort', 'newest') %}
                 <div class="toolbar" style="align-items: center;">
                     <nav class="segmented" aria-label="Filter by status">
-                        {% for key, label in [('all', 'All'), ('Submitted', 'New'), ('Pending', 'Pending'), ('Accepted', 'Accepted'), ('Rejected', 'Rejected')] %}
+                        {% for key, label in [('all', 'All'), ('Submitted', 'New'), ('Pending', 'Pending'), ('Accepted', 'Accepted'), ('Rejected', 'Rejected'), ('Cancelled', 'Cancelled')] %}
                         <a href="{{ url_for('sponsor_applications', status=key, sort=current_sort) }}"
                            class="{{ 'active' if current == key }}">
                             {{ label }} ({{ counts['Total'] if key == 'all' else counts[key] }})
@@ -127,7 +127,7 @@
                         {% endif %}
                     </div>
 
-                    {% if application.applicant_dob or application.applicant_address or application.answers or (st == 'Rejected' and application.reason) or st == 'Submitted' %}
+                    {% if application.applicant_dob or application.applicant_address or application.answers or (st in ('Rejected', 'Cancelled') and application.reason) or st == 'Submitted' %}
                     <div class="row-detail">
 
                         {% if application.applicant_dob %}<p><strong>DOB:</strong> {{ application.applicant_dob }}</p>{% endif %}
@@ -139,6 +139,8 @@
 
                         {% if st == 'Rejected' and application.reason %}
                             <p style="color: var(--bad);"><strong>Rejection reason:</strong> {{ application.reason }}</p>
+                        {% elif st == 'Cancelled' and application.reason %}
+                            <p class="muted">{{ application.reason }}</p>
                         {% endif %}
 
                         {% if st == 'Submitted' %}

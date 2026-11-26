@@ -1,4 +1,4 @@
-"""Chat between drivers and sponsors.
+"""Chat between drivers and sponsors, and between sponsors and admins.
 
 There is one conversation per driver and sponsor organization; everyone on the
 sponsor's team shares the sponsor side. Only drivers in a sponsor's program
@@ -341,3 +341,303 @@ def new_messages(other_id):
          "sender": m["sender"], "time": m["time"]}
         for m in messages
     ])
+
+
+# ==========================================
+# SPONSOR <-> ADMIN SUPPORT
+# Each sponsor organization has one conversation with "the admins". Every
+# admin sees every sponsor's conversation and any of them can reply; the
+# sponsor's whole team shares its side, like driver chats.
+# ==========================================
+
+def _support_role():
+    """'admin' or 'sponsor' for a user who can use support messages, else None."""
+    if "user_id" not in session:
+        return None
+    role = (session.get("role") or "").lower()
+    return role if role in ("admin", "sponsor") else None
+
+
+def count_unread_support(cursor):
+    """Unread support messages for the navbar badge: from sponsors for admins,
+    from admins for a sponsor."""
+    role = _support_role()
+    if role == "admin":
+        cursor.execute(
+            "SELECT COUNT(*) AS c FROM Support_Messages WHERE from_admin = FALSE AND read_by_admin_at IS NULL"
+        )
+    elif role == "sponsor":
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS c
+            FROM Support_Messages
+            WHERE sponsor_id = %s
+              AND from_admin = TRUE
+              AND read_by_sponsor_at IS NULL
+            """,
+            (_website().current_sponsor_id(),),
+        )
+    else:
+        return 0
+    row = cursor.fetchone()
+    return row["c"] if row else 0
+
+
+def _support_convo(cursor, sponsor_id):
+    cursor.execute("SELECT company_name FROM Sponsors WHERE sponsor_id = %s", (sponsor_id,))
+    sponsor = cursor.fetchone()
+    if not sponsor:
+        return None
+
+    is_admin = _support_role() == "admin"
+    return {
+        "side": "admin" if is_admin else "sponsor",
+        "sponsor_id": sponsor_id,
+        "title": sponsor["company_name"] if is_admin else "Admin Support",
+        "subtitle": ("Every admin can read and reply to this sponsor's conversation." if is_admin
+                     else "Message the program administrators. Anyone on your team can read and reply."),
+        # A sponsor has just the one support conversation, so no inbox to go back to.
+        "show_back": is_admin,
+        "back_url": url_for("chat.admin_inbox") if is_admin else None,
+        "poll_url": (url_for("chat.admin_support_new", sponsor_id=sponsor_id) if is_admin
+                     else url_for("chat.support_new")),
+        "can_send": True,
+    }
+
+
+def _support_messages(cursor, convo, after=0):
+    cursor.execute(
+        """
+        SELECT
+            Support_Messages.message_id,
+            Support_Messages.body,
+            Support_Messages.created_at,
+            Support_Messages.from_admin,
+            Users.first_name,
+            Users.last_name
+        FROM Support_Messages
+        JOIN Users
+            ON Users.user_id = Support_Messages.sender_user_id
+        WHERE Support_Messages.sponsor_id = %s
+          AND Support_Messages.message_id > %s
+        ORDER BY Support_Messages.message_id DESC
+        LIMIT %s
+        """,
+        (convo["sponsor_id"], after, SHOWN_MESSAGES),
+    )
+    rows = list(reversed(cursor.fetchall()))
+    local = _website().to_local_time
+    for row in rows:
+        row["mine"] = bool(row["from_admin"]) == (convo["side"] == "admin")
+        name = f"{row['first_name']} {row['last_name'] or ''}".strip()
+        row["sender"] = f"{name} (Admin)" if row["from_admin"] else name
+        row["time"] = local(row["created_at"]).strftime("%b %d, %I:%M %p") if row["created_at"] else ""
+    return rows
+
+
+def _support_mark_read(cursor, convo):
+    # An admin looking through a sponsor's account doesn't read it for them.
+    if session.get("assumed_sponsor_id") is not None:
+        return
+    if convo["side"] == "admin":
+        column, from_other = "read_by_admin_at", "FALSE"
+    else:
+        column, from_other = "read_by_sponsor_at", "TRUE"
+    cursor.execute(
+        f"""
+        UPDATE Support_Messages
+        SET {column} = NOW()
+        WHERE sponsor_id = %s
+          AND from_admin = {from_other}
+          AND {column} IS NULL
+        """,
+        (convo["sponsor_id"],),
+    )
+
+
+def _support_notify(cursor, convo):
+    """Ping the other side once per batch of unread messages."""
+    from_admin = convo["side"] == "admin"
+    read_column = "read_by_sponsor_at" if from_admin else "read_by_admin_at"
+    cursor.execute(
+        f"""
+        SELECT COUNT(*) AS c
+        FROM Support_Messages
+        WHERE sponsor_id = %s
+          AND from_admin = %s
+          AND {read_column} IS NULL
+        """,
+        (convo["sponsor_id"], from_admin),
+    )
+    row = cursor.fetchone()
+    if row and row["c"] > 1:
+        return  # they already have an unread message here
+
+    if from_admin:
+        cursor.execute(
+            """
+            INSERT INTO Notifications
+                (user_id, notification_type, subject, message)
+            SELECT members.user_id, 'Message', 'New message from an admin',
+                   'An administrator replied to your support conversation.'
+            FROM (
+                SELECT user_id FROM Sponsor_Users WHERE sponsor_id = %s
+                UNION
+                SELECT %s
+            ) AS members
+            """,
+            (convo["sponsor_id"], convo["sponsor_id"]),
+        )
+    else:
+        cursor.execute(
+            """
+            INSERT INTO Notifications
+                (user_id, notification_type, subject, message)
+            SELECT user_id, 'Message', 'New sponsor message', %s
+            FROM Users
+            WHERE role = 'Admin'
+              AND is_active = TRUE
+            """,
+            (f"{convo['title']} sent the admins a message.",),
+        )
+
+
+def _support_page(sponsor_id):
+    """Shared GET/POST handling for both sides of a support conversation."""
+    conn = _website().get_db()
+    try:
+        with conn.cursor() as cursor:
+            convo = _support_convo(cursor, sponsor_id)
+            if convo is None:
+                abort(404)
+
+            if request.method == "POST":
+                body = request.form.get("body", "").strip()
+                if not body:
+                    flash("Type a message before sending.", "error")
+                elif len(body) > MAX_MESSAGE_LENGTH:
+                    flash(f"Messages can be up to {MAX_MESSAGE_LENGTH:,} characters.", "error")
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO Support_Messages
+                            (sponsor_id, sender_user_id, from_admin, body)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (sponsor_id, session["user_id"], convo["side"] == "admin", body),
+                    )
+                    _support_notify(cursor, convo)
+                    conn.commit()
+                    queue_event("Communication", "Support message sent", status="Sent",
+                                success=True, sponsor_id=sponsor_id)
+                return redirect(request.path + "#latest")
+
+            messages = _support_messages(cursor, convo)
+            _support_mark_read(cursor, convo)
+        conn.commit()
+    finally:
+        conn.close()
+
+    return render_template(
+        "shared/conversation.html", convo=convo, messages=messages,
+        max_length=MAX_MESSAGE_LENGTH,
+    )
+
+
+def _support_poll(sponsor_id):
+    try:
+        after = max(0, int(request.args.get("after", "0")))
+    except ValueError:
+        after = 0
+
+    conn = _website().get_db()
+    try:
+        with conn.cursor() as cursor:
+            convo = _support_convo(cursor, sponsor_id)
+            if convo is None:
+                abort(404)
+            messages = _support_messages(cursor, convo, after)
+            if messages:
+                _support_mark_read(cursor, convo)
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify(messages=[
+        {"id": m["message_id"], "body": m["body"], "mine": m["mine"],
+         "sender": m["sender"], "time": m["time"]}
+        for m in messages
+    ])
+
+
+@chat_bp.route("/support", methods=["GET", "POST"])
+def support():
+    """A sponsor's conversation with the admins."""
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    if _support_role() != "sponsor":
+        return redirect(url_for("home"))
+    return _support_page(_website().current_sponsor_id())
+
+
+@chat_bp.route("/support/new")
+def support_new():
+    if _support_role() != "sponsor":
+        abort(403)
+    return _support_poll(_website().current_sponsor_id())
+
+
+@chat_bp.route("/admin/messages")
+def admin_inbox():
+    """Every sponsor's support conversation, newest first. Shared by all admins."""
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    if _support_role() != "admin":
+        abort(403)
+
+    conn = _website().get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    Sponsors.sponsor_id AS other_id,
+                    Sponsors.company_name AS name,
+                    (SELECT body FROM Support_Messages
+                     WHERE Support_Messages.sponsor_id = Sponsors.sponsor_id
+                     ORDER BY message_id DESC LIMIT 1) AS last_body,
+                    (SELECT MAX(message_id) FROM Support_Messages
+                     WHERE Support_Messages.sponsor_id = Sponsors.sponsor_id) AS last_id,
+                    (SELECT COUNT(*) FROM Support_Messages
+                     WHERE Support_Messages.sponsor_id = Sponsors.sponsor_id
+                       AND from_admin = FALSE
+                       AND read_by_admin_at IS NULL) AS unread
+                FROM Sponsors
+                WHERE Sponsors.is_active = TRUE
+                ORDER BY last_id IS NULL, last_id DESC, name
+                """
+            )
+            conversations = cursor.fetchall()
+    finally:
+        conn.close()
+
+    for c in conversations:
+        c["url"] = url_for("chat.admin_support", sponsor_id=c["other_id"])
+
+    return render_template("shared/messages.html", conversations=conversations, side="admin")
+
+
+@chat_bp.route("/admin/messages/<int:sponsor_id>", methods=["GET", "POST"])
+def admin_support(sponsor_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    if _support_role() != "admin":
+        abort(403)
+    return _support_page(sponsor_id)
+
+
+@chat_bp.route("/admin/messages/<int:sponsor_id>/new")
+def admin_support_new(sponsor_id):
+    if _support_role() != "admin":
+        abort(403)
+    return _support_poll(sponsor_id)

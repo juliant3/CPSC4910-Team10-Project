@@ -1,0 +1,4 @@
+{# Success and error messages from the last action. #}
+{% for category, message in get_flashed_messages(with_categories=true) %}
+<div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' if category == 'error' else 'alert-warn' }}" role="status">{{ message }}</div>
+{% endfor %}

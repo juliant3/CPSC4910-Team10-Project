@@ -6,11 +6,13 @@
 <div class="page">
     <div class="page-header">
         <div>
-            <span class="eyebrow">{{ 'Driver' if side == 'driver' else 'Sponsor' }}</span>
+            <span class="eyebrow">{{ side|title }}</span>
             <h1>Messages</h1>
             <p>
                 {% if side == 'driver' %}Message the sponsors whose programs you're in.
-                {% else %}Message the drivers in your program. Everyone on your team shares these conversations.{% endif %}
+                {% elif side == 'admin' %}Messages from sponsors. Every admin shares this inbox, and any admin can reply.
+                {% else %}Message the drivers in your program. Everyone on your team shares these conversations.
+                <a href="{{ url_for('chat.support') }}">Need help? Message the admins.</a>{% endif %}
             </p>
         </div>
     </div>
@@ -20,7 +22,7 @@
         <ul class="row-list">
             {% for c in conversations %}
             <li class="row-item {{ 'row-unread' if c.unread }}">
-                <a class="row-main row-link" href="{{ url_for('chat.conversation', other_id=c.other_id) }}">
+                <a class="row-main row-link" href="{{ c.url or url_for('chat.conversation', other_id=c.other_id) }}">
                     <span class="avatar">{{ (c.name or '?')[:1]|upper }}</span>
                     <span class="row-text" style="flex: 1; min-width: 0;">
                         <p class="row-title">{{ c.name }}</p>
@@ -36,6 +38,7 @@
             <h3>No conversations</h3>
             <p>
                 {% if side == 'driver' %}Once you join a sponsor's program you can message them here.
+                {% elif side == 'admin' %}There are no active sponsors to message.
                 {% else %}Once drivers join your program you can message them here.{% endif %}
             </p>
         </div>

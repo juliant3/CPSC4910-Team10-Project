@@ -14,6 +14,7 @@
         ('Applications', 'sponsor_applications', []),
         ('Catalog', 'ebay_catalog.sponsor_catalog', ['ebay_catalog.catalog_item']),
         ('Messages', 'chat.inbox', ['chat.conversation']),
+        ('Admin Support', 'chat.support', []),
         ('Team', 'sponsor_team', []),
         ('Bulk Upload', 'bulk_upload_page', []), 
         ('Reports', 'sponsor_reports', [])
@@ -28,6 +29,7 @@
         ('Driver Applications', 'admin_pending_applications', []),
         ('Sponsor Requests', 'admin_sponsor_requests', []),
         ('Orders', 'admin_orders', []),
+        ('Messages', 'chat.admin_inbox', ['chat.admin_support']),
         ('Invoices', 'admin_invoices', ['admin_invoice_details']),
         ('Audit Logs', 'admin_audit_logs', []),
         ('Reports', 'admin_reports', []),
@@ -65,10 +67,13 @@
         <a href="{{ url_for(endpoint) }}"
            class="{{ 'active' if request.endpoint == endpoint or request.endpoint in also else '' }}">
             {{ label }}
-            {%- if endpoint == 'chat.inbox' and unread_messages %}
+            {%- set unread = unread_messages if endpoint == 'chat.inbox'
+                             else unread_support if endpoint in ('chat.support', 'chat.admin_inbox')
+                             else 0 %}
+            {%- if unread %}
                 <span class="nav-count"
-                      aria-label="{{ unread_messages }} unread">
-                    {{ unread_messages if unread_messages < 100 else '99+' }}
+                      aria-label="{{ unread }} unread">
+                    {{ unread if unread < 100 else '99+' }}
                 </span>
             {%- endif %}
         </a>
@@ -181,7 +186,7 @@
 <div class="support-mode-banner">
     <div class="support-mode-message">
         <strong>Read-only support mode</strong>
-        <span>Viewing sponsor: {{ session.get('assumed_sponsor_name', 'Sponsor') }}</span>
+        <span>Viewing sponsor: {{ session.get('assumed_sponsor_name', 'Sponsor') }}. You can still accept or reject its driver applications.</span>
     </div>
     <form method="POST" action="{{ url_for('admin_exit_assumed_sponsor') }}">
         <button type="submit" class="btn btn-secondary btn-sm">

@@ -24,7 +24,7 @@ app = Flask(__name__)
 from ebay_catalog import catalog_bp
 app.register_blueprint(catalog_bp)
 
-from chat import chat_bp, count_unread_messages
+from chat import chat_bp, count_unread_messages, count_unread_support
 app.register_blueprint(chat_bp)
 app.secret_key = os.environ.get(
     "FLASK_SECRET_KEY",
@@ -357,7 +357,7 @@ MUTED_NOTIFICATIONS_SQL = " OR ".join(
 @app.context_processor
 def inject_notifications():
     """Unread count + latest notifications for the navbar dropdown on every page."""
-    empty = {"unread_count": 0, "recent_notifications": [], "unread_messages": 0}
+    empty = {"unread_count": 0, "recent_notifications": [], "unread_messages": 0, "unread_support": 0}
 
     if "user_id" not in session:
         return empty
@@ -406,10 +406,16 @@ def inject_notifications():
                 except Exception:
                     unread_messages = 0
 
+                try:
+                    unread_support = count_unread_support(cursor)
+                except Exception:
+                    unread_support = 0
+
                 return {
                     "unread_count": unread_count,
                     "recent_notifications": recent,
                     "unread_messages": unread_messages,
+                    "unread_support": unread_support,
                 }
         finally:
             conn.close()
@@ -931,6 +937,15 @@ def login():
                         Users.last_name,
                         Users.role,
                         Users.is_active,
+                        -- A suspended sponsor organization blocks its whole team.
+                        COALESCE((
+                            SELECT Sponsors.is_active
+                            FROM Sponsor_Users
+                            JOIN Sponsors
+                                ON Sponsors.sponsor_id = Sponsor_Users.sponsor_id
+                            WHERE Sponsor_Users.user_id = Users.user_id
+                            LIMIT 1
+                        ), TRUE) AS organization_active,
                         Password.password_hash
                     FROM Users
                     JOIN Password
@@ -948,7 +963,7 @@ def login():
         if user and check_password_hash(
             user["password_hash"],
             password
-        ) and not user.get("is_active", True):
+        ) and not (user.get("is_active", True) and user.get("organization_active", True)):
             log_login_attempt(email, succeeded=False, user_id=user["user_id"])
             driver_count, sponsor_count = get_login_stats()
             return render_template(
@@ -1618,7 +1633,7 @@ def sponsor_applications():
 
             # Load sponsor's applications.
             status_filter = request.args.get("status", "all")
-            if status_filter not in ("Pending", "Submitted", "Accepted", "Rejected"):
+            if status_filter not in ("Pending", "Submitted", "Accepted", "Rejected", "Cancelled"):
                 status_filter = "all"
             sort_order = request.args.get("sort", "newest")
             if sort_order not in ("newest", "oldest"):
@@ -1676,7 +1691,7 @@ def sponsor_applications():
                 (current_sponsor_id(),)
             )
 
-            counts = {"Pending": 0, "Submitted": 0, "Accepted": 0, "Rejected": 0}
+            counts = {"Pending": 0, "Submitted": 0, "Accepted": 0, "Rejected": 0, "Cancelled": 0}
             for row in cursor.fetchall():
                 counts[row["status"]] = row["count"]
             counts["Total"] = sum(counts.values())
@@ -1792,6 +1807,8 @@ def admin_accept_application(application_id):
 def decide_accept(application_id, is_admin):
     """Admins can decide any sponsor's application; sponsors only their own."""
     back = url_for("admin_pending_applications" if is_admin else "sponsor_applications")
+    # From an admin's View as Sponsor, the admin made the decision.
+    decided_by = (session.get("_assume_sponsor_original") or {}).get("user_id") or session["user_id"]
 
     conn = get_db()
 
@@ -1815,6 +1832,7 @@ def decide_accept(application_id, is_admin):
             application = cursor.fetchone()
 
             if not application or application["status"] != "Submitted":
+                flash("That application was already decided or hasn't been submitted yet.", "error")
                 return redirect(back)
 
             if application["driver_id"]:
@@ -1861,7 +1879,7 @@ def decide_accept(application_id, is_admin):
                         decision_by_user_id = %s
                     WHERE application_id = %s
                     """,
-                    (session["user_id"], application_id)
+                    (decided_by, application_id)
                 )
 
                 conn.commit()
@@ -1948,7 +1966,7 @@ def decide_accept(application_id, is_admin):
                     decision_by_user_id = %s
                 WHERE application_id = %s
                 """,
-                (user_id, session["user_id"], application_id)
+                (user_id, decided_by, application_id)
             )
 
             conn.commit()
@@ -1995,10 +2013,13 @@ def admin_reject_application(application_id):
 def decide_reject(application_id, is_admin):
     """Admins can decide any sponsor's application; sponsors only their own."""
     back = url_for("admin_pending_applications" if is_admin else "sponsor_applications")
+    # From an admin's View as Sponsor, the admin made the decision.
+    decided_by = (session.get("_assume_sponsor_original") or {}).get("user_id") or session["user_id"]
 
     reason = request.form.get("reason", "").strip()[:500]
 
     if not reason:
+        flash("Enter a reason for rejecting the application.", "error")
         return redirect(back)
 
     conn = get_db()
@@ -2023,6 +2044,7 @@ def decide_reject(application_id, is_admin):
             application = cursor.fetchone()
 
             if not application or application["status"] != "Submitted":
+                flash("That application was already decided or hasn't been submitted yet.", "error")
                 return redirect(back)
 
             cursor.execute(
@@ -2035,7 +2057,7 @@ def decide_reject(application_id, is_admin):
                     decision_by_user_id = %s
                 WHERE application_id = %s
                 """,
-                (reason, session["user_id"], application_id)
+                (reason, decided_by, application_id)
             )
 
             conn.commit()
@@ -2952,6 +2974,8 @@ def sponsor_add_requirement():
     finally:
         conn.close()
 
+    queue_event("Sponsor Management", "Driver requirement added", success=True,
+                status="Created", sponsor_id=current_sponsor_id())
     flash("Driver requirement added successfully.", "success")
     return redirect(url_for("sponsor_dashboard"))
 
@@ -2977,12 +3001,16 @@ def sponsor_delete_requirement(requirement_id):
                 """,
                 (requirement_id, current_sponsor_id())
             )
+            removed = cursor.rowcount
 
         conn.commit()
 
     finally:
         conn.close()
 
+    if removed:
+        queue_event("Sponsor Management", "Driver requirement removed", success=True,
+                    status="Deleted", sponsor_id=current_sponsor_id())
     flash("Driver requirement removed.", "success")
     return redirect(url_for("sponsor_dashboard"))
 
@@ -7895,19 +7923,9 @@ def admin_set_sponsor_active(sponsor_id):
             )
             found = cursor.rowcount
 
-            # Its team can't log in while removed. Bulk upload's placeholder
-            # organization user always stays inactive.
-            cursor.execute(
-                """
-                UPDATE Users
-                JOIN Sponsor_Users
-                    ON Sponsor_Users.user_id = Users.user_id
-                SET Users.is_active = %s
-                WHERE Sponsor_Users.sponsor_id = %s
-                  AND Users.email NOT LIKE '%%@invalid.example'
-                """,
-                (active, sponsor_id)
-            )
+        # Its team can't log in while suspended: login checks the
+        # organization. Teammates' own accounts are left as they were, so
+        # reactivating doesn't bring back anyone the sponsor removed.
         conn.commit()
     except Exception:
         conn.rollback()
@@ -8224,6 +8242,24 @@ SPONSOR_SHOPPING_ENDPOINTS = {
 
 @app.before_request
 def enforce_assumed_account_read_only():
+    allowed_endpoints = support_mode_allowed_endpoints()
+
+    if allowed_endpoints is None:
+        return None
+
+    if request.endpoint in allowed_endpoints:
+        return None
+
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        abort(
+            403,
+            description="This support session is read-only. Exit the assumed account to make changes.",
+        )
+
+
+def support_mode_allowed_endpoints():
+    """Endpoints that may change things while viewing as another account,
+    or None when not in a support view."""
     assumed_driver = session.get("assumed_driver_id") is not None
     assumed_sponsor = session.get("assumed_sponsor_id") is not None
 
@@ -8236,6 +8272,10 @@ def enforce_assumed_account_read_only():
         "session_keep_alive",
     }
 
+    # An admin viewing a sponsor may decide its driver applications for it.
+    if assumed_sponsor:
+        allowed_endpoints |= {"accept_application", "reject_application"}
+
     # A sponsor viewing a driver may shop the catalog on that driver's behalf;
     # an admin only looks, but can switch between the driver's sponsors.
     if assumed_driver and session.get("assumed_driver_by") == "admin":
@@ -8243,14 +8283,25 @@ def enforce_assumed_account_read_only():
     elif assumed_driver:
         allowed_endpoints |= SPONSOR_SHOPPING_ENDPOINTS
 
-    if request.endpoint in allowed_endpoints:
-        return None
+    return allowed_endpoints
 
-    if request.method not in ("GET", "HEAD", "OPTIONS"):
-        abort(
-            403,
-            description="This support session is read-only. Exit the assumed account to make changes.",
-        )
+
+@app.context_processor
+def inject_support_mode_actions():
+    """URL patterns of the actions still allowed in a support view, so the page
+    can grey out every other button instead of letting it fail."""
+    allowed = support_mode_allowed_endpoints()
+
+    if allowed is None:
+        return {}
+
+    # "/sponsor/applications/<int:application_id>/accept" -> ^/sponsor/applications/[^/]+/accept$
+    patterns = [
+        "^" + "[^/]+".join(re.escape(part) for part in re.split(r"<[^>]+>", rule.rule)) + "$"
+        for rule in app.url_map.iter_rules()
+        if rule.endpoint in allowed
+    ]
+    return {"support_allowed_actions": patterns}
 
 
 

@@ -580,3 +580,34 @@ CREATE TABLE IF NOT EXISTS Sponsor_Point_Reasons (
         REFERENCES Sponsors(sponsor_id)
         ON DELETE CASCADE
 );
+
+-- Driver requirements a sponsor lists on its dashboard; shown to drivers
+-- browsing sponsors.
+CREATE TABLE IF NOT EXISTS Sponsor_Requirements (
+    requirement_id INT AUTO_INCREMENT PRIMARY KEY,
+    sponsor_id INT NOT NULL,
+    requirement_text VARCHAR(255) NOT NULL,
+    FOREIGN KEY (sponsor_id)
+        REFERENCES Sponsors(sponsor_id)
+        ON DELETE CASCADE
+);
+
+-- Sponsor <-> admin support messages: one conversation per sponsor, shared by
+-- every admin. Read times are kept per side.
+CREATE TABLE IF NOT EXISTS Support_Messages (
+    message_id INT AUTO_INCREMENT PRIMARY KEY,
+    sponsor_id INT NOT NULL,
+    sender_user_id INT NOT NULL,
+    from_admin BOOLEAN NOT NULL,
+    body VARCHAR(2000) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_by_admin_at TIMESTAMP NULL,
+    read_by_sponsor_at TIMESTAMP NULL,
+    INDEX idx_support_conversation (sponsor_id, message_id),
+    FOREIGN KEY (sponsor_id)
+        REFERENCES Sponsors(sponsor_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (sender_user_id)
+        REFERENCES Users(user_id)
+        ON DELETE CASCADE
+);

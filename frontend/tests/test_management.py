@@ -140,7 +140,20 @@ def test_suspending_sponsor_blocks_its_team(client, set_session, fake_db):
 
     statements = sql(conn)
     assert any("UPDATE Sponsors SET is_active" in q for q in statements)
-    assert any("UPDATE Users" in q and "Sponsor_Users" in q for q in statements)
+    # Individual accounts are untouched, so reactivating can't undo a removal.
+    assert not any("UPDATE Users" in q for q in statements)
+
+
+def test_suspended_organization_blocks_login(client, fake_db, monkeypatch, app_module):
+    from werkzeug.security import generate_password_hash
+    monkeypatch.setattr(app_module, "get_login_stats", lambda: (0, 0))
+    fake_db(fetchone_values=[{"user_id": 5, "first_name": "S", "last_name": "P", "role": "Sponsor",
+                              "is_active": 1, "organization_active": 0,
+                              "password_hash": generate_password_hash("pw12345678")}])
+
+    html = client.post("/login", data={"username": "s@x.co", "password": "pw12345678"}).get_data(as_text=True)
+
+    assert "deactivated" in html
 
 
 def test_deactivated_account_cannot_log_in(client, fake_db, monkeypatch, app_module):
@@ -281,4 +294,116 @@ def test_sponsor_cannot_remove_self(client, set_session, fake_db):
 
     client.post("/sponsor/team", data={"action": "remove_member", "user_id": "9"})
 
+    assert sql(conn) == []
+
+
+# ------------------------------------------------------------------
+# Sponsor: driver requirements
+# ------------------------------------------------------------------
+
+def test_sponsor_adds_requirement(client, set_session, fake_db):
+    conn = fake_db()
+    set_session(role="Sponsor", user_id=9, sponsor_id=9)
+
+    client.post("/sponsor/requirements/add", data={"requirement_text": "CDL Class A"})
+
+    query, params = queries(conn)[0]
+    assert "INSERT INTO Sponsor_Requirements" in query and params == (9, "CDL Class A")
+    assert conn.committed
+
+
+@pytest.mark.parametrize("text", ["", "   ", "x" * 256])
+def test_bad_requirement_is_rejected(client, set_session, fake_db, text):
+    conn = fake_db()
+    set_session(role="Sponsor", user_id=9, sponsor_id=9)
+
+    client.post("/sponsor/requirements/add", data={"requirement_text": text})
+
+    assert sql(conn) == []
+
+
+def test_sponsor_deletes_only_own_requirement(client, set_session, fake_db):
+    conn = fake_db()
+    set_session(role="Sponsor", user_id=9, sponsor_id=9)
+
+    client.post("/sponsor/requirements/4/delete")
+
+    query, params = queries(conn)[0]
+    assert "AND sponsor_id = %s" in query and params == (4, 9)
+
+
+@pytest.mark.parametrize("role", ["Driver", "Admin"])
+def test_only_sponsors_manage_requirements(client, set_session, fake_db, role):
+    conn = fake_db()
+    set_session(role=role, user_id=5)
+
+    client.post("/sponsor/requirements/add", data={"requirement_text": "CDL"})
+    client.post("/sponsor/requirements/4/delete")
+
+    assert sql(conn) == []
+
+
+def test_drivers_see_each_sponsors_requirements(client, set_session, fake_db):
+    set_session(role="Driver", user_id=3)
+    fake_db(fetchall_values=[
+        [{"sponsor_id": 1, "company_name": "Acme", "email": None, "phone": None,
+          "point_value": Decimal("0.01")},
+         {"sponsor_id": 2, "company_name": "Beta", "email": None, "phone": None,
+          "point_value": Decimal("0.01")}],
+        [{"sponsor_id": 1, "requirement_text": "CDL Class A"},
+         {"sponsor_id": 2, "requirement_text": "2 years experience"}],
+        [],
+    ])
+
+    html = client.get("/driver/sponsors").get_data(as_text=True)
+
+    assert "CDL Class A" in html and "2 years experience" in html
+
+
+# ------------------------------------------------------------------
+# Admin deciding applications from View as Sponsor
+# ------------------------------------------------------------------
+
+def assume_sponsor(set_session):
+    set_session(role="sponsor", user_id=14, sponsor_id=14, assumed_sponsor_id=14,
+                _assume_sponsor_original={"user_id": 1, "role": "Admin"})
+
+
+def test_admin_in_sponsor_view_can_accept(client, set_session, fake_db, monkeypatch, app_module):
+    monkeypatch.setattr(app_module, "send_acceptance_email", lambda *a, **k: True)
+    conn = fake_db(fetchone_values=[{
+        "application_id": 4, "sponsor_id": 14, "driver_id": 3, "status": "Submitted",
+        "applicant_email": "d@x.co", "applicant_first_name": "D",
+        "applicant_dob": None, "applicant_address": None,
+    }])
+    assume_sponsor(set_session)
+
+    response = client.post("/sponsor/applications/4/accept")
+
+    assert response.status_code == 302
+    decision = [p for q, p in queries(conn) if "status = 'Accepted'" in q]
+    assert decision and decision[0][0] == 1  # recorded as the admin, not the sponsor user
+
+
+def test_admin_in_sponsor_view_can_reject(client, set_session, fake_db, monkeypatch, app_module):
+    monkeypatch.setattr(app_module, "send_rejection_email", lambda *a, **k: True)
+    conn = fake_db(fetchone_values=[{
+        "application_id": 4, "sponsor_id": 14, "status": "Submitted",
+        "applicant_email": "d@x.co", "applicant_first_name": "D",
+    }])
+    assume_sponsor(set_session)
+
+    client.post("/sponsor/applications/4/reject", data={"reason": "Not eligible"})
+
+    decision = [p for q, p in queries(conn) if "status = 'Rejected'" in q]
+    assert decision and decision[0][:2] == ("Not eligible", 1)
+
+
+def test_sponsor_view_is_otherwise_read_only(client, set_session, fake_db):
+    conn = fake_db()
+    assume_sponsor(set_session)
+
+    response = client.post("/sponsor/drivers/3/points", data={"action": "add", "amount": "10", "reason": "x"})
+
+    assert response.status_code == 403
     assert sql(conn) == []

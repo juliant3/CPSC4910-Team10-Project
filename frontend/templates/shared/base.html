@@ -154,6 +154,26 @@
 
         <!-- Session timeout -->
         <script src="{{ url_for('static', filename='js/session-timeout.js') }}"></script>
+
+        {% if support_allowed_actions is defined %}
+        <!-- Support view: grey out buttons the server won't allow, instead of
+             letting them fail with "Forbidden". -->
+        <script>
+        (function () {
+            var allowed = {{ support_allowed_actions|tojson }}.map(function (p) { return new RegExp(p); });
+            document.querySelectorAll('form').forEach(function (form) {
+                if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
+                var path = new URL(form.action, window.location.href).pathname;
+                if (allowed.some(function (re) { return re.test(path); })) return;
+                form.querySelectorAll('button, input[type="submit"], input:not([type="hidden"]), select, textarea')
+                    .forEach(function (el) {
+                        el.disabled = true;
+                        el.title = 'Read-only while viewing as another account';
+                    });
+            });
+        })();
+        </script>
+        {% endif %}
     {% endif %}
 
     
