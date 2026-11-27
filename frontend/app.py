@@ -3,6 +3,7 @@ import csv
 import io
 import pymysql
 import os
+import traceback
 import hashlib
 import smtplib
 import re
@@ -1857,10 +1858,30 @@ def decide_accept(application_id, is_admin):
                 flash("That application was already decided or hasn't been submitted yet.", "error")
                 return redirect(back)
 
-            if application["driver_id"]:
+            existing_id = application["driver_id"]
+
+            if not existing_id:
+                # The applicant may already have an account under this email
+                # (e.g. they signed up, or another sponsor accepted them first).
+                cursor.execute(
+                    "SELECT user_id, role FROM Users WHERE LOWER(email) = %s",
+                    ((application["applicant_email"] or "").lower(),)
+                )
+                same_email = cursor.fetchone()
+                if same_email and (same_email["role"] or "").lower() != "driver":
+                    flash(f"{application['applicant_email']} already belongs to a "
+                          f"{same_email['role']} account, so it can't become a driver.", "error")
+                    return redirect(back)
+                if same_email:
+                    existing_id = same_email["user_id"]
+                    cursor.execute(
+                        "INSERT IGNORE INTO Drivers (driver_id, status) VALUES (%s, 'Active')",
+                        (existing_id,)
+                    )
+
+            if existing_id:
                 # Driver already has an account: add this sponsor to it.
                 # Their other sponsors and point balances are untouched.
-                existing_id = application["driver_id"]
 
                 cursor.execute(
                     """
@@ -1897,11 +1918,12 @@ def decide_accept(application_id, is_admin):
                     UPDATE Driver_Applications
                     SET
                         status = 'Accepted',
+                        driver_id = %s,
                         decision_date = NOW(),
                         decision_by_user_id = %s
                     WHERE application_id = %s
                     """,
-                    (decided_by, application_id)
+                    (existing_id, decided_by, application_id)
                 )
 
                 conn.commit()
@@ -2001,6 +2023,12 @@ def decide_accept(application_id, is_admin):
                 application["applicant_first_name"],
                 setup_token
             )
+
+    except pymysql.MySQLError:
+        conn.rollback()
+        print(f"Accepting application {application_id} failed:\n{traceback.format_exc()}")
+        flash("Couldn't accept that application because of a database error. "
+              "Nothing was changed.", "error")
 
     finally:
         conn.close()

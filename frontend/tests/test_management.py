@@ -401,7 +401,7 @@ def test_admin_in_sponsor_view_can_accept(client, set_session, fake_db, monkeypa
 
     assert response.status_code == 302
     decision = [p for q, p in queries(conn) if "status = 'Accepted'" in q]
-    assert decision and decision[0][0] == 1  # recorded as the admin, not the sponsor user
+    assert decision and decision[0][1] == 1  # recorded as the admin, not the sponsor user
 
 
 def test_admin_in_sponsor_view_can_reject(client, set_session, fake_db, monkeypatch, app_module):
@@ -438,3 +438,50 @@ def test_forbidden_page_explains_stale_view_as_tab(client, set_session, fake_db)
     assert resp.status_code == 403
     assert "still viewing the site as another account" in resp.get_data(as_text=True)
     assert sql(conn) == []
+
+
+APP_NO_ACCOUNT = {
+    "application_id": 4, "sponsor_id": 14, "driver_id": None, "status": "Submitted",
+    "applicant_email": "Dana@x.co", "applicant_first_name": "Dana", "applicant_last_name": "Ray",
+    "applicant_dob": None, "applicant_address": None,
+}
+
+
+def test_admin_accept_reuses_existing_driver_account_with_same_email(client, set_session, fake_db,
+                                                                     monkeypatch, app_module):
+    monkeypatch.setattr(app_module, "send_acceptance_email", lambda *a, **k: True)
+    conn = fake_db(fetchone_values=[dict(APP_NO_ACCOUNT), {"user_id": 7, "role": "Driver"}])
+    set_session(role="Admin", user_id=1)
+
+    response = client.post("/admin/applications/4/approve")
+
+    assert response.status_code == 302
+    assert not any("INSERT INTO Users" in q for q in sql(conn))
+    link = next(p for q, p in queries(conn) if "INSERT INTO Driver_Sponsors" in q)
+    assert link == (7, 14)
+    decision = next(p for q, p in queries(conn) if "status = 'Accepted'" in q)
+    assert decision == (7, 1, 4)
+
+
+def test_admin_accept_refuses_email_owned_by_non_driver(client, set_session, fake_db):
+    conn = fake_db(fetchone_values=[dict(APP_NO_ACCOUNT), {"user_id": 7, "role": "Sponsor"}])
+    set_session(role="Admin", user_id=1)
+
+    client.post("/admin/applications/4/approve")
+
+    assert not any(q.lstrip().startswith(("INSERT", "UPDATE", "REPLACE")) for q in sql(conn))
+    assert not conn.committed
+
+
+def test_admin_accept_database_error_is_not_a_500(client, set_session, fake_db, monkeypatch, app_module):
+    import pymysql
+    conn = fake_db(fetchone_values=[dict(APP_NO_ACCOUNT), None])
+    set_session(role="Admin", user_id=1)
+
+    def boom(*a, **k):
+        raise pymysql.err.IntegrityError(1062, "Duplicate entry")
+    monkeypatch.setattr(app_module, "create_password_token", boom)
+
+    response = client.post("/admin/applications/4/approve")
+
+    assert response.status_code == 302 and not conn.committed
