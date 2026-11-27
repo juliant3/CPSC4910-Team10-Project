@@ -58,6 +58,9 @@
                             <button type="submit" class="btn btn-secondary btn-sm">Assign</button>
                         </form>
 
+                        <a href="{{ url_for('chat.admin_support', kind='driver', party_id=driver.driver_id) }}"
+                           class="btn btn-secondary btn-sm">Message</a>
+
                         <form method="POST"
                               action="{{ url_for('admin_assume_driver', driver_id=driver.driver_id) }}"
                               onsubmit="return confirm('View this driver account in read-only support mode?');">

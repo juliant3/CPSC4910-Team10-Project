@@ -8170,6 +8170,11 @@ def admin_create_admin():
     ):
         abort(403)
 
+    def back():
+        if request.form.get("back") == "users":
+            return redirect(url_for("admin_users", role="Admin"))
+        return redirect(url_for("home"))
+
     first_name = request.form.get("first_name", "").strip()
     last_name = request.form.get("last_name", "").strip()
     email = request.form.get("email", "").strip()
@@ -8177,15 +8182,15 @@ def admin_create_admin():
 
     if not first_name or not last_name or not email:
         flash("Name and email are required.", "error")
-        return redirect(url_for("home"))
+        return back()
 
     if len(first_name) > 100 or len(last_name) > 100 or len(email) > 255:
         flash("Name or email is too long.", "error")
-        return redirect(url_for("home"))
+        return back()
 
     if len(password) < MIN_PASSWORD_LENGTH:
         flash(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.", "error")
-        return redirect(url_for("home"))
+        return back()
 
     conn = get_db()
     try:
@@ -8197,7 +8202,7 @@ def admin_create_admin():
 
             if cursor.fetchone():
                 flash(f"An account with {email} already exists.", "error")
-                return redirect(url_for("home"))
+                return back()
 
             cursor.execute(
                 """
@@ -8222,7 +8227,7 @@ def admin_create_admin():
         conn.rollback()
         print(f"Failed to add admin {email}: {e}")
         flash("Something went wrong adding that admin.", "error")
-        return redirect(url_for("home"))
+        return back()
 
     finally:
         conn.close()
@@ -8230,7 +8235,7 @@ def admin_create_admin():
     queue_event("Admin Management", "Admin added", success=True,
                 status="Created", details={"target_type": "admin", "target_id": user_id})
     flash(f"Added {first_name} {last_name} as an admin. They can log in with {email}.", "success")
-    return redirect(url_for("home"))
+    return back()
 
 
 SPONSOR_SHOPPING_ENDPOINTS = {

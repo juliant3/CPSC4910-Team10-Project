@@ -27,14 +27,14 @@ class Conn:
 
 ROLE_PAGES = {
     "Admin": ["/", "/admin/sponsors", "/admin/sponsors/1", "/admin/drivers", "/admin/users", "/admin/applications",
-              "/admin/sponsor-requests", "/admin/orders", "/admin/messages", "/admin/messages/1", "/admin/invoices", "/admin/invoices/1", "/admin/invoices/report",
+              "/admin/sponsor-requests", "/admin/orders", "/admin/messages", "/admin/messages/sponsor/1", "/admin/messages/driver/1", "/admin/invoices", "/admin/invoices/1", "/admin/invoices/report",
               "/admin/reports", "/admin/audit-logs", "/reports/driver-points", "/reports/sales-by-sponsor",
               "/reports/sales-by-driver", "/reports/audit-logs", "/settings", "/bulk-upload", "/about"],
     "Sponsor": ["/", "/sponsor/dashboard", "/sponsor/drivers", "/sponsor/drivers/1", "/sponsor/drivers/1/edit",
                 "/sponsor/applications", "/sponsor/team", "/sponsor/recurring", "/sponsor/reports", "/support",
                 "/reports/driver-points", "/messages", "/messages/1", "/settings", "/bulk-upload", "/about"],
     "Driver": ["/driver/dashboard", "/driver/points", "/driver/sponsors", "/driver/orders", "/driver/profile",
-               "/driver/profile/edit", "/driver/cart", "/messages", "/messages/1", "/settings", "/about"],
+               "/driver/profile/edit", "/driver/cart", "/support", "/messages", "/messages/1", "/settings", "/about"],
 }
 CASES = [(r, p) for r, ps in ROLE_PAGES.items() for p in ps]
 

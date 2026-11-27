@@ -1,0 +1,32 @@
+{# Add-admin form, shown on the dashboard and the Users page. #}
+    <section class="card" id="add-admin" style="margin: 24px 0;">
+        <div class="card-header">
+            <h2>Add admin</h2>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin_create_admin') }}" class="settings-form" autocomplete="off">
+                <input type="hidden" name="back" value="{{ add_admin_back }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="admin-first-name">First name</label>
+                        <input type="text" id="admin-first-name" name="first_name" maxlength="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="admin-last-name">Last name</label>
+                        <input type="text" id="admin-last-name" name="last_name" maxlength="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="admin-email">Email</label>
+                        <input type="email" id="admin-email" name="email" maxlength="255" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="admin-password">Password</label>
+                        <input type="password" id="admin-password" name="password" minlength="8" required
+                               autocomplete="new-password">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary"
+                        onclick="return confirm('Give this person full admin access?');">Add admin</button>
+            </form>
+        </div>
+    </section>

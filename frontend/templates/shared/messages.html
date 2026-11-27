@@ -10,7 +10,9 @@
             <h1>Messages</h1>
             <p>
                 {% if side == 'driver' %}Message the sponsors whose programs you're in.
-                {% elif side == 'admin' %}Messages from sponsors. Every admin shares this inbox, and any admin can reply.
+                <a href="{{ url_for('chat.support') }}">Having an issue? Message the admins.</a>
+                {% elif side == 'admin' %}Messages from sponsors and drivers. Every admin shares this inbox, and any admin can reply.
+                To message a driver who hasn't written yet, use Message on the Drivers page.
                 {% else %}Message the drivers in your program. Everyone on your team shares these conversations.
                 <a href="{{ url_for('chat.support') }}">Need help? Message the admins.</a>{% endif %}
             </p>

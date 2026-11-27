@@ -145,36 +145,8 @@
 
     </div>
 
-    <section class="card" id="add-admin" style="margin-top: 24px;">
-        <div class="card-header">
-            <h2>Add admin</h2>
-        </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('admin_create_admin') }}" class="settings-form" autocomplete="off">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="admin-first-name">First name</label>
-                        <input type="text" id="admin-first-name" name="first_name" maxlength="100" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="admin-last-name">Last name</label>
-                        <input type="text" id="admin-last-name" name="last_name" maxlength="100" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="admin-email">Email</label>
-                        <input type="email" id="admin-email" name="email" maxlength="255" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="admin-password">Password</label>
-                        <input type="password" id="admin-password" name="password" minlength="8" required
-                               autocomplete="new-password">
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary"
-                        onclick="return confirm('Give this person full admin access?');">Add admin</button>
-            </form>
-        </div>
-    </section>
+    {% set add_admin_back = 'home' %}
+    {% include 'admin/_add_admin.html' %}
 
 </div>
 

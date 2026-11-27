@@ -592,20 +592,27 @@ CREATE TABLE IF NOT EXISTS Sponsor_Requirements (
         ON DELETE CASCADE
 );
 
--- Sponsor <-> admin support messages: one conversation per sponsor, shared by
--- every admin. Read times are kept per side.
-CREATE TABLE IF NOT EXISTS Support_Messages (
+-- Messages between "the admins" and a sponsor organization or a driver.
+-- Each row belongs to exactly one conversation: a sponsor's or a driver's.
+-- Every admin shares the admin side. Read times are kept per side.
+CREATE TABLE IF NOT EXISTS Admin_Messages (
     message_id INT AUTO_INCREMENT PRIMARY KEY,
-    sponsor_id INT NOT NULL,
+    sponsor_id INT NULL,
+    driver_id INT NULL,
     sender_user_id INT NOT NULL,
     from_admin BOOLEAN NOT NULL,
     body VARCHAR(2000) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     read_by_admin_at TIMESTAMP NULL,
-    read_by_sponsor_at TIMESTAMP NULL,
-    INDEX idx_support_conversation (sponsor_id, message_id),
+    read_by_party_at TIMESTAMP NULL,
+    INDEX idx_admin_messages_sponsor (sponsor_id, message_id),
+    INDEX idx_admin_messages_driver (driver_id, message_id),
+    CHECK ((sponsor_id IS NULL) <> (driver_id IS NULL)),
     FOREIGN KEY (sponsor_id)
         REFERENCES Sponsors(sponsor_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (driver_id)
+        REFERENCES Users(user_id)
         ON DELETE CASCADE,
     FOREIGN KEY (sender_user_id)
         REFERENCES Users(user_id)

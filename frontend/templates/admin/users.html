@@ -16,6 +16,9 @@
     <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}" role="status">{{ message }}</div>
     {% endfor %}
 
+    {% set add_admin_back = 'users' %}
+    {% include 'admin/_add_admin.html' %}
+
     <div class="card">
         <div class="card-header">
             <h2>{{ users|length }} user{{ 's' if users|length != 1 }}</h2>

@@ -82,6 +82,25 @@ def test_admin_creates_admin(client, set_session, fake_db):
     assert conn.committed
 
 
+def test_add_admin_from_users_page_returns_there(client, set_session, fake_db):
+    fake_db(fetchone_values=[None])
+    set_session(role="Admin", user_id=1)
+
+    resp = client.post("/admin/admins", data={"first_name": "Ana", "last_name": "Lee", "email": "ana@x.co",
+                                              "password": "longenough", "back": "users"})
+
+    assert resp.status_code == 302 and "/admin/users?role=Admin" in resp.headers["Location"]
+
+
+def test_users_page_has_add_admin_form(client, set_session, fake_db):
+    fake_db(fetchall_values=[[]])
+    set_session(role="Admin", user_id=1)
+
+    html = client.get("/admin/users").get_data(as_text=True)
+
+    assert 'action="/admin/admins"' in html and 'name="back" value="users"' in html
+
+
 @pytest.mark.parametrize("role", ["Sponsor", "Driver"])
 def test_only_admins_manage_users(client, set_session, fake_db, role):
     conn = fake_db()
