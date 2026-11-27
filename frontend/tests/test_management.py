@@ -188,6 +188,33 @@ def test_deactivated_account_cannot_log_in(client, fake_db, monkeypatch, app_mod
         assert "user_id" not in s
 
 
+def test_deactivated_driver_gets_popup_pointing_to_sponsor_or_admin(client, fake_db, monkeypatch, app_module):
+    from werkzeug.security import generate_password_hash
+    monkeypatch.setattr(app_module, "get_login_stats", lambda: (0, 0))
+    fake_db(fetchone_values=[{"user_id": 3, "first_name": "D", "last_name": "R", "role": "Driver",
+                              "is_active": 0, "organization_active": 1,
+                              "password_hash": generate_password_hash("pw12345678")}])
+
+    html = client.post("/login", data={"username": "d@x.co", "password": "pw12345678"}).get_data(as_text=True)
+
+    assert 'id="deactivated-dialog"' in html and "showModal" in html
+    assert "reach out to your sponsor or an administrator" in html
+    with client.session_transaction() as s:
+        assert "user_id" not in s
+
+
+def test_wrong_password_on_deactivated_account_shows_no_popup(client, fake_db, monkeypatch, app_module):
+    from werkzeug.security import generate_password_hash
+    monkeypatch.setattr(app_module, "get_login_stats", lambda: (0, 0))
+    fake_db(fetchone_values=[{"user_id": 3, "first_name": "D", "last_name": "R", "role": "Driver",
+                              "is_active": 0, "organization_active": 1,
+                              "password_hash": generate_password_hash("pw12345678")}])
+
+    html = client.post("/login", data={"username": "d@x.co", "password": "wrongpass1"}).get_data(as_text=True)
+
+    assert 'id="deactivated-dialog"' not in html
+
+
 # ------------------------------------------------------------------
 # Applications: admin approve/reject, cancelling
 # ------------------------------------------------------------------

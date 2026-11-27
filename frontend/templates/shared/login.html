@@ -136,6 +136,24 @@
             <div class="error" id="login-error" role="alert" tabindex="-1">{{ error }}</div>
         {% endif %}
 
+        {% if deactivated %}
+        <dialog id="deactivated-dialog" class="deactivated-dialog" aria-labelledby="deactivated-title">
+            <h2 id="deactivated-title">Account deactivated</h2>
+            <p>{{ error }}</p>
+            <form method="dialog">
+                <button type="submit" class="btn btn-primary" autofocus>OK</button>
+            </form>
+        </dialog>
+        <style>
+            .deactivated-dialog { max-width: 420px; width: calc(100% - 32px); border: none;
+                                  border-radius: 12px; padding: 24px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+            .deactivated-dialog::backdrop { background: rgba(0,0,0,.45); }
+            .deactivated-dialog h2 { margin: 0 0 8px; font-size: 1.25rem; }
+            .deactivated-dialog p { margin: 0 0 20px; line-height: 1.5; }
+            .deactivated-dialog form { display: flex; justify-content: flex-end; margin: 0; }
+        </style>
+        {% endif %}
+
         <form method="POST" action="{{ url_for('login') }}">
             <div class="auth-field">
                 <label for="login-username">Email address</label>
@@ -226,7 +244,12 @@
     });
     const loginError = document.getElementById("login-error");
 
-if (loginError) {
+const deactivatedDialog = document.getElementById("deactivated-dialog");
+
+if (deactivatedDialog && typeof deactivatedDialog.showModal === "function") {
+    deactivatedDialog.showModal();
+    deactivatedDialog.addEventListener("close", () => loginError && loginError.focus());
+} else if (loginError) {
     loginError.focus();
 }
 })();

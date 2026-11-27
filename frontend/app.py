@@ -989,9 +989,16 @@ def login():
         ) and not (user.get("is_active", True) and user.get("organization_active", True)):
             log_login_attempt(email, succeeded=False, user_id=user["user_id"])
             driver_count, sponsor_count = get_login_stats()
+            if (user.get("role") or "").lower() == "driver":
+                deactivated_message = ("Your driver account has been deactivated. Please reach out "
+                                       "to your sponsor or an administrator for help.")
+            else:
+                deactivated_message = ("This account has been deactivated. Please reach out "
+                                       "to an administrator for help.")
             return render_template(
                 "shared/login.html",
-                error="This account has been deactivated. Contact an administrator.",
+                error=deactivated_message,
+                deactivated=True,
                 step="login",
                 driver_count=driver_count,
                 sponsor_count=sponsor_count
