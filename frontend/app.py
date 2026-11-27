@@ -12,7 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from email.message import EmailMessage
-from markupsafe import Markup
+from markupsafe import Markup, escape
+from werkzeug.exceptions import Forbidden
 from zoneinfo import ZoneInfo
 from werkzeug.security import check_password_hash, generate_password_hash
 from services.bulk_upload import process_bulk_upload
@@ -189,6 +190,27 @@ def check_session_timeout():
 # ==========================================
 # SESSION KEEP ALIVE
 # ==========================================
+
+@app.errorhandler(403)
+def forbidden(error):
+    """Say why a request was refused instead of the generic Forbidden text."""
+    original = session.get("_assume_sponsor_original") or session.get("_assume_driver_original")
+    if original and request.path.startswith("/admin"):
+        reason = ("You're still viewing the site as another account (maybe in another tab). "
+                  "Exit that view, reload this page, and try again.")
+    elif error.description and error.description != Forbidden.description:
+        reason = error.description
+    elif not session.get("user_id"):
+        reason = "You're signed out. Log in and try again."
+    else:
+        reason = (f"This page isn't available to your account "
+                  f"(signed in as {session.get('role') or 'unknown role'}).")
+
+    print(f"403 on {request.method} {request.path}: role={session.get('role')!r}, "
+          f"assumed_sponsor={session.get('assumed_sponsor_id')!r}, "
+          f"assumed_driver={session.get('assumed_driver_id')!r}")
+    return f"<h1>Forbidden</h1><p>{escape(reason)}</p><p><a href=\"/\">Go home</a></p>", 403
+
 
 @app.route("/session/keep-alive", methods=["POST"])
 def session_keep_alive():

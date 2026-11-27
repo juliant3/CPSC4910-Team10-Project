@@ -426,3 +426,15 @@ def test_sponsor_view_is_otherwise_read_only(client, set_session, fake_db):
 
     assert response.status_code == 403
     assert sql(conn) == []
+
+
+def test_forbidden_page_explains_stale_view_as_tab(client, set_session, fake_db):
+    conn = fake_db()
+    set_session(role="Driver", user_id=3, assumed_driver_id=3, assumed_driver_by="admin",
+                _assume_driver_original={"user_id": 1, "role": "Admin"})
+
+    resp = client.post("/admin/users/3/edit", data={"first_name": "A", "email": "a@b.c"})
+
+    assert resp.status_code == 403
+    assert "still viewing the site as another account" in resp.get_data(as_text=True)
+    assert sql(conn) == []
